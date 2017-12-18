@@ -76,61 +76,17 @@ namespace Gauss {
                 return energy;
             }
 
-            DataType getKineticEnergy(const State<DataType> &state) const {
+
+            DataType getPotentialEnergy(const State<DataType> &state) const {
                 
                 double energy = 0.0;
                 for(auto &element : m_elements) {
-                    energy += element->getKineticEnergy(state);
-                }
-                
-                return energy;
-            }
-            
-            DataType getBodyForceEnergy(const State<DataType> &state) const {
-                DataType energy = 0.0;
-                
-                #if defined(_WIN32) || defined(_WIN64) || defined (WIN32)
-                for(auto &element : m_elements) {
-                    energy += element->getBodyForceWork(state);
-                }
-                #else
-                    #pragma omp parallel for reduction(+: energy)
-                    for(unsigned int ii=0; ii<m_elements.size(); ++ii) {
-                        energy = energy + m_elements[ii]->getBodyForceWork(state);
-                    }
-                #endif
-                
-                return energy;
-            }
-            
-            DataType getStrainEnergy(const State<DataType> &state) const {
-                
-                DataType energy = 0.0;
-                
-                #if defined(_WIN32) || defined(_WIN64) || defined (WIN32)
-                    for(auto &element : m_elements) {
-                        energy += element->getStrainEnergy(state);
-                    }
-                #else
-                    #pragma omp parallel for reduction(+: energy)
-                    for(unsigned int ii=0; ii<m_elements.size(); ++ii) {
-                        energy = energy + m_elements[ii]->getStrainEnergy(state);
-                    }
-                #endif
-                
-                return energy;
-            }
+                    energy += element->getPotentialEnergy(state);
 
-            decltype(auto) getStrainEnergyPerElement(const State<DataType> &state) const {
-                Eigen::VectorXx<DataType> energyPerElement(m_elements.size());
-
-                for(int i=0; i < m_elements.size(); i++) {
-                    energyPerElement[i] = m_elements[i]->getStrainEnergy(state);                
                 }
                 
-                return energyPerElement;
-            }
-            
+                return energy;
+            }            
             template<typename Assembler>
             inline void getMassMatrix(Assembler &assembler, const State<DataType> &state) const {
                 //call the assembler on all elements
