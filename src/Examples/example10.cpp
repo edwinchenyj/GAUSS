@@ -52,7 +52,8 @@ int main(int argc, char **argv) {
     test1->getImpl().setMass(1000);
     ForceSpringFEMParticle<double> *forceSpring = new ForceSpringFEMParticle<double>(PosFEM<double>(&test->getQ()[0],0, &test->getImpl().getV()),
                                                                                      PosParticle<double>(&test1->getQ()),
-                                                                                     5, 20000.0);
+
+                                                                                     4.0, 400000.0);
     world.addSystem(test);
     world.addSystem(test1);
     world.addForce(forceSpring);
