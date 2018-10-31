@@ -225,6 +225,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/src/ParticleSystem)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/FEM)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/Embeddings)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/EigenFit)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/ExponentialIMEX)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/Collisions)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/RigidBodies)
 
