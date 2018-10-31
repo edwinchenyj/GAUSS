@@ -4,9 +4,12 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <UtilitiesEigen.h>
+#include <unsupported/Eigen/MatrixFunctions>
 //#include <vector>
 //#include <QImage>
 
+using std::cout;
+using std::endl;
 
 typedef Eigen::SparseMatrix<double> SpMat; // declares a column-major sparse matrix type of double
 typedef Eigen::Triplet<double> T;
@@ -19,7 +22,7 @@ int main(int argc, char** argv)
         return -1;
     }
     
-    int n = 300;  // size of the image
+    int n = 3;  // size of the image
     int m = n*n;  // number of unknows (=number of pixels)
     // Assembly:
     std::vector<T> coefficients;            // list of non-zeros coefficients
@@ -32,6 +35,12 @@ int main(int argc, char** argv)
     Eigen::VectorXd x = chol.solve(b);         // use the factorization to solve for the given right hand side
     // Export the result to a file:
 //    saveAsBitmap(x, n, argv[1]);
+    cout<<"A: \n"<<A<<endl;
+    cout<<"x: \n"<<x<<endl;
+    Eigen::MatrixXd dA;
+    dA = Eigen::MatrixXd(A);
+    cout<<"exp(A): \n"<<dA.exp()<<endl;
+    
     return 0;
 }
 
