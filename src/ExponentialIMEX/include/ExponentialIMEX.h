@@ -15,6 +15,7 @@
 #include <unsupported/Eigen/SparseExtra>
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 // transcribed from expv in expokit
 //[w, err, hump] = expv( t, A, v, tol, m )
@@ -51,6 +52,8 @@
 
 using std::cout;
 using std::endl;
+
+
 
 template<typename DataType, typename MatrixType>
 void expv(double t, MatrixType &A, Eigen::VectorXx<DataType> &v, Eigen::VectorXx<DataType> &out, double tol = 1e-7, int m = 30)

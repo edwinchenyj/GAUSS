@@ -46,8 +46,8 @@ public:
     
     // use all the default function for now
     using PhysicalSystemImpl::getEnergy;
-    using PhysicalSystemImpl::getStrainEnergy;
-    using PhysicalSystemImpl::getStrainEnergyPerElement;
+//    using PhysicalSystemImpl::getStrainEnergy;
+//    using PhysicalSystemImpl::getStrainEnergyPerElement;
     using PhysicalSystemImpl::getMassMatrix;
     using PhysicalSystemImpl::getStiffnessMatrix;
     using PhysicalSystemImpl::getForce;

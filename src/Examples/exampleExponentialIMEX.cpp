@@ -106,11 +106,12 @@ int main(int argc, char **argv) {
     std::string cmeshname = "/meshesTetWild/brick/brick_surf/brick_surf_5";
     
 
-    readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
+//    readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
+    readTetgen(V, F, dataDir()+"/meshesTetgen/Beam/Beam.node", dataDir()+"/meshesTetgen/Beam/Beam.ele");
     
     
     //    default parameters
-    double youngs = 2e3;
+    double youngs = 2e5;
     double poisson = 0.45;
     int constraint_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
     double constraint_tol = 1e-2;
