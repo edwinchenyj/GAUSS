@@ -84,6 +84,7 @@ namespace Gauss {
         // negative for opposite sign for stiffness
         double b;
         
+        bool matrix_fix_flag = false;
         
     protected:
         
@@ -149,7 +150,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
     a = static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->a;
     b = static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->b;
     
-    std::cout<<"b: "<<b<<std::endl;
     //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
     MatrixAssembler &massMatrix = m_massMatrix;
     MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
@@ -186,8 +186,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         eigen_v_temp(ind) = qDot(ind);
     }
     
+    cout<<"Newton iteration for implicit midpoint..."<<endl;
     do {
-        std::cout<<"it outer: " << it_outer<<std::endl;
+        std::cout<<"Newton it outer: " << it_outer<<std::endl;
         it_outer = it_outer + 1;
         if (it_outer > 20) {
             std::cout<< "warning: quasi-newton more than 20 iterations." << std::endl;
@@ -316,41 +317,47 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             x0 = solver.solve((eigen_rhs));
             
 #endif
-            
-//        
-//        if (m_numModes != 0) {
-//            
-//            Y = (-1.0/4.0*dt*dt)*Y;
-////            Y = (-1.0/4.0*dt*dt+1.0/2.0*dt*b)*Y;
-//            // Y = (1.0/4.0*dt*dt)*Y;
-////            Z = 1/2*dt*Z;
-//            
-//#ifdef GAUSS_PARDISO
-//            
-//            m_pardiso.solve(Y);
-//            Eigen::MatrixXd APrime = Z*m_pardiso.getX();
-//            Eigen::VectorXd bPrime = Y*(Eigen::MatrixXd::Identity(m_numModes,m_numModes) + APrime).ldlt().solve(Z*x0);
-//            
-//            
-//#else
-//            Eigen::VectorXd bPrime = Y*(Eigen::MatrixXd::Identity(m_numModes,m_numModes) + Z*solver.solve(Y)).ldlt().solve(Z*x0);
-//            
-//#endif
-//            
-//            
-//#ifdef GAUSS_PARDISO
-//            
-//            m_pardiso.solve(bPrime);
-//            
-//            x0 -= m_pardiso.getX();
-//            
-//            m_pardiso.cleanup();
-//#else
-//            
-//            x0 -= solver.solve(bPrime);
-//            
-//#endif
-//        }
+        if(!matrix_fix_flag)
+        {
+        cout<<"Igonring change in stiffness matrix from EigenFit"<<endl;
+        }
+        else
+        {
+        //
+            if (m_numModes != 0) {
+                
+                //            Y = (-1.0/4.0*dt*dt)*Y;
+                Y = (-1.0/4.0*dt*dt+1.0/2.0*dt*b)*Y;
+                // Y = (1.0/4.0*dt*dt)*Y;
+                //            Z = 1/2*dt*Z;
+                
+#ifdef GAUSS_PARDISO
+                
+                m_pardiso.solve(Y);
+                Eigen::MatrixXd APrime = Z*m_pardiso.getX();
+                Eigen::VectorXd bPrime = Y*(Eigen::MatrixXd::Identity(m_numModes,m_numModes) + APrime).ldlt().solve(Z*x0);
+                
+                
+#else
+                Eigen::VectorXd bPrime = Y*(Eigen::MatrixXd::Identity(m_numModes,m_numModes) + Z*solver.solve(Y)).ldlt().solve(Z*x0);
+                
+#endif
+                
+                
+#ifdef GAUSS_PARDISO
+                
+                m_pardiso.solve(bPrime);
+                
+                x0 -= m_pardiso.getX();
+                
+                m_pardiso.cleanup();
+#else
+                
+                x0 -= solver.solve(bPrime);
+                
+#endif
+            }
+        }
             //        qDot = m_P.transpose()*x0;
             
             auto Dv = m_P.transpose()*x0;
@@ -363,7 +370,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
             //        std::cout<<"q "<<q.rows()<< std::endl;
             
-            // calculate the residual. brute force for now. ugly
+        cout<<" calculate the residual."<<endl;  //brute force for now. ugly
             //get stiffness matrix
             ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
             ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);

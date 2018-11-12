@@ -46,8 +46,8 @@ std::vector<ConstraintFixedPoint<double> *> movingConstraints;
 std::vector<ConstraintFixedPoint<double> *> fixedConstraints;
 Eigen::VectorXi movingVerts;
 Eigen::VectorXi fixedVerts;
-Eigen::MatrixXd V, Vtemp;
-Eigen::MatrixXi F;
+Eigen::MatrixXd V, Vtemp, Vtemp2;
+Eigen::MatrixXi F, Ftemp2;
 Eigen::MatrixXi surfF;
 Eigen::MatrixXi surfFf;
 
@@ -100,6 +100,9 @@ int main(int argc, char **argv) {
         readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
         readTetgen(Vf, Ff, dataDir()+fmeshname+".node", dataDir()+fmeshname+".ele");
         
+        //        Eigen::saveMarketVector(V, "V.mtx");
+        
+        
         Vtemp = V;
         //        find the surface mesh
         igl::boundary_facets(F,surfF);
@@ -112,7 +115,8 @@ int main(int argc, char **argv) {
         //    acutal name for the mesh, no path
         std::string fmeshnameActual = fmeshname.substr(found+1);
         
-        
+        cout<<"Using coarse mesh "<<cmeshname<<endl;
+        cout<<"Using fine mesh "<<fmeshname<<endl;
         //    parameters
         double youngs = atof(argv[3]);
         double poisson = 0.45;
@@ -127,6 +131,19 @@ int main(int argc, char **argv) {
         int dynamic_flag = atoi(argv[12]);
         double a = atof(argv[13]);
         double b = atof(argv[14]);
+        cout<<"Simulation parameters..."<<endl;
+        cout<<"Youngs: "<<youngs<<endl;
+        cout<<"Poisson: "<<poisson<<endl;
+        cout<<"Constraint direction: "<<constraint_dir<<endl;
+        cout<<"Constraint threshold: "<<constraint_tol<<endl;
+        cout<<"Step size: "<<step_size<<endl;
+        cout<<"Number of steps:"<<numSteps<<endl;
+        cout<<"dynamic_flag: "<<dynamic_flag<<endl;
+        cout<<"Rayleigh a: "<<a<<endl;
+        cout<<"Rayleigh b: "<<b<<endl;
+        cout<<"Number of modes: "<<numModes<<endl;
+        cout<<"Constraint profile: "<<const_profile<<endl;
+        cout<<"Initial deformation: "<<initial_def<<endl;
         //
         // send the constraint switch in as well, or the fine embedded mesh. ugly
         // the flag indicate whether to recalculated or not
@@ -145,9 +162,11 @@ int main(int argc, char **argv) {
         Eigen::SparseMatrix<double> P;
         
         
+        
+        
         // constraint switch
         if ((const_profile) == 0) {
-            
+            cout<<"Setting zero gravity..."<<endl;
             //            zero gravity
             Eigen::Vector3x<double> g;
             g(0) = 0;
@@ -171,17 +190,27 @@ int main(int argc, char **argv) {
         }
         else if(const_profile == 1)
         {
+            cout<<"Building fix constraint projection matrix"<<endl;
             //    default constraint
             fixDisplacementMin(world, test,constraint_dir,constraint_tol);
             world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
             
+            Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            Eigen::VectorXi indices = minVertices(test, constraint_dir,constraint_tol);
+            std::string constraint_file_name = cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            if(!Eigen::loadMarketVector(indices,constraint_file_name))
+            {
+                cout<<"File does not exist, creating new file..."<<endl;
+                indices = minVertices(test, constraint_dir,constraint_tol);
+                Eigen::saveMarketVector(indices,constraint_file_name);
+            }
+            
             P = fixedPointProjectionMatrix(indices, *test,world);
         }
         else if(const_profile == 2)
         {
             //            zero gravity
+            cout<<"Setting zero gravity..."<<endl;
             Eigen::Vector3x<double> g;
             g(0) = 0;
             g(1) = 0;
@@ -193,21 +222,34 @@ int main(int argc, char **argv) {
                 
             }
             
-            Eigen::loadMarketVector(movingVerts, "def_init/" + cmeshnameActual + "_fixed_min_verts.mtx");
+            Eigen::VectorXi indices;
+            // construct the projection matrix for stepper
+            std::string constraint_file_name = cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+            if(!Eigen::loadMarketVector(indices,constraint_file_name))
+            {
+                cout<<"File does not exist, creating new file..."<<endl;
+                indices = minVertices(test, constraint_dir,constraint_tol);
+                Eigen::saveMarketVector(indices,constraint_file_name);
+            }
+            P = fixedPointProjectionMatrix(indices, *test,world);
             
-            for(unsigned int ii=0; ii<movingVerts.rows(); ++ii) {
-                movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[movingVerts[ii]], Eigen::Vector3d(0,0,0)));
+            for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+                movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
                 world.addConstraint(movingConstraints[ii]);
             }
+            
             fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+            
             
             world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
             
-            P = fixedPointProjectionMatrix(movingVerts, *test,world);
+            
         }
         else if (const_profile == 4 || const_profile == 5 || const_profile == 6 || const_profile == 7 || const_profile == 8)
         {
             //            zero gravity
+            cout<<"Setting zero gravity..."<<endl;
             Eigen::Vector3x<double> g;
             g(0) = 0;
             g(1) = 0;
@@ -218,21 +260,32 @@ int main(int argc, char **argv) {
                 test->getImpl().getElement(iel)->setGravity(g);
                 
             }
-            // read constraints
             
-//            Eigen::loadMarketVector(fixedVerts, "def_init/" + cmeshnameActual + "_fixed_min_verts.mtx");
-            //
-            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
+            Eigen::VectorXi indices;
+            // construct the projection matrix for stepper
+            std::string constraint_file_name = cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
+            cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+            if(!Eigen::loadMarketVector(indices,constraint_file_name))
+            {
+                cout<<"File does not exist, creating new file..."<<endl;
+                indices = minVertices(test, constraint_dir,constraint_tol);
+                Eigen::saveMarketVector(indices,constraint_file_name);
+            }
             
-            for(unsigned int ii=0; ii<movingVerts.rows(); ++ii) {
-                movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[movingVerts[ii]], Eigen::Vector3d(0,0,0)));
+            P = fixedPointProjectionMatrix(indices, *test,world);
+            
+//            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
+            
+            for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+                movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
                 world.addConstraint(movingConstraints[ii]);
             }
             fixDisplacementMin(world, test,constraint_dir,constraint_tol);
             
             world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
             
-            P = fixedPointProjectionMatrix(movingVerts, *test,world);
+            
         }
         else
         {
@@ -240,6 +293,7 @@ int main(int argc, char **argv) {
         }
         
         // set material
+        cout<<"Setting Youngs and Poisson..."<<endl;
         for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
             
             test->getImpl().getElement(iel)->setParameters(youngs, poisson);
@@ -249,15 +303,19 @@ int main(int argc, char **argv) {
         // initialize the state (position and velocity)
         auto q = mapStateEigen(world);
         
+        cout<<"Setting initial deformation..."<<endl;
         if (strcmp(argv[6],"0")==0) {
             // if specified no initial deformation
+            cout<<"No initial deformation"<<endl;
             q.setZero();
         }
         else
         {
+            cout<<"Loading initial deformation"<<endl;
             // load the initial deformation (and velocity) from file)
             std::string qfileName(argv[6]);
             Eigen::VectorXd  tempv;
+            cout<<"Loading initial deformation"<<qfileName<<endl;
             Eigen::loadMarketVector(tempv,qfileName);
             
             std::cout<<"original state size "<<q.rows()<<"\nloaded state size "<<tempv.rows();
@@ -319,6 +377,7 @@ int main(int argc, char **argv) {
             {
                 // constraint profile 2 will move some vertices
                 //script some motion
+                cout<<"Moving constrained vertices in y..."<<endl;
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
                     
                     auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
@@ -329,19 +388,21 @@ int main(int argc, char **argv) {
             }
             else if (const_profile == 4 )
             {
+                cout<<"Moving constrained vertices in x..."<<endl;
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
                     
                     auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
                     //
-                                        if ((istep) < 50) {
-                                            Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(-1.0/100,0.0,0.0);
-                                            v_q = new_q;
-                                        }
+                    if ((istep) < 50) {
+                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(-1.0/100,0.0,0.0);
+                        v_q = new_q;
+                    }
                     
                 }
             }
             else if (const_profile == 5)
             {
+                cout<<"Moving constraint vertices in y..."<<endl;
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
                     
                     auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
@@ -354,6 +415,7 @@ int main(int argc, char **argv) {
                 }
             }else if (const_profile == 6)
             {
+                cout<<"Moving constrained vertices in z..."<<endl;
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
                     
                     auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
@@ -362,11 +424,12 @@ int main(int argc, char **argv) {
                         Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
                         v_q = new_q;
                     }
-
+                    
                     
                 }
             }else if (const_profile == 7)
             {
+                cout<<"Moving constrained vertices using mouse motion"<<endl;
                 Eigen::VectorXd Xvel;
                 if(!Eigen::loadMarketVector(Xvel, "mouseXvel.mtx"))
                 {
@@ -384,7 +447,7 @@ int main(int argc, char **argv) {
                     auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
                     //
                     if ((istep) < 250) {
-//                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
+                        //                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
                         v_q(0) += 0.1*Xvel(istep);
                         v_q(1) += 0.1*Yvel(istep);
                         v_q(2) += 0.1*Zvel(istep);
@@ -394,6 +457,7 @@ int main(int argc, char **argv) {
                 }
             }else if (const_profile == 8)
             {
+                cout<<"Moving constrained vertices using mouse motion"<<endl;
                 Eigen::VectorXd Xvel;
                 if(!Eigen::loadMarketVector(Xvel, "mouseXvel.mtx"))
                 {
@@ -418,9 +482,9 @@ int main(int argc, char **argv) {
                         else{ v_q(1) += 0.5*std::min(Yvel(istep),0.005);}
                         if(Zvel(istep) <= 0){   v_q(2) += 0.5*std::max(Zvel(istep),-0.005);}
                         else{ v_q(2) += 0.5*std::min(Zvel(istep),0.005);}
-//
-//                            v_q(1) += Yvel(istep);
-//                        v_q(2) += Zvel(istep);
+                        //
+                        //                            v_q(1) += Yvel(istep);
+                        //                        v_q(2) += Zvel(istep);
                     }
                     
                     
@@ -428,13 +492,9 @@ int main(int argc, char **argv) {
             }//output data stream into text
             // the following ones append one number to an opened file along the simulation
             std::ofstream ofile;
-            ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
-            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getKineticEnergy(world.getState()) << std::endl;
-            ofile.close();
-            
             //output data stream into text
             ofile.open("PE.txt", std::ios::app); //app is append which means it will put the text at the end
-            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getStrainEnergy(world.getState()) << std::endl;
+            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState()) << std::endl;
             ofile.close();
             
             //output data stream into text
@@ -442,13 +502,20 @@ int main(int argc, char **argv) {
             ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
             ofile.close();
             
+            ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
+            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
+            ofile.close();
+            
+            
             // check if the file already exist
-            std::string filename = "pos" + std::to_string(file_ind) + ".obj";
+            std::string filename = "surfpos" + std::to_string(file_ind) + ".obj";
             while (stat(filename.c_str(), &buf) != -1)
             {
                 file_ind++;
-                filename = "pos" + std::to_string(file_ind) + ".obj";
+                filename = "surfpos" + std::to_string(file_ind) + ".obj";
             }
+            
+            
             
             // rest pos for the coarse mesh getGeometry().first is V
             q = mapStateEigen(world);
@@ -470,7 +537,23 @@ int main(int argc, char **argv) {
             }
             
             // output mesh position with elements
-            igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
+//            igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
+            
+            std::string cdeffilename = "cdef"+ std::to_string(file_ind) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(constraint_dir) + "_" + std::to_string(constraint_tol) + ".mtx";
+            Eigen::saveMarket(V_disp,cdeffilename);
+            
+            //
+            //            igl::readOBJ("pos33.obj",Vtemp2, Ftemp2);
+            //
+            //            cout<<Vtemp2.rows()<<endl;
+            //            cout<<Vtemp2.cols()<<endl;
+            //            cout<<Ftemp2.rows()<<endl;
+            //            cout<<Ftemp2.cols()<<endl;
+            //
+            //            cout<<V.rows()<<endl;
+            //            cout<<V.cols()<<endl;
+            //            cout<<F.rows()<<endl;
+            //            cout<<F.cols()<<endl;
             
             // output mesh position with only surface mesh
             igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
@@ -479,7 +562,7 @@ int main(int argc, char **argv) {
             Eigen::saveMarketVector(test->coarseEig.second, "eigenvalues" + std::to_string(file_ind)+ ".mtx");
             // output eigenvalues
             Eigen::saveMarketVector(test->fineEig.second, "fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
-
+            
             
             if (numModes != 0) {
                 // declare variable for fine mesh rest pos
@@ -502,10 +585,10 @@ int main(int argc, char **argv) {
                 }
                 // output mesh position with only surface mesh
                 igl::writeOBJ("finesurfpos" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
-                    
+                
                 
             }
-        
+            
             // update step number;
             test->step_number++;
         }
@@ -545,14 +628,14 @@ int main(int argc, char **argv) {
         // need to pass the material and constraint parameters to embedding too. need to do it again below. ugly
         // also use the last two args to determine how many modes to fix. default not using hausdorff distance, and use 10 modes. have to put it here now.  ugly
         //        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual);
-//        std::string::size_type found = cmeshname.find_last_of(kPathSeparator);
+        //        std::string::size_type found = cmeshname.find_last_of(kPathSeparator);
         //    acutal name for the mesh, no path
-//        std::string cmeshnameActual = cmeshname.substr(found+1);
+        //        std::string cmeshnameActual = cmeshname.substr(found+1);
         
         //    acutal name for the mesh, no path
         std::string fmeshnameActual = fmeshname.substr(found+1);
         
-//        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes," "," ");
+        //        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes," "," ");
         EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual);
         
         

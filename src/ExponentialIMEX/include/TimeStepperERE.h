@@ -221,39 +221,84 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
         exit(1);
     }
     
-    Eigen::saveMarket(*stiffnessMatrix,"stiffness.dat");
-    Eigen::saveMarket(*massMatrix,"mass.dat");
-    Eigen::saveMarket(m_P,"m_P.dat");
-    Eigen::saveMarketVector(q,"q.dat");
-    Eigen::saveMarketVector(qDot,"v.dat");
+//    Eigen::saveMarket(*stiffnessMatrix,"stiffness.dat");
+//    Eigen::saveMarket(*massMatrix,"mass.dat");
+//    Eigen::saveMarket(m_P,"m_P.dat");
+//    Eigen::saveMarketVector(q,"q.dat");
+//    Eigen::saveMarketVector(qDot,"v.dat");
     int N = m_P.rows();
+
+//    typedef Eigen::Triplet<DataType> T;
+//    std::vector<T> tripletList;
+//    tripletList.reserve(N + 2*(*stiffnessMatrix).nonZeros());
+//    for(int i = 0; i < N; i++)
+//    {
+//        tripletList.push_back(T(i, i + N, 1.0));
+//    }
+//    for (int k=0; k<(mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix)).outerSize(); ++k)
+//    {
+//        for (Eigen::SparseMatrix<double>::InnerIterator it(mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix),k); it; ++it)
+//        {
+//            tripletList.push_back(T(it.row() + N, it.col(), it.value()));
+//        }
+//    }
+//    for (int k=0; k<(mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix)).outerSize(); ++k)
+//    {
+//        for (Eigen::SparseMatrix<double>::InnerIterator it(mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix),k); it; ++it)
+//        {
+//            tripletList.push_back(T(it.row() + N, it.col()+N, -b*it.value()));
+//        }
+//    }
+//    for(int i = 0; i < N; i++)
+//    {
+//        tripletList.push_back(T(i+N, i + N, -a));
+//    }
 
 //
     Eigen::VectorXx<DataType> du(2*N);
     du.head(N) = m_P * qDot;
     du.tail(N) = mass_lumped.asDiagonal().inverse()*(*forceVector);
-    Eigen::saveMarketVector(du,"duc.dat");
+//    Eigen::saveMarketVector(du,"duc.dat");
 //
     Eigen::VectorXx<DataType> state_free(2*N);
     state_free.head(N) = m_P * q;
     state_free.tail(N) = m_P * qDot;
     Eigen::VectorXx<DataType> g(2*N);
+    Eigen::VectorXx<DataType> g2(2*N);
+    //
 //    Eigen::saveMarketVector(state_free,"state_free.dat");
 //
     double eta = 1;
 //
+    
+//    Eigen::SparseMatrix<DataType> J(2*m_P.rows(),2*m_P.rows());
+//    J.setFromTriplets(tripletList.begin(), tripletList.end());
+    //
     g.head(N) = du.head(N) - m_P * qDot;
-    g.tail(N) = du.tail(N) + mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * q
-    + (-a) * m_P * qDot - b*(*stiffnessMatrix) * m_P * qDot;
-    Eigen::saveMarketVector(g,"gc.dat");
+    g.tail(N) = du.tail(N) - mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * q
+    - (-a) * m_P * qDot + b*mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * qDot;
+//    g = du - J * state_free;
+//    cout<<"g - g2: "<<(g-g2).norm()<<endl;
+    
+//    for(int i = 0; i < 2*N; i++)
+//    {
+//        tripletList.push_back(T(i, 2*N, eta*g(i)));
+//    }
+//    Eigen::SparseMatrix<DataType> J_tilde(2*m_P.rows()+1,2*m_P.rows()+1);
+//    J_tilde.setFromTriplets(tripletList.begin(), tripletList.end());
+    
+//    Eigen::saveMarket(J,"Jc.dat");
+//    Eigen::saveMarket(J_tilde,"J_tildec.dat");
+//
+//    Eigen::saveMarketVector(g,"gc.dat");
 //    Eigen::saveMarketVector(du,"du.dat");
-    Eigen::saveMarketVector(*forceVector,"forceVector.dat");
-    Eigen::saveMarketVector(mass_lumped,"mass_lumped.dat");
+//    Eigen::saveMarketVector(*forceVector,"forceVector.dat");
+//    Eigen::saveMarketVector(mass_lumped,"mass_lumped.dat");
 //
     Eigen::VectorXx<DataType> u_tilde(2*N+1);
     u_tilde.head(2*N) = state_free;
     u_tilde(2*N) = 1.0/eta;
-    Eigen::saveMarketVector(u_tilde,"u_tildec.dat");
+//    Eigen::saveMarketVector(u_tilde,"u_tildec.dat");
     //
     Eigen::VectorXx<DataType> X(2*N+1);
     X.setZero();
@@ -321,38 +366,43 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
             H.setZero(m+2,m+2);
             
             V.col(0) = (1.0/beta)*w;
-            saveMarketVector(V.col(0),"V0.dat");
+//            saveMarketVector(V.col(0),"V0.dat");
             for(int j = 0; j < m; j++)
             {
                 //            cout<<"j: "<<j<<endl;
                 Eigen::VectorXx<DataType> p(2*N+1);
+                Eigen::VectorXx<DataType> p2(2*N+1);
 //                p = A*V.col(j);
-                saveMarket(V,"Vc.dat");
-                saveMarketVector(V.col(j),"Vj.dat");
-                saveMarketVector(V.col(j).segment(N,N),"VjN.dat");
+//                saveMarket(V,"Vc.dat");
+//                saveMarketVector(V.col(j),"Vj.dat");
+//                saveMarketVector(V.col(j).segment(N,N),"VjN.dat");
                 
                 p.head(N) = (V.col(j).segment(N,N)) + (V.col(j)(2*N)) * eta*(g.head(N));
                 p.segment(N,N) = mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * V.col(j).head(N);
-                p.segment(N,N) += V.col(j)(2*N) * eta*g.segment(N,N);
-                p.segment(N,N) += (-a)* V.col(j).segment(N,N);
-                p.segment(N,N) += (- b*mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix)) * (V.col(j).segment(N,N));
+                p.segment(N,N) += (V.col(j)(2*N)) * eta*g.tail(N);
+                p.segment(N,N) += (-a)* (V.col(j).segment(N,N));
+                p.segment(N,N) += (-b*mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix)) * (V.col(j).segment(N,N));
                 p(2*N) = 0;
+//                p = J_tilde*V.col(j);
                 //            cout<<"p: "<<p<<endl;
-                Eigen::saveMarket(V,"Vc.dat");
-                saveMarketVector(p,"pc.dat");
+//                Eigen::saveMarket(V,"Vc.dat");
+//                saveMarketVector(p,"pc.dat");
+//                saveMarketVector(p2,"p2c.dat");
+//                cout<<"p - p2: "<<(p-p2).norm()<<endl;
                 for(int  i = 0; i <= j; i++ )
                 {
-                    cout<<"i: "<<i<<endl;
-                    cout<<"j: "<<j<<endl;
+//                    cout<<"i: "<<i<<endl;
+//                    cout<<"j: "<<j<<endl;
                     H(i,j) = V.col(i).transpose()*p;
-                    cout<<"H(i,j): "<< H(i,j)<<endl;
+//                    cout<<"H(i,j): "<< H(i,j)<<endl;
                     p = p-H(i,j)*V.col(i);
-                    saveMarketVector(p,"pc.dat");
+//                    saveMarketVector(p,"pc.dat");
+                    
                 }
                 s = p.norm();
                 //            cout<<"p: "<<p<<endl;
                 //            cout<<"p norm: "<<p.norm()<<endl;
-                            cout<<"s: "<<s<<endl;
+//                            cout<<"s: "<<s<<endl;
                 if(s < btol)
                 {
                     k1 = 0;
@@ -360,39 +410,42 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
                     t_step = t_out-t_now;
                     break;
                 }
-                cout<<"j: "<<j<<endl;
+//                cout<<"j: "<<j<<endl;
                 H(j+1,j) = s;
                 V.col(j+1) = (1.0/s)*p;
-                saveMarketVector(V.col(j+1),"Vj1.dat");
+//                saveMarketVector(V.col(j+1),"Vj1.dat");
             }
             if(k1 != 0)
             {
                 H(m+1,m) = 1.0;
 //                Eigen::VectorXx<DataType> temp_vec;
 //                avnorm = (A*V.col(m)).norm();
-                saveMarket(V,"Vc.dat");
-                saveMarketVector(V.col(m),"Vm.dat");
-                saveMarketVector(V.col(m).segment(N,N),"VmN.dat");
-                saveMarket(H,"Hc.dat");
-                avnorm = (V.col(m).segment(N,N) + V.col(m)(2*N) * eta*g.head(N)).squaredNorm();
-                avnorm += (mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * V.col(m).head(N) + V.col(m)(2*N) * eta*g.segment(N,N) + (-a * V.col(m).segment(N,N) - mass_lumped.asDiagonal().inverse()*b*(*stiffnessMatrix) *  V.col(m).segment(N,N))).squaredNorm();
+//                saveMarket(V,"Vc.dat");
+//                saveMarketVector(V.col(m),"Vm.dat");
+//                saveMarketVector(V.col(m).segment(N,N),"VmN.dat");
+//                saveMarket(H,"Hc.dat");
+//                double avnorm2;
+                avnorm = (V.col(m).segment(N,N) + (V.col(m)(2*N)) * eta*g.head(N)).squaredNorm();
+                avnorm += (mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * V.col(m).head(N) + (V.col(m)(2*N)) * eta*(g.tail(N)) + (-a * V.col(m).segment(N,N) - mass_lumped.asDiagonal().inverse()*b*(*stiffnessMatrix) *  V.col(m).segment(N,N))).squaredNorm();
                 avnorm = sqrt(avnorm);
-                cout<<"avnorm: "<<avnorm<<endl;
+//                avnorm = (J_tilde*V.col(m)).norm();
+//                cout<<"avnorm: "<<avnorm<<endl;
+//                cout<<"avnorm - avnorm2: "<<avnorm -avnorm2<<endl;
             }
             int ireject = 0;
             while (ireject <= mxrej)
             {
                 int mx = mb + k1;
                 //
-                            cout<<"t_step: "<<t_step<<endl;
-                            cout<<"mx: "<<mx<<endl;
+//                            cout<<"t_step: "<<t_step<<endl;
+//                            cout<<"mx: "<<mx<<endl;
 //                            cout<<"H: "<<H<<endl;
 //                            Eigen::MatrixXx<DataType> sp(mx,mx);
 //                            sp = H.topLeftCorner(mx,mx);
 //                            Eigen::saveMarket(H.topLeftCorner(mx,mx),"Hc.dat");
-                Eigen::saveMarket(sgn*t_step*H.topLeftCorner(mx,mx),"expA.dat");
+//                Eigen::saveMarket(sgn*t_step*H.topLeftCorner(mx,mx),"expA.dat");
                 F = (sgn*t_step*H.topLeftCorner(mx,mx)).exp();
-                Eigen::saveMarket(F,"Fc.dat");
+//                Eigen::saveMarket(F,"Fc.dat");
                 
                 if (k1 == 0)
                 {
@@ -403,8 +456,8 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
                 {
                     double phi1 = abs( beta*F(m,0) );
                     double phi2 = abs( beta*F(m+1,0) * avnorm );
-                    cout<<"phi1: "<<phi1<<endl;
-                    cout<<"phi2: "<<phi2<<endl;
+//                    cout<<"phi1: "<<phi1<<endl;
+//                    cout<<"phi2: "<<phi2<<endl;
                     
                     if(phi1 > 10*phi2){
                         
