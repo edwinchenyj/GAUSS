@@ -26,6 +26,7 @@
 #include <fstream>
 #include <SolverPardiso.h>
 #include <SparseRegularInversePardiso.h>
+#include <igl/boundary_facets.h>
 
 using namespace Gauss;
 using namespace FEM;
@@ -68,7 +69,7 @@ public:
     EigenFit(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_switch, double youngs, double poisson, int constraintDir, double constraintTol, unsigned int cswitch, unsigned int hausdorff_dist, unsigned int numModes, std::string cmeshname, std::string fmeshname ) : PhysicalSystemImpl(Vc,Fc)
     {
         
-        cout<<"haus:"<<hausdorff_dist<<endl;
+        cout<<"Hausdorff distance flag: "<<hausdorff_dist<<endl;
         if(numModes != 0)
         {
             m_Vf = Vf;
@@ -102,7 +103,7 @@ public:
             // setup the fine mesh
             PhysicalSystemImpl *m_fineMeshSystem = new PhysicalSystemImpl(Vf,Ff);
             
-            
+            cout<<"Setting fine mesh..."<<endl;
             // set up material parameters
             this->youngs = youngs;
             this->poisson = poisson;
@@ -125,9 +126,11 @@ public:
             //       constraints
             Eigen::SparseMatrix<double> fineP;
             Eigen::SparseMatrix<double> coarseP;
+            
+            cout<<"Setting fine mesh constraints..."<<endl;
             if (constraint_switch == 0) {
                 // hard-coded constraint projection
-                
+                cout<<"No constraints"<<endl;
                 m_fineWorld.finalize();
                 
                 fineP.resize(Vf.rows()*3,Vf.rows()*3);
@@ -141,19 +144,39 @@ public:
             }
             else if (constraint_switch == 1)
             {
+                cout<<"Setting constraint on the fine mesh and constructing fine mesh projection matrix"<<endl;
                 // default constraint
                 //            fix displacement
                 fixDisplacementMin(m_fineWorld, m_fineMeshSystem, constraintDir, constraintTol);
                 
                 m_fineWorld.finalize();
                 // hard-coded constraint projection
-                Eigen::VectorXi fineFixedVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);
+                
+                
+                std::string cconstraint_file_name = cmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
+                std::string fconstraint_file_name = fmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
+                Eigen::VectorXi fineFixedVerts;
+                Eigen::VectorXi coarseFixedVerts;
+                cout<<"Loading vertices and setting projection matrix..."<<endl;
+                if(!Eigen::loadMarketVector(coarseFixedVerts,cconstraint_file_name))
+                {
+                    cout<<"File does not exist for coarse mesh, creating new file..."<<endl;
+                    coarseFixedVerts = minVertices(this, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(coarseFixedVerts,cconstraint_file_name);
+                }
+                if(!Eigen::loadMarketVector(fineFixedVerts,fconstraint_file_name))
+                {
+                    cout<<"File does not exist for fine mesh, creating new file..."<<endl;
+                    fineFixedVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(fineFixedVerts,fconstraint_file_name);
+                }
+                
+                
                 m_fineFixedVerts = fineFixedVerts;
                 fineP = fixedPointProjectionMatrix(fineFixedVerts, *m_fineMeshSystem,m_fineWorld);
                 m_fineP = fineP;
                 
-                Eigen::VectorXi coarse_constrait_indices = minVertices(this, constraintDir, constraintTol);
-                coarseP = fixedPointProjectionMatrixCoarse(coarse_constrait_indices);
+                coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
                 m_coarseP = coarseP;
                 
                 // only need to record one because only need to know if it's 0, 3, or 6. either fine or coarse would work
@@ -163,13 +186,41 @@ public:
             else if (constraint_switch == 2)
             {
                 
-                //                Eigen::VectorXi fineMovingVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);//indices for moving parts
+                
+                std::string cconstraint_file_name = cmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
+                std::string fconstraint_file_name = fmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
                 Eigen::VectorXi fineMovingVerts;
+                Eigen::VectorXi coarseMovingVerts;
+                cout<<"Loading vertices and setting projection matrix..."<<endl;
+                if(!Eigen::loadMarketVector(coarseMovingVerts,cconstraint_file_name))
+                {
+                    cout<<"File does not exist for coarse mesh, creating new file..."<<endl;
+                    coarseMovingVerts = minVertices(this, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(coarseMovingVerts,cconstraint_file_name);
+                }
+                if(!Eigen::loadMarketVector(fineMovingVerts,fconstraint_file_name))
+                {
+                    cout<<"File does not exist for fine mesh, creating new file..."<<endl;
+                    fineMovingVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(fineMovingVerts,fconstraint_file_name);
+                }
                 
-                // read constraints
                 
-                Eigen::loadMarketVector(fineMovingVerts,  "def_init/" + fmeshname + "_fixed_min_verts.mtx");
                 m_fineMovingVerts = fineMovingVerts;
+                fineP = fixedPointProjectionMatrix(fineMovingVerts, *m_fineMeshSystem,m_fineWorld);
+                m_fineP = fineP;
+                
+                
+                coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
+                m_coarseP = coarseP;
+                
+                //                Eigen::VectorXi fineMovingVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);//indices for moving parts
+//                Eigen::VectorXi fineMovingVerts;
+//
+//                // read constraints
+//                cout<<"Loading fine mesh constraint vertices list"<<endl;
+//                Eigen::loadMarketVector(fineMovingVerts,  "def_init/" + fmeshname + "_fixed_min_verts.mtx");
+//                m_fineMovingVerts = fineMovingVerts;
                 
                 std::vector<ConstraintFixedPoint<double> *> fineMovingConstraints;
                 
@@ -180,28 +231,41 @@ public:
                 m_fineWorld.finalize(); //After this all we're ready to go (clean up the interface a bit later)
                 
                 // hard-coded constraint projection
-                fineP = fixedPointProjectionMatrix(fineMovingVerts, *m_fineMeshSystem,m_fineWorld);
-                m_fineP = fineP;
+//                fineP = fixedPointProjectionMatrix(fineMovingVerts, *m_fineMeshSystem,m_fineWorld);
+//                m_fineP = fineP;
                 // only need to record one because only need to know if it's 0, 3, or 6. either fine or coarse is fine
                 m_numConstraints = fineMovingVerts.size();
                 
                 //                Eigen::VectorXi coarseMovingVerts = minVertices(this, constraintDir, constraintTol);
-                Eigen::VectorXi coarseMovingVerts;
-                Eigen::loadMarketVector(coarseMovingVerts,  "def_init/" + cmeshname + "_fixed_min_verts.mtx");
-                
-                coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
-                m_coarseP = coarseP;
+//                Eigen::VectorXi coarseMovingVerts;
+//                cout<<"Loading coarse mesh constraint vertices list"<<endl;
+//                Eigen::loadMarketVector(coarseMovingVerts,  "def_init/" + cmeshname + "_fixed_min_verts.mtx");
+//
+//                coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
+//                m_coarseP = coarseP;
                 
             }
             else if (constraint_switch == 3)
             {
-                std::vector<ConstraintFixedPoint<double> *> fixedConstraints;
+                std::string cconstraint_file_name = cmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
+                std::string fconstraint_file_name = fmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
                 Eigen::VectorXi fineFixedVerts;
+                Eigen::VectorXi coarseFixedVerts;
+                cout<<"Loading vertices and setting projection matrix..."<<endl;
+                if(!Eigen::loadMarketVector(coarseFixedVerts,cconstraint_file_name))
+                {
+                    cout<<"File does not exist for coarse mesh, creating new file..."<<endl;
+                    coarseFixedVerts = minVertices(this, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(coarseFixedVerts,cconstraint_file_name);
+                }
+                if(!Eigen::loadMarketVector(fineFixedVerts,fconstraint_file_name))
+                {
+                    cout<<"File does not exist for fine mesh, creating new file..."<<endl;
+                    fineFixedVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(fineFixedVerts,fconstraint_file_name);
+                }
                 
-                // read constraints
-                
-                Eigen::loadMarketVector(fineFixedVerts,  "def_init/" + fmeshname + "_fixed_min_verts.mtx");
-                m_fineFixedVerts = fineFixedVerts;
+                std::vector<ConstraintFixedPoint<double> *> fixedConstraints;
                 //
                 for(unsigned int ii=0; ii<fineFixedVerts.rows(); ++ii) {
                     fixedConstraints.push_back(new ConstraintFixedPoint<double>(&m_fineMeshSystem->getQ()[fineFixedVerts[ii]], Eigen::Vector3d(0,0,0)));
@@ -213,10 +277,8 @@ public:
                 fineP = fixedPointProjectionMatrix(fineFixedVerts, *m_fineMeshSystem,m_fineWorld);
                 m_fineP = fineP;
                 
-                Eigen::VectorXi coarse_constrait_indices;
-                Eigen::loadMarketVector(coarse_constrait_indices,  "def_init/" + cmeshname + "_fixed_min_verts.mtx");
                 
-                coarseP = fixedPointProjectionMatrixCoarse(coarse_constrait_indices);
+                coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
                 m_coarseP = coarseP;
                 
                 m_numConstraints = fineFixedVerts.rows();
@@ -226,7 +288,27 @@ public:
             else if (constraint_switch == 4 || constraint_switch == 5 || constraint_switch == 6 || constraint_switch == 7 || constraint_switch == 8)
             {
                 
-                Eigen::VectorXi fineMovingVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);//indices for moving parts
+                cout<<"Setting constraint on the fine mesh and constructing fine mesh projection matrix"<<endl;
+                
+                std::string cconstraint_file_name = cmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
+                std::string fconstraint_file_name = fmeshname + "_" + std::to_string(constraint_switch) + "_" +std::to_string(constraintDir)+"_"+std::to_string(constraintTol)+".mtx";
+                Eigen::VectorXi fineMovingVerts;
+                Eigen::VectorXi coarseMovingVerts;
+                cout<<"Loading vertices and setting projection matrix..."<<endl;
+                if(!Eigen::loadMarketVector(coarseMovingVerts,cconstraint_file_name))
+                {
+                    cout<<"File does not exist for coarse mesh, creating new file..."<<endl;
+                    coarseMovingVerts = minVertices(this, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(coarseMovingVerts,cconstraint_file_name);
+                }
+                if(!Eigen::loadMarketVector(fineMovingVerts,fconstraint_file_name))
+                {
+                    cout<<"File does not exist for fine mesh, creating new file..."<<endl;
+                    fineMovingVerts = minVertices(m_fineMeshSystem, constraintDir, constraintTol);
+                    Eigen::saveMarketVector(fineMovingVerts,fconstraint_file_name);
+                }
+                
+                
                 m_fineMovingVerts = fineMovingVerts;
                 
                 std::vector<ConstraintFixedPoint<double> *> fineMovingConstraints;
@@ -243,7 +325,6 @@ public:
                 // only need to record one because only need to know if it's 0, 3, or 6. either fine or coarse is fine
                 m_numConstraints = fineMovingVerts.size();
                 
-                Eigen::VectorXi coarseMovingVerts = minVertices(this, constraintDir, constraintTol);
                 m_coarseMovingVerts = coarseMovingVerts;
                 
                 coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
@@ -290,6 +371,7 @@ public:
             }
             else
             {
+                cout<<"No constraints so ignore the first 6 eigenvalues."<<endl;
                 // otherwise, free boundary
                 m_numModes = numModes;
                 m_numModes = m_numModes + 6;
@@ -313,6 +395,7 @@ public:
             // assemble mass matrix in the constructor because it won't change
             
             //lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
+            cout<<"Pre-calculate mass matrix for the fine mesh."<<endl;
             AssemblerEigenSparseMatrix<double> &massMatrix = m_fineMassMatrix;
             
             //get mass matrix
@@ -420,7 +503,7 @@ public:
     bool calculateEigenFitData(const Eigen::VectorXx<double> &q, MatrixAssembler &coarseMassMatrix, MatrixAssembler &coarseStiffnessMatrix,  std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > &m_coarseUs, Eigen::MatrixXd &Y, Eigen::MatrixXd &Z){
         
         // matrices passed in already eliminated the constraints
-        // Eigendecomposition for the coarse mesh
+        cout<<"Performing eigendecomposition on the coarse mesh"<<endl;
         m_coarseUs = generalizedEigenvalueProblemNegative((*coarseStiffnessMatrix), (*coarseMassMatrix), m_numModes , 0.00);
         
         coarseEigMassProj = m_coarseUs;
@@ -428,13 +511,12 @@ public:
         coarseEigMassProj.first = (*coarseMassMatrix)*coarseEigMassProj.first;
         
         
-        std::cout<<"dynamic switch: "<<ratio_recalculation_switch<<std::endl;
+        std::cout<<"Dynamic switch: "<<ratio_recalculation_switch<<std::endl;
         if((!ratio_calculated))
         {
-            cout<<"recalculating ratio\n";
             if( ratio_recalculation_switch == 1 || ratio_recalculation_switch == 0)
             {
-                //            Hausdorff distance check
+                cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
                 unsigned int mode = 0;
                 unsigned int idx = 0;
                 Eigen::VectorXd coarse_eig_def;
@@ -456,9 +538,14 @@ public:
                         coarse_V_disp_n(vertexId,2) -= (1*coarse_eig_def(idx));
                         idx++;
                     }
-                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
+                    Eigen::MatrixXi coarse_F;
+                    igl::boundary_facets(this->getImpl().getF(),coarse_F);
+                    
+//                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
                     igl::writeOBJ("coarse_mesh_eigen_mode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
                     igl::writeOBJ("coarse_mesh_eigen_mode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
+                    std::string cfilename = "ceigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                    Eigen::saveMarket(coarse_V_disp_n, cfilename);
                 }
                 
                 //            std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
@@ -477,7 +564,6 @@ public:
                 posFull = this->getFinePositionFull(q);
                 //
                 fine_q = posFull - eigen_fine_pos0;
-                
                 //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
                 AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
                 
@@ -489,29 +575,11 @@ public:
                 ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
                 ASSEMBLEEND(fineStiffnessMatrix);
                 
-                // for edwin debug
-                AssemblerEigenVector<double> &fineforceVector = m_fineforceVector;
-                AssemblerEigenVector<double> &finefExt = m_finefExt;
-                
-                //Need to filter internal forces seperately for this applicat
-                ASSEMBLEVECINIT(fineforceVector, world.getNumQDotDOFs());
-                ASSEMBLELIST(fineforceVector, world.getSystemList(), getImpl().getInternalForce);
-                ASSEMBLEEND(fineforceVector);
-                
-                ASSEMBLEVECINIT(finefExt, world.getNumQDotDOFs());
-                ASSEMBLELIST(finefExt, world.getSystemList(), getImpl().getBodyForce);
-                ASSEMBLEEND(finefExt);
-                
-                // add external force
-                (*fineforceVector) = m_fineP * (*fineforceVector);
-                
-                (*fineforceVector) = (*fineforceVector) + m_fineP *(*finefExt);
                 
                 //constraint Projection
                 (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
                 
-                
-                //Eigendecomposition for the embedded fine mesh
+                cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
                 std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
                 m_Us = generalizedEigenvalueProblemNegative(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
                 
@@ -519,7 +587,7 @@ public:
                 fineEig = m_Us;
                 fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
                 
-                //            Hausdorff distance check
+                cout<<"Writing fine eigen deformation to file (for Hausdorff distance check)."<<endl;
                 //
                 mode = 0;
                 Eigen::VectorXd fine_eig_def;
@@ -539,15 +607,26 @@ public:
                         idx++;
                     }
                     
-                    Eigen::MatrixXi fine_F = surftri(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first, std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second);
-                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
                     
+//                    Eigen::MatrixXi fine_F = surftri(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first, std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second);
+                    Eigen::MatrixXi fine_F;
+                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
+                    
+//                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first,fine_F);
+                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
+
+                    std::string ffilename = "feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                    Eigen::saveMarket(fine_V_disp, ffilename );
+
+                    
+                    cout<<"Loading coarse eigen deformation."<<endl;
                     Eigen::MatrixXd coarse_V_disp_p;
                     Eigen::MatrixXd coarse_V_disp_n;
                     Eigen::MatrixXi coarse_F;
                     igl::readOBJ("coarse_mesh_eigen_mode_p" + std::to_string(mode) + ".obj",coarse_V_disp_p, coarse_F);
                     igl::readOBJ("coarse_mesh_eigen_mode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
-                    
+                    if(haus)
+                    {
                     double dist_p, dist_n, dist_scaled;
                     Eigen::MatrixXd coarse_V_disp = this->getImpl().getV();
                     
@@ -558,18 +637,24 @@ public:
                     if(dist_p < dist_n) dist_scaled = dist_p/max_scale;
                     else dist_scaled = dist_n/max_scale;
                     
+                    
+                    cout<<"Eigen mode "<<mode<<endl;
+                    std::cout<<"Dist scaled: "<< dist_scaled<<std::endl;
+                    
                     // fail on hausdorff distance check
-                    if( dist_scaled > 0.4 )
+                    if( dist_scaled > 0.4)
                     {
-                        std::cout<<"dist_scaled: "<< dist_scaled<<std::endl;
-                        if(haus)
-                        {
+//                        if(haus)
+//                        {
                             // if required to check hausdorff and failed, return 1
                             return true;
-                        }
+//                        }
+                    }
                     }
                 }
                 
+                
+                cout<<"Calculating ratio\n";
                 //                std::cout<<"m_numConstraints "<< m_numConstraints << std::endl;
                 for(int i = 0; i < m_numModes; ++i)
                 {
@@ -584,6 +669,7 @@ public:
                     else if(m_numConstraints == 0)
                     {
                         //  free boundary
+                        cout<<"Free boundary, setting first 6 ratios to 1."<<endl;
                         m_R(0) = 1.0;
                         m_R(1) = 1.0;
                         m_R(2) = 1.0;
@@ -593,6 +679,7 @@ public:
                         
                     }
                     //#ifdef EDWIN_DEBUG
+                    cout<<"Ratios: "<<endl;
                     std::cout<<m_R(i)<<std::endl;
                     //#endif
                     
@@ -648,7 +735,10 @@ public:
                 
                 PhysicalSystemImpl *m_fineMeshSystem_reset = new PhysicalSystemImpl(fine_V_disp,m_Ff);
                 
-                Eigen::MatrixXi fine_F = surftri(fine_V_disp, std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second);
+//                Eigen::MatrixXi fine_F = surftri(fine_V_disp, std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second);
+                Eigen::MatrixXi fine_F;
+                igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
+                
                 
                 igl::writeOBJ("fine_mesh_eigen_rest_reset.obj",fine_V_disp,fine_F);
                 igl::writeOBJ("fine_mesh_eigen_rest_original.obj",std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first,fine_F);
@@ -691,8 +781,9 @@ public:
                 // setup the fine mesh
                 PhysicalSystemImpl *m_coarseMeshSystem_reset = new PhysicalSystemImpl(V_disp,this->getGeometry().second);
                 
-                Eigen::MatrixXi coarse_F = surftri(V_disp, this->getGeometry().second);
-                
+                Eigen::MatrixXi coarse_F;
+//                Eigen::MatrixXi coarse_F = surftri(V_disp, this->getGeometry().second);
+                igl::boundary_facets(this->getImpl().getF(),coarse_F);
                 igl::writeOBJ("coarse_mesh_eigen_rest_reset.obj",V_disp,coarse_F);
                 igl::writeOBJ("coarse_mesh_eigen_rest_original.obj",this->getGeometry().first,coarse_F);
                 

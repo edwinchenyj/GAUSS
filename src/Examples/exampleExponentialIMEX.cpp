@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     
     
     //    default parameters
-    double youngs = 2e5;
+    double youngs = 2e6;
     double poisson = 0.45;
     int constraint_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
     double constraint_tol = 1e-2;
