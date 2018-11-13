@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
             
             Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            std::string constraint_file_name = cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
             if(!Eigen::loadMarketVector(indices,constraint_file_name))
             {
                 cout<<"File does not exist, creating new file..."<<endl;
@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
             
             Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            std::string constraint_file_name = cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
             cout<<"Loading moving vertices and setting projection matrix..."<<endl;
             if(!Eigen::loadMarketVector(indices,constraint_file_name))
             {
@@ -263,7 +263,7 @@ int main(int argc, char **argv) {
             
             Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            std::string constraint_file_name = cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
             cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
             cout<<"Loading moving vertices and setting projection matrix..."<<endl;
             if(!Eigen::loadMarketVector(indices,constraint_file_name))
@@ -431,15 +431,15 @@ int main(int argc, char **argv) {
             {
                 cout<<"Moving constrained vertices using mouse motion"<<endl;
                 Eigen::VectorXd Xvel;
-                if(!Eigen::loadMarketVector(Xvel, "mouseXvel.mtx"))
+                if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
                 {
                     cout<<"fail loading mouse x motion"<<endl;
                 }
                 Eigen::VectorXd Yvel;
-                if(!Eigen::loadMarketVector(Yvel, "mouseYvel.mtx"))
+                if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
                     cout<<"fail loading mouse y motion"<<endl;
                 Eigen::VectorXd Zvel;
-                if(!Eigen::loadMarketVector(Zvel, "mouseZvel.mtx"))
+                if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
                     cout<<"fail loading mouse z motion"<<endl;
                 
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
@@ -459,15 +459,15 @@ int main(int argc, char **argv) {
             {
                 cout<<"Moving constrained vertices using mouse motion"<<endl;
                 Eigen::VectorXd Xvel;
-                if(!Eigen::loadMarketVector(Xvel, "mouseXvel.mtx"))
+                if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
                 {
                     cout<<"fail loading mouse x motion"<<endl;
                 }
                 Eigen::VectorXd Yvel;
-                if(!Eigen::loadMarketVector(Yvel, "mouseYvel.mtx"))
+                if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
                     cout<<"fail loading mouse y motion"<<endl;
                 Eigen::VectorXd Zvel;
-                if(!Eigen::loadMarketVector(Zvel, "mouseZvel.mtx"))
+                if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
                     cout<<"fail loading mouse z motion"<<endl;
                 
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
