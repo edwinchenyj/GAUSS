@@ -538,10 +538,10 @@ int main(int argc, char **argv) {
             
             // output mesh position with elements
 //            igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
-            
-            std::string cdeffilename = "cdef"+ std::to_string(file_ind) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(constraint_dir) + "_" + std::to_string(constraint_tol) + ".mtx";
-            Eigen::saveMarket(V_disp,cdeffilename);
-            
+    //            
+    //            std::string cdeffilename = "cdef"+ std::to_string(file_ind) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(constraint_dir) + "_" + std::to_string(constraint_tol) + ".mtx";
+    //            Eigen::saveMarket(V_disp,cdeffilename);
+    //
             //
             //            igl::readOBJ("pos33.obj",Vtemp2, Ftemp2);
             //
