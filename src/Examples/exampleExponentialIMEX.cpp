@@ -7,6 +7,7 @@
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
 #include <TimeStepperERE.h>
+#include <TimeStepperSIIMEX.h>
 #include <ExponentialIMEX.h>
 #include <TimeStepperEigenFitSMWIM.h>
 #include <EigenFit.h>
@@ -14,6 +15,11 @@
 #include <igl/boundary_facets.h>
 
 #include <unsupported/Eigen/MatrixFunctions>
+
+#include <Eigen/Dense>
+#include <Eigen/Core>
+#include <Eigen/IterativeLinearSolvers>
+#include <unsupported/Eigen/IterativeSolvers>
 
 using namespace Gauss;
 using namespace FEM;
@@ -26,7 +32,7 @@ typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 
-typedef TimeStepperERE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperSIIMEX<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
