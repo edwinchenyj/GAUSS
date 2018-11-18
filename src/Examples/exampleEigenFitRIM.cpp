@@ -10,6 +10,7 @@
 #include <EigenFit.h>
 #include <fstream>
 #include <igl/boundary_facets.h>
+#include <igl/volume.h>
 
 using namespace Gauss;
 using namespace FEM;
@@ -197,7 +198,7 @@ int main(int argc, char **argv) {
             
             Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            std::string constraint_file_name = "data/" + cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
             if(!Eigen::loadMarketVector(indices,constraint_file_name))
             {
                 cout<<"File does not exist, creating new file..."<<endl;
@@ -222,9 +223,11 @@ int main(int argc, char **argv) {
                 
             }
             
+            world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+            
             Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            std::string constraint_file_name = "data/" + cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
             cout<<"Loading moving vertices and setting projection matrix..."<<endl;
             if(!Eigen::loadMarketVector(indices,constraint_file_name))
             {
@@ -242,7 +245,6 @@ int main(int argc, char **argv) {
             fixDisplacementMin(world, test,constraint_dir,constraint_tol);
             
             
-            world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
             
             
         }
@@ -261,9 +263,11 @@ int main(int argc, char **argv) {
                 
             }
             
+            world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+            
             Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            std::string constraint_file_name = "data/" + cmeshnameActual + "_" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
             cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
             cout<<"Loading moving vertices and setting projection matrix..."<<endl;
             if(!Eigen::loadMarketVector(indices,constraint_file_name))
@@ -282,8 +286,6 @@ int main(int argc, char **argv) {
                 world.addConstraint(movingConstraints[ii]);
             }
             fixDisplacementMin(world, test,constraint_dir,constraint_tol);
-            
-            world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
             
             
         }
@@ -352,7 +354,8 @@ int main(int argc, char **argv) {
         struct stat buf;
         unsigned int idxc;
         
-        for(istep=0; istep<numSteps ; ++istep) {
+        for(istep=0; istep<numSteps ; ++istep)
+        {
             if(dynamic_flag != 0)
             {
                 test->ratio_calculated = false;
@@ -471,23 +474,15 @@ int main(int argc, char **argv) {
                     cout<<"fail loading mouse z motion"<<endl;
                 
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-                    
                     auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                    //
                     if ((istep) < 250) {
-                        //                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
                         if(Xvel(istep) <= 0){   v_q(0) += 0.5*std::max(Xvel(istep),-0.005);}
                         else{ v_q(0) += 0.5*std::min(Xvel(istep),0.005);}
                         if(Yvel(istep) <= 0){   v_q(1) += 0.5*std::max(Yvel(istep),-0.005);}
                         else{ v_q(1) += 0.5*std::min(Yvel(istep),0.005);}
                         if(Zvel(istep) <= 0){   v_q(2) += 0.5*std::max(Zvel(istep),-0.005);}
                         else{ v_q(2) += 0.5*std::min(Zvel(istep),0.005);}
-                        //
-                        //                            v_q(1) += Yvel(istep);
-                        //                        v_q(2) += Zvel(istep);
                     }
-                    
-                    
                 }
             }//output data stream into text
             // the following ones append one number to an opened file along the simulation
@@ -536,9 +531,9 @@ int main(int argc, char **argv) {
                 idxc++;
             }
             
-            // output mesh position with elements
-//            igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
-    //            
+//             output mesh position with elements
+            igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
+    //
     //            std::string cdeffilename = "cdef"+ std::to_string(file_ind) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(constraint_dir) + "_" + std::to_string(constraint_tol) + ".mtx";
     //            Eigen::saveMarket(V_disp,cdeffilename);
     //
@@ -557,20 +552,54 @@ int main(int argc, char **argv) {
             
             // output mesh position with only surface mesh
             igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
+//
+            Eigen::VectorXd coarse_eig_def;
+//            if(dynamic_flag == 2)
+//            {
+//                V_disp = test->V_reset;
+//                for(int mode = 0; mode < numModes; mode++)
+//                {
+//                    V_disp = test->V_reset;
+//                    igl::writeOBJ("restart_coarse_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
+//
+//                    idxc = 0;
+//                    coarse_eig_def = (P.transpose()*((test->m_coarseUs_restart).first.col(mode))).transpose();
+//                    // get the mesh position
+//                    for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+//
+//                        V_disp(vertexId,0) += coarse_eig_def(idxc);
+//                        idxc++;
+//                        V_disp(vertexId,1) += coarse_eig_def(idxc);
+//                        idxc++;
+//                        V_disp(vertexId,2) += coarse_eig_def(idxc);
+//                        idxc++;
+//                    }
+//                    igl::writeOBJ("restart_coarse_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
+//                }
+//
+//
+//            }
             
             // output eigenvalues
             Eigen::saveMarketVector(test->coarseEig.second, "eigenvalues" + std::to_string(file_ind)+ ".mtx");
             // output eigenvalues
             Eigen::saveMarketVector(test->fineEig.second, "fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
+//
+//            if(dynamic_flag == 2)
+//            {
+//                cout<<"Writing restart coarse eigenvalues into files"<<endl;
+//                // output eigenvalues
+//                Eigen::saveMarketVector(test->m_coarseUs_restart.second, "restart_eigenvalues" + std::to_string(file_ind)+ ".mtx");
+//                // output eigenvalues
+//                Eigen::saveMarketVector(test->m_fineUs_restart.second, "restart_fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
+//            }
             
-            
-            if (numModes != 0) {
-                // declare variable for fine mesh rest pos
-                Eigen::MatrixXd Vf_disp;
-                
+            Eigen::MatrixXd Vf_disp;
+            if (numModes != 0)
+            {// declare variable for fine mesh rest pos
                 // embedded V
                 auto fine_q = mapStateEigen<0>(test->getFineWorld());
-                fine_q = (*(test->N)) * q.head(q.rows()/2);
+//                fine_q = (*(test->N)) * q.head(q.rows()/2);
                 idxc = 0; // reset index counter
                 Vf_disp = std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first;
                 // output mesh position with only surface mesh
@@ -583,14 +612,40 @@ int main(int argc, char **argv) {
                     Vf_disp(vertexId,2) += fine_q(idxc);
                     idxc++;
                 }
+                
+                igl::writeOBJ("finepos" + std::to_string(file_ind) + ".obj",Vf_disp,std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().second);
                 // output mesh position with only surface mesh
                 igl::writeOBJ("finesurfpos" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
-                
-                
             }
             
+//            
+//            Eigen::VectorXd fine_eig_def;
+//            if(dynamic_flag == 2)
+//            {
+//                Vf_disp = test->Vf_reset;
+//                for(int mode = 0; mode < numModes; mode++)
+//                {
+//                    Vf_disp = test->Vf_reset;
+//                    igl::writeOBJ("restart_fine_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
+//                    
+//                    idxc = 0;
+//                    fine_eig_def = (test->m_fineP.transpose()*((test->m_fineUs_restart).first.col(mode))).transpose();
+//                    // get the mesh position
+//                    for(unsigned int vertexId=0;  vertexId < std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+//                        
+//                        Vf_disp(vertexId,0) += fine_eig_def(idxc);
+//                        idxc++;
+//                        Vf_disp(vertexId,1) += fine_eig_def(idxc);
+//                        idxc++;
+//                        Vf_disp(vertexId,2) += fine_eig_def(idxc);
+//                        idxc++;
+//                    }
+//                    igl::writeOBJ("restart_fine_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
+//                }
+//            }
             // update step number;
             test->step_number++;
+            cout<<"simulated frame: " << test->step_number<<endl;
         }
         
     }
