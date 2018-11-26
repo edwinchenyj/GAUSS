@@ -132,6 +132,9 @@ int main(int argc, char **argv) {
         int dynamic_flag = atoi(argv[12]);
         double a = atof(argv[13]);
         double b = atof(argv[14]);
+        std::string ratio_manual_file = (argv[15]);
+        int compute_frequency = atoi(argv[16]);
+        
         cout<<"Simulation parameters..."<<endl;
         cout<<"Youngs: "<<youngs<<endl;
         cout<<"Poisson: "<<poisson<<endl;
@@ -145,12 +148,19 @@ int main(int argc, char **argv) {
         cout<<"Number of modes: "<<numModes<<endl;
         cout<<"Constraint profile: "<<const_profile<<endl;
         cout<<"Initial deformation: "<<initial_def<<endl;
+        cout<< "ratio manual file/feval manual file: "<< ratio_manual_file;
+        cout<< "compute frequency (only used for dynamics): "<< compute_frequency;
         //
         // send the constraint switch in as well, or the fine embedded mesh. ugly
         // the flag indicate whether to recalculated or not
         // need to pass the material and constraint parameters to embedding too. need to do it again below. ugly
         // also use the last two args to determine how many modes to fix. have to put it here now. ugly
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual);
+        Eigen::VectorXd ratio_manual(numModes);
+        
+        if(!Eigen::loadMarketVector(ratio_manual,"data/" + ratio_manual_file))
+            ratio_manual.setZero();
+        
+        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
         
         // TODO: set rayleigh damping. should not be here...
         test->a = a;
@@ -360,6 +370,22 @@ int main(int argc, char **argv) {
             {
                 test->ratio_calculated = false;
                 cout<<"reset ratio calculation flag"<<endl;
+                
+                if(dynamic_flag == 3)
+                {
+//                    test->m_feval_manual =
+//                    Eigen::VectorXd eigv;
+                    if(~Eigen::loadMarketVector(test->m_feval_manual, "data/" + ratio_manual_file +std::to_string(istep) + ".mtx"))
+                    {
+//                        test->m_feval_manual.resize(numModes);
+                        cout<<"ERROR: can't load eigenvalue from fine mesh for dynamics EigenFit.";
+                        exit(1);
+                    }
+                }
+                else if(dynamic_flag == 4)
+                {
+                    test->m_finepos_manual = ratio_manual_file;
+                }
             }
             
             try{
@@ -531,6 +557,8 @@ int main(int argc, char **argv) {
                 idxc++;
             }
             
+            test->m_Vc_current = V_disp;
+            
 //             output mesh position with elements
             igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
     //
@@ -599,7 +627,7 @@ int main(int argc, char **argv) {
             {// declare variable for fine mesh rest pos
                 // embedded V
                 auto fine_q = mapStateEigen<0>(test->getFineWorld());
-//                fine_q = (*(test->N)) * q.head(q.rows()/2);
+                fine_q = (*(test->N)) * q.head(q.rows()/2);
                 idxc = 0; // reset index counter
                 Vf_disp = std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first;
                 // output mesh position with only surface mesh
@@ -616,6 +644,7 @@ int main(int argc, char **argv) {
                 igl::writeOBJ("finepos" + std::to_string(file_ind) + ".obj",Vf_disp,std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().second);
                 // output mesh position with only surface mesh
                 igl::writeOBJ("finesurfpos" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
+                test->m_Vf_current = Vf_disp;
             }
             
 //            
@@ -689,9 +718,11 @@ int main(int argc, char **argv) {
         
         //    acutal name for the mesh, no path
         std::string fmeshnameActual = fmeshname.substr(found+1);
-        
+        Eigen::VectorXd ratio_manual(numModes);
+        ratio_manual.setZero();
+        int compute_frequency = 0;
         //        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes," "," ");
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual);
+        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
         
         
         // set material

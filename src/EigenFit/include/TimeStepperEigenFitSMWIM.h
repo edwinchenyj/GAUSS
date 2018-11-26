@@ -317,9 +317,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             x0 = solver.solve((eigen_rhs));
             
 #endif
-        if(!matrix_fix_flag)
+        if(!matrix_fix_flag && m_numModes != 0 )
         {
-        cout<<"Igonring change in stiffness matrix from EigenFit"<<endl;
+        cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
         }
         else
         {
@@ -394,9 +394,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         
         if (m_numModes != 0) {
             
-            
-            
-            static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+//
+//
+//            static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
             
             //    Correct Forces
             (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
