@@ -65,11 +65,11 @@ void preStepCallback(MyWorld &world) {
     // get the mesh position
     for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
         
-        Vtemp(vertexId,0) += q(idxc);
+        Vtemp(vertexId,0) = V(vertexId,0) + q(idxc);
         idxc++;
-        Vtemp(vertexId,1) += q(idxc);
+        Vtemp(vertexId,1) = V(vertexId,1) + q(idxc);
         idxc++;
-        Vtemp(vertexId,2) += q(idxc);
+        Vtemp(vertexId,2) = V(vertexId,2) + q(idxc);
         idxc++;
     }
     
@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     MyWorld world;
 
     //new code -- load tetgen files
-    readTetgen(V, F, dataDir()+"/meshesTetWild/brick/brick_surf_2.node", dataDir()+"/meshesTetWild/brick/brick_surf_2.ele");
+    readTetgen(V, F, dataDir()+"/meshesTetWild/brick_surf/brick_surf_2.node", dataDir()+"/meshesTetWild/brick_surf/brick_surf_2.ele");
     Vtemp = V;
     
     igl::boundary_facets(F,surfF);

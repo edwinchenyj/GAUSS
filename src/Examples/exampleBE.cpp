@@ -8,6 +8,8 @@
 #include <ConstraintFixedPoint.h>
 #include <TimeStepperERE.h>
 #include <TimeStepperSIIMEX.h>
+#include <TimeStepperSI.h>
+#include <TimeStepperBE.h>
 #include <ExponentialIMEX.h>
 #include <TimeStepperEigenFitSMWIM.h>
 #include <EigenFit.h>
@@ -32,7 +34,7 @@ typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 
-typedef TimeStepperSIIMEX<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperBE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
@@ -113,6 +115,7 @@ int main(int argc, char **argv) {
     
     
     //    readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
+    //    readTetgen(V, F, dataDir()+"/meshesTetgen/Beam/Beam.node", dataDir()+"/meshesTetgen/Beam/Beam.ele");
     readTetgen(V, F, dataDir()+"/meshesTetWild/arma/arma_4.node", dataDir()+"/meshesTetWild/arma/arma_4.ele");
     
     
@@ -169,92 +172,92 @@ int main(int argc, char **argv) {
     unsigned int file_ind = 0;
     struct stat buf;
     unsigned int idxc;
-    
-    for(istep=0; istep<1000 ; ++istep)
-    {
-        stepper.step(world);
-//        cout<<"Moving constrained vertices using mouse motion"<<endl;
-//        Eigen::VectorXd Xvel;
-//        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
-//        {
-//            cout<<"fail loading mouse x motion"<<endl;
-//        }
-//        Eigen::VectorXd Yvel;
-//        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
-//            cout<<"fail loading mouse y motion"<<endl;
-//        Eigen::VectorXd Zvel;
-//        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
-//            cout<<"fail loading mouse z motion"<<endl;
-//
-//        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-//            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-//            if ((istep) < 250) {
-//                if(Xvel(istep) <= 0){   v_q(0) += 0.5*std::max(Xvel(istep),-0.005);}
-//                else{ v_q(0) += 0.5*std::min(Xvel(istep),0.005);}
-//                if(Yvel(istep) <= 0){   v_q(1) += 0.5*std::max(Yvel(istep),-0.005);}
-//                else{ v_q(1) += 0.5*std::min(Yvel(istep),0.005);}
-//                if(Zvel(istep) <= 0){   v_q(2) += 0.5*std::max(Zvel(istep),-0.005);}
-//                else{ v_q(2) += 0.5*std::min(Zvel(istep),0.005);}
-//            }
-//        }
-        std::ofstream ofile;
-        //output data stream into text
-        ofile.open("PE.txt", std::ios::app); //app is append which means it will put the text at the end
-        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState()) << std::endl;
-        ofile.close();
-        
-        //output data stream into text
-        ofile.open("Hamiltonian.txt", std::ios::app); //app is append which means it will put the text at the end
-        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
-        ofile.close();
-        
-        ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
-        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
-        ofile.close();
-        
-        
-        // check if the file already exist
-        std::string filename = "surfpos" + std::to_string(file_ind) + ".obj";
-        while (stat(filename.c_str(), &buf) != -1)
+
+        for(istep=0; istep<1000 ; ++istep)
         {
-            file_ind++;
-            filename = "surfpos" + std::to_string(file_ind) + ".obj";
+            stepper.step(world);
+            //        cout<<"Moving constrained vertices using mouse motion"<<endl;
+            //        Eigen::VectorXd Xvel;
+            //        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+            //        {
+            //            cout<<"fail loading mouse x motion"<<endl;
+            //        }
+            //        Eigen::VectorXd Yvel;
+            //        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            //            cout<<"fail loading mouse y motion"<<endl;
+            //        Eigen::VectorXd Zvel;
+            //        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            //            cout<<"fail loading mouse z motion"<<endl;
+            //
+            //        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            //            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
+            //            if ((istep) < 250) {
+            //                if(Xvel(istep) <= 0){   v_q(0) += 0.5*std::max(Xvel(istep),-0.005);}
+            //                else{ v_q(0) += 0.5*std::min(Xvel(istep),0.005);}
+            //                if(Yvel(istep) <= 0){   v_q(1) += 0.5*std::max(Yvel(istep),-0.005);}
+            //                else{ v_q(1) += 0.5*std::min(Yvel(istep),0.005);}
+            //                if(Zvel(istep) <= 0){   v_q(2) += 0.5*std::max(Zvel(istep),-0.005);}
+            //                else{ v_q(2) += 0.5*std::min(Zvel(istep),0.005);}
+            //            }
+            //        }
+            std::ofstream ofile;
+            //output data stream into text
+            ofile.open("PE.txt", std::ios::app); //app is append which means it will put the text at the end
+            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState()) << std::endl;
+            ofile.close();
+
+            //output data stream into text
+            ofile.open("Hamiltonian.txt", std::ios::app); //app is append which means it will put the text at the end
+            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
+            ofile.close();
+
+            ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
+            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
+            ofile.close();
+
+
+            // check if the file already exist
+            std::string filename = "surfpos" + std::to_string(file_ind) + ".obj";
+            while (stat(filename.c_str(), &buf) != -1)
+            {
+                file_ind++;
+                filename = "surfpos" + std::to_string(file_ind) + ".obj";
+            }
+
+
+
+            // rest pos for the coarse mesh getGeometry().first is V
+            q = mapStateEigen(world);
+            idxc = 0;
+            Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
+
+
+            // get the mesh position
+            for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+
+                V_disp(vertexId,0) += q(idxc);
+                idxc++;
+                V_disp(vertexId,1) += q(idxc);
+                idxc++;
+                V_disp(vertexId,2) += q(idxc);
+                idxc++;
+            }
+
+
+            //             output mesh position with elements
+            igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
+
+            // output mesh position with only surface mesh
+            igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
+            //
         }
-        
-        
-        
-        // rest pos for the coarse mesh getGeometry().first is V
-        q = mapStateEigen(world);
-        idxc = 0;
-        Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
-        
-        
-        // get the mesh position
-        for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-            
-            V_disp(vertexId,0) += q(idxc);
-            idxc++;
-            V_disp(vertexId,1) += q(idxc);
-            idxc++;
-            V_disp(vertexId,2) += q(idxc);
-            idxc++;
-        }
-        
-        
-        //             output mesh position with elements
-        igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
-        
-        // output mesh position with only surface mesh
-        igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-        //
-    }
-    //    //Display
-    //    QGuiApplication app(argc, argv);
-    //
-    //    MyScene *scene = new MyScene(&world, &stepper, preStepCallback);
-    //    GAUSSVIEW(scene);
-    //
-    //    return app.exec();
+    //Display
+//    QGuiApplication app(argc, argv);
+//
+//    MyScene *scene = new MyScene(&world, &stepper, preStepCallback);
+//    GAUSSVIEW(scene);
+//
+//    return app.exec();
     
     
 }

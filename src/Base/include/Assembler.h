@@ -28,7 +28,7 @@ a->funcName(assembler, world, world.getState()); \
 #define ASSEMBLELISTOFFSET(assembler, list, funcName, rowOffset, colOffset) \
 assembler.setOffset(rowOffset, colOffset);\
 forEach(list, [&world, &assembler](auto a) { \
-a->funcName(assembler, world, world.getState()); \
+a->funcName(assembler, world.getState()); \
 });
 
 #define ASSEMBLELISTOFFSETTRANSPOSE(assembler, list, funcName, rowOffset, colOffset) \

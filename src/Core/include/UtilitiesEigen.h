@@ -233,7 +233,7 @@ auto generalizedEigenvalueProblem(const Eigen::SparseMatrix<DataType, Flags, Ind
                                   unsigned int numVecs, DataType shift) {
     
     //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
-    Eigen::SparseMatrix<DataType> K = A + shift*B;
+    Eigen::SparseMatrix<DataType> K = -A + shift*B;
     Eigen::SparseMatrix<DataType> M = B;
     
     //Spectra::SparseSymMassShiftSolve<DataType> Aop(K, M);
@@ -275,6 +275,55 @@ auto generalizedEigenvalueProblem(const Eigen::SparseMatrix<DataType, Flags, Ind
     
 }
 
+
+//use shift and invert to find Eigenvalues near the shift
+template<typename DataType, int Flags, typename Indices>
+auto generalizedEigenvalueProblemNotNormalized(const Eigen::SparseMatrix<DataType, Flags, Indices> &A,
+                                  const Eigen::SparseMatrix<DataType, Flags,Indices> &B,
+                                  unsigned int numVecs, DataType shift) {
+    
+    //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
+    Eigen::SparseMatrix<DataType> K = -A + shift*B;
+    Eigen::SparseMatrix<DataType> M = B;
+    
+    //Spectra::SparseSymMassShiftSolve<DataType> Aop(K, M);
+    //Aop.set_shift(shift);
+    Spectra::SparseSymMatProd<DataType> Aop(M);
+    Spectra::SparseCholesky<DataType> Bop(K);
+    
+    // Construct eigen solver object, requesting the smallest three eigenvalues
+    Spectra::SymGEigsSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseSymMatProd<DataType>, Spectra::SparseCholesky<DataType>, Spectra::GEIGS_CHOLESKY > eigs(&Aop, &Bop, numVecs, 5*numVecs);
+    
+    
+    //Spectra::GenEigsShiftSolver<double, Spectra::LARGEST_MAGN,  Spectra::SparseSymMassShiftSolve<DataType> > eigs(&Aop, numVecs, 5*numVecs, shift);
+    
+    // Initialize and compute
+    eigs.init();
+    eigs.compute();
+    Eigen::VectorXx<DataType> eigsCorrected;
+//    Eigen::MatrixXx<DataType> evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
+    eigsCorrected.resize(eigs.eigenvalues().rows());
+//    evsCorrected.resize(eigs.eigenvectors().rows(), eigs.eigenvectors().cols());
+    
+    //TO DO optimize this so there's not so much data copying going on.
+    //Eigenvector magnitudes are wrong ... need to make sure this isn't a theoretical bug if not just rescale properly
+    
+    // Retrieve results
+    if(eigs.info() == Spectra::SUCCESSFUL) {
+        //correct eigenvalues
+        for(unsigned int ii=0; ii<eigs.eigenvalues().rows(); ++ii) {
+            eigsCorrected[ii] = -(static_cast<DataType>(1)/(eigs.eigenvalues()[ii]) + shift);
+//            evsCorrected.col(ii)  = eigs.eigenvectors().col(ii)/sqrt(eigs.eigenvectors().col(ii).transpose()*M*eigs.eigenvectors().col(ii));
+        }
+        
+        return std::make_pair(eigs.eigenvectors(), eigsCorrected);
+    } else {
+        std::cout<<"Failure: "<<eigs.info()<<"\n";
+        exit(1);
+        return std::make_pair(eigs.eigenvectors(), eigs.eigenvalues());
+    }
+    
+}
 
 
 //template<typename DataType, int Flags, typename Indices>
@@ -334,15 +383,15 @@ auto generalizedEigenvalueProblemNegative(const Eigen::SparseMatrix<DataType, Fl
     Eigen::SparseMatrix<DataType> M = B;
     
     
-    Spectra::SparseSymMatProd<DataType> Aop(K);
-    Spectra::SparseCholesky<DataType>   Bop(M);
+    Spectra::SparseSymMatProd<DataType> Aop(M);
+    Spectra::SparseCholesky<DataType>   Bop(K);
     
     //Spectra::SparseSymShiftSolve<DataType> Aop(K);
     
     //Aop.set_shift(1e-3);
     
     // Construct eigen solver object, requesting the smallest three eigenvalues
-    Spectra::SymGEigsSolver<DataType, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<DataType>, Spectra::SparseCholesky<DataType>, Spectra::GEIGS_CHOLESKY > eigs(&Aop, &Bop, numVecs, 5*numVecs);
+    Spectra::SymGEigsSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseSymMatProd<DataType>, Spectra::SparseCholesky<DataType>, Spectra::GEIGS_CHOLESKY > eigs(&Aop, &Bop, numVecs, 5*numVecs);
     
     
     // Initialize and compute
@@ -378,13 +427,13 @@ auto generalizedEigenvalueProblemNegative(const Eigen::SparseMatrix<DataType, Fl
                                           unsigned int numVecs, DataType shift) {
     
     //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
-    Eigen::SparseMatrix<DataType> K = -A + shift*B;
+    Eigen::SparseMatrix<DataType> K = -A;
     Eigen::SparseMatrix<DataType> M = B;
     
     //Spectra::SparseSymMassShiftSolve<DataType> Aop(K, M);
     //Aop.set_shift(shift);
     Spectra::SparseSymMatProd<DataType> Aop(M);
-    Spectra::SparseCholesky<DataType> Bop(K);
+    Spectra::SparseCholesky<DataType> Bop((K));
     
     // Construct eigen solver object, requesting the smallest three eigenvalues
     Spectra::SymGEigsSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseSymMatProd<DataType>, Spectra::SparseCholesky<DataType>, Spectra::GEIGS_CHOLESKY > eigs(&Aop, &Bop, numVecs, 5*numVecs);
@@ -395,10 +444,10 @@ auto generalizedEigenvalueProblemNegative(const Eigen::SparseMatrix<DataType, Fl
     // Initialize and compute
     eigs.init();
     eigs.compute();
-    Eigen::VectorXx<DataType> eigsCorrected;
-    Eigen::MatrixXx<DataType> evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
-    eigsCorrected.resize(eigs.eigenvalues().rows());
-    evsCorrected.resize(eigs.eigenvectors().rows(), eigs.eigenvectors().cols());
+//    Eigen::VectorXx<DataType> eigsCorrected;
+//    Eigen::MatrixXx<DataType> evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
+//    eigsCorrected.resize(eigs.eigenvalues().rows());
+//    evsCorrected.resize(eigs.eigenvectors().rows(), eigs.eigenvectors().cols());
     
     //TO DO optimize this so there's not so much data copying going on.
     //Eigenvector magnitudes are wrong ... need to make sure this isn't a theoretical bug if not just rescale properly
@@ -406,12 +455,13 @@ auto generalizedEigenvalueProblemNegative(const Eigen::SparseMatrix<DataType, Fl
     // Retrieve results
     if(eigs.info() == Spectra::SUCCESSFUL) {
         //correct eigenvalues
-        for(unsigned int ii=0; ii<eigs.eigenvalues().rows(); ++ii) {
-            eigsCorrected[ii] = -(static_cast<DataType>(1)/(eigs.eigenvalues()[ii]) + shift);
-            evsCorrected.col(ii)  = eigs.eigenvectors().col(ii)/sqrt(eigs.eigenvectors().col(ii).transpose()*M*eigs.eigenvectors().col(ii));
-        }
+//        for(unsigned int ii=0; ii<eigs.eigenvalues().rows(); ++ii) {
+//            eigsCorrected[ii] = (static_cast<DataType>(1)/(eigs.eigenvalues()[ii]) + shift);
+//            evsCorrected.col(ii)  = eigs.eigenvectors().col(ii)/sqrt(eigs.eigenvectors().col(ii).transpose()*M*eigs.eigenvectors().col(ii));
+//        }
         
-        return std::make_pair(evsCorrected, eigsCorrected);
+//        return std::make_pair(evsCorrected, eigsCorrected);
+        return std::make_pair(eigs.eigenvectors(), eigs.eigenvalues());
     } else {
         std::cout<<"Failure: "<<eigs.info()<<"\n";
         exit(1);
@@ -480,12 +530,13 @@ auto generalizedEigenvalueProblemSparseInverse(const Eigen::SparseMatrix<DataTyp
                                                unsigned int numVecs) {
     
     //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
-    Eigen::SparseMatrix<DataType> K = A;
+    Eigen::SparseMatrix<DataType> K = -A;
     Eigen::SparseMatrix<DataType> M = B;
     
     
-    Spectra::SparseSymMatProd<DataType> Aop(K);
-    Spectra::SparseRegularInverse<DataType>   Bop(M);
+    Spectra::SparseSymMatProd<DataType> Aop(M);
+    Spectra::SparseRegularInverse<DataType>   Bop(K);
+    
     
     //Spectra::SparseSymShiftSolve<DataType> Aop(K);
     
@@ -494,15 +545,24 @@ auto generalizedEigenvalueProblemSparseInverse(const Eigen::SparseMatrix<DataTyp
     // Construct eigen solver object, requesting the smallest three eigenvalues
     Spectra::SymGEigsSolver<DataType, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<DataType>, Spectra::SparseRegularInverse<DataType>, Spectra::GEIGS_REGULAR_INVERSE > eigs(&Aop, &Bop, numVecs, 5*numVecs);
     
+    Eigen::VectorXx<DataType> eigsCorrected;
+    Eigen::MatrixXx<DataType> evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
+    eigsCorrected.resize(eigs.eigenvalues().rows());
+    evsCorrected.resize(eigs.eigenvectors().rows(), eigs.eigenvectors().cols());
+
     
     // Initialize and compute
     eigs.init();
-    //int nconv = eigs.compute();
+    int nconv = eigs.compute();
     
-    // Retrieve results
     if(eigs.info() == Spectra::SUCCESSFUL) {
+        //correct eigenvalues
+        for(unsigned int ii=0; ii<eigs.eigenvalues().rows(); ++ii) {
+            eigsCorrected[ii] = -(static_cast<DataType>(1)/(eigs.eigenvalues()[ii]));
+            evsCorrected.col(ii)  = eigs.eigenvectors().col(ii)/sqrt(eigs.eigenvectors().col(ii).transpose()*M*eigs.eigenvectors().col(ii));
+        }
         
-        return std::make_pair(eigs.eigenvectors(), eigs.eigenvalues());
+        return std::make_pair(evsCorrected, eigsCorrected);
     } else {
         std::cout<<"Failure: "<<eigs.info()<<"\n";
         exit(1);
