@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <Eigen/Eigenvalues>
 #include <unsupported/Eigen/SparseExtra>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +54,20 @@
 using std::cout;
 using std::endl;
 
-
+//template<typename MatrixType>
+//void phi(MatrixType &A, MatrixType &out)
+//{
+//    
+//    Eigen::EigenSolver<MatrixType> es(A);
+//    MatrixType D;
+//    D.resize(A.rows(),A.cols());
+//    D.setZero();
+//    D = es.eigenvalues().real();
+//    for (int i = 0; i < D.rows(); i++) {
+//        D(i,i) = (exp(D(i,i)) - 1)/D(i,i);
+//    }
+//    out = es.eigenvectors().real()*D* es.eigenvectors().real().inverse();
+//}
 
 template<typename DataType, typename MatrixType>
 void expv(double t, MatrixType &A, Eigen::VectorXx<DataType> &v, Eigen::VectorXx<DataType> &out, double tol = 1e-7, int m = 30)

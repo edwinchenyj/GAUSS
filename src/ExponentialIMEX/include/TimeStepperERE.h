@@ -138,7 +138,7 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
 //    a = (std::get<0>(world.getSystemList().getStorage())[0])->a;
 //    b = (std::get<0>(world.getSystemList().getStorage())[0])->b;
     
-    std::cout<<"b: "<<b<<std::endl;
+//    std::cout<<"b: "<<b<<std::endl;
     //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
         MatrixAssembler &massMatrix = m_massMatrix;
     
@@ -318,7 +318,7 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
     double temp = ((mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix)).cwiseAbs()*ones +  (mass_lumped.asDiagonal().inverse()*b*(*stiffnessMatrix)).cwiseAbs()*ones + a * ones).maxCoeff();// +(a*mass_lumped.asDiagonal()+ ;
 //    cout<<"temp: "<< temp<<endl;
     anorm = std::max(anorm, temp);
-    cout<<"anorm: "<<anorm<<endl;
+//    cout<<"anorm: "<<anorm<<endl;
 //        double anorm = (A.cwiseAbs()*ones).maxCoeff(); // infinity norm
         
         // some initialization

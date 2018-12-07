@@ -81,7 +81,7 @@ public:
             
             igl::boundary_facets(Ff,m_surfFf);
             m_Vf_current = m_Vf;
-
+            
             
             m_cmeshname = cmeshname;
             m_fmeshname = fmeshname;
@@ -552,8 +552,9 @@ public:
         std::cout<<"Dynamic switch: "<<ratio_recalculation_switch<<std::endl;
         if((!ratio_calculated))
         {
-            if( ratio_recalculation_switch == 1 || ratio_recalculation_switch == 0)
+            if( ratio_recalculation_switch == 1 || ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
             {
+                // reset deformation if it is not zero. need zero (rest state configuration) to calculate static ratio.
                 cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
                 unsigned int mode = 0;
                 unsigned int idx = 0;
@@ -586,7 +587,7 @@ public:
                     Eigen::saveMarket(coarse_V_disp_n, cfilename);
                 }
                 
-                if(ratio_recalculation_switch == 0)
+                if(ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
                 {
                     
                     cout<<"Static EigenFit. Try to load precalculated data"<<endl;
@@ -835,51 +836,51 @@ public:
             {
                 if(step_number%m_compute_frequency == 0) // update once every few frames
                 {
-//                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
-//                                        fine_q = (*(this->N)) * q;
-//                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
-////                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,m_fineWorld.getNumQDOFs());
-////
-////                    Eigen::VectorXx<double> posFull;
-////                    posFull = this->getFinePositionFull(q);
-////                    //
-////                    fine_q = posFull - eigen_fine_pos0;
-//                    unsigned int idx = 0;
-//
-//                    Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
-//
-//                    for(unsigned int vertexId=0;  vertexId < std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-//
-//                        // because getFinePosition is in EigenFit, not another physical system Impl, so don't need getImpl()
-//                        fine_V_disp(vertexId,0) += (1*fine_q(idx));
-//                        idx++;
-//                        fine_V_disp(vertexId,1) += (1*fine_q(idx));
-//                        idx++;
-//                        fine_V_disp(vertexId,2) += (1*fine_q(idx));
-//                        idx++;
-//                    }
-//
-//                    idx = 0;
-//                    Eigen::MatrixXd V_disp = this->getGeometry().first;
-//
-//                    for(unsigned int vertexId=0;  vertexId < this->getGeometry().first.rows(); ++vertexId) {
-//
-//                        V_disp(vertexId,0) += (1*q(idx));
-//                        idx++;
-//                        V_disp(vertexId,1) += (1*q(idx));
-//                        idx++;
-//                        V_disp(vertexId,2) += (1*q(idx));
-//                        idx++;
-//                    }
-//
-//
-//                    Vf_reset = fine_V_disp;
-//                    Eigen::MatrixXi fine_F;
-//                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
+                    //                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
+                    //                                        fine_q = (*(this->N)) * q;
+                    //                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
+                    ////                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,m_fineWorld.getNumQDOFs());
+                    ////
+                    ////                    Eigen::VectorXx<double> posFull;
+                    ////                    posFull = this->getFinePositionFull(q);
+                    ////                    //
+                    ////                    fine_q = posFull - eigen_fine_pos0;
+                    //                    unsigned int idx = 0;
+                    //
+                    //                    Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
+                    //
+                    //                    for(unsigned int vertexId=0;  vertexId < std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+                    //
+                    //                        // because getFinePosition is in EigenFit, not another physical system Impl, so don't need getImpl()
+                    //                        fine_V_disp(vertexId,0) += (1*fine_q(idx));
+                    //                        idx++;
+                    //                        fine_V_disp(vertexId,1) += (1*fine_q(idx));
+                    //                        idx++;
+                    //                        fine_V_disp(vertexId,2) += (1*fine_q(idx));
+                    //                        idx++;
+                    //                    }
+                    //
+                    //                    idx = 0;
+                    //                    Eigen::MatrixXd V_disp = this->getGeometry().first;
+                    //
+                    //                    for(unsigned int vertexId=0;  vertexId < this->getGeometry().first.rows(); ++vertexId) {
+                    //
+                    //                        V_disp(vertexId,0) += (1*q(idx));
+                    //                        idx++;
+                    //                        V_disp(vertexId,1) += (1*q(idx));
+                    //                        idx++;
+                    //                        V_disp(vertexId,2) += (1*q(idx));
+                    //                        idx++;
+                    //                    }
+                    //
+                    //
+                    //                    Vf_reset = fine_V_disp;
+                    //                    Eigen::MatrixXi fine_F;
+                    //                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
                     igl::writeOBJ("fine_mesh_eigen_rest" +std::to_string(step_number)+ ".obj",m_Vf_current,m_surfFf);
                     
-//                    V_reset = V_disp;
-//                    Eigen::MatrixXi coarse_F;
+                    //                    V_reset = V_disp;
+                    //                    Eigen::MatrixXi coarse_F;
                     //                    igl::boundary_facets(this->getImpl().getF(),coarse_F);
                     //                    igl::writeOBJ("coarse_mesh_eigen_rest_original"+ std::to_string(step_number) +".obj",this->getGeometry().first,coarse_F);
                     
@@ -930,37 +931,37 @@ public:
                 if(step_number%m_compute_frequency == 0) // update once every few frames
                 {
                     
-                        for(int i = 0; i < m_numModes; ++i)
+                    for(int i = 0; i < m_numModes; ++i)
+                    {
+                        m_R(i) = m_feval_manual(i)/m_coarseUs.second(i);
+                        if (m_numConstraints == 3)
                         {
-                            m_R(i) = m_feval_manual(i)/m_coarseUs.second(i);
-                            if (m_numConstraints == 3)
-                            {
-                                // if constraint is  a point constaint
-                                m_R(0) = 1.0;
-                                m_R(1) = 1.0;
-                                m_R(2) = 1.0;
-                            }
-                            else if(m_numConstraints == 0)
-                            {
-                                //  free boundary
-                                m_R(0) = 1.0;
-                                m_R(1) = 1.0;
-                                m_R(2) = 1.0;
-                                m_R(3) = 1.0;
-                                m_R(4) = 1.0;
-                                m_R(5) = 1.0;
-                                
-                            }
-                            //#ifdef EDWIN_DEBUG
-                            cout<<"dynamic ratio used: "<<endl;
-                            std::cout<<m_R(i)<<std::endl;
-                            //#endif
+                            // if constraint is  a point constaint
+                            m_R(0) = 1.0;
+                            m_R(1) = 1.0;
+                            m_R(2) = 1.0;
+                        }
+                        else if(m_numConstraints == 0)
+                        {
+                            //  free boundary
+                            m_R(0) = 1.0;
+                            m_R(1) = 1.0;
+                            m_R(2) = 1.0;
+                            m_R(3) = 1.0;
+                            m_R(4) = 1.0;
+                            m_R(5) = 1.0;
                             
                         }
+                        //#ifdef EDWIN_DEBUG
+                        cout<<"dynamic ratio used: "<<endl;
+                        std::cout<<m_R(i)<<std::endl;
+                        //#endif
                         
-                        ratio_calculated = true;
                     }
-
+                    
+                    ratio_calculated = true;
+                }
+                
                 
                 
                 
@@ -1035,6 +1036,7 @@ public:
                         //Eigendecomposition for the embedded fine mesh
                         //                        std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
                         m_Us = generalizedEigenvalueProblem(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                        Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues" + std::to_string(step_number) + ".mtx");
                         
                         fineEigMassProj = m_Us;
                         fineEig = m_Us;
@@ -1076,6 +1078,99 @@ public:
                 }
                 
                 
+            }
+            else if (ratio_recalculation_switch == 5)
+            {
+                
+                
+                cout<<"Static EigenFit Option 1. Try to load precalculated data"<<endl;
+                cout<<"Loading fine eigendecomp..."<<endl;
+                //                    std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
+                
+                std::string ffilename = "data/feigenval_" + m_fmeshname + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                cout<<ffilename<<endl;
+                if(!Eigen::loadMarketVector(m_Us.second, ffilename))
+                {
+                    // matrices passed in already eliminated the constraints
+                    cout<<"No file found. Performing eigendecomp on the fine mesh"<<endl;
+                    
+                    //            std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
+                    //lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
+                    // world name must match "world"?!
+                    World<double, std::tuple<PhysicalSystemImpl *>,
+                    std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
+                    std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
+                    
+                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
+                    
+                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
+                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
+                    
+                    Eigen::VectorXx<double> posFull;
+                    posFull = this->getFinePositionFull(q);
+                    //
+                    fine_q = posFull - eigen_fine_pos0;
+                    //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
+                    AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
+                    
+                    //            std::cout<<
+                    
+                    //get stiffness matrix
+                    ASSEMBLEMATINIT(fineStiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                    ASSEMBLELIST(fineStiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+                    ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+                    ASSEMBLEEND(fineStiffnessMatrix);
+                    
+                    
+                    //constraint Projection
+                    (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
+                    
+                    cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+                    m_Us = generalizedEigenvalueProblem(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                    
+                    fineEigMassProj = m_Us;
+                    fineEig = m_Us;
+                    fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
+                    
+                    Eigen::saveMarketVector(m_Us.second, ffilename);
+                    for(int mode = 0; mode < m_numModes; mode ++)
+                    {
+                        cout<<"Saving fine eigenvectors "<<mode<<endl;
+                        
+                        ffilename = "data/feigenvec_" + m_fmeshname + "_" + std::to_string(mode) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                        
+                        
+                        Eigen::saveMarketVector(m_Us.first.col(mode),ffilename);
+                        
+                    }
+                }
+                for(int i = 0; i < m_numModes; ++i)
+                {
+                    m_R(i) = m_Us.second(i)/m_coarseUs.second(i);
+                    if (m_numConstraints == 3)
+                    {
+                        // if constraint is  a point constaint
+                        m_R(0) = 1.0;
+                        m_R(1) = 1.0;
+                        m_R(2) = 1.0;
+                    }
+                    else if(m_numConstraints == 0)
+                    {
+                        //  free boundary
+                        m_R(0) = 1.0;
+                        m_R(1) = 1.0;
+                        m_R(2) = 1.0;
+                        m_R(3) = 1.0;
+                        m_R(4) = 1.0;
+                        m_R(5) = 1.0;
+                        
+                    }
+                    //#ifdef EDWIN_DEBUG
+                    cout<<"recalculating ratio for static option 1"<<endl;
+                    std::cout<<m_R(i)<<std::endl;
+                    //#endif
+                    
+                }
             }
             
             //            std::cout<<m_coarseUs.second<<std::endl;
@@ -1144,7 +1239,7 @@ public:
         std::tuple<ConstraintFixedPoint<double> *> > m_restartWorld;
         
         cout<<"Setting restart mesh..."<<endl;
-//        igl::write
+        //        igl::write
         PhysicalSystemImpl *m_restartMeshSystem = new PhysicalSystemImpl(V,F);
         
         cout<<"Setting restart mesh material"<<endl;
@@ -1357,19 +1452,6 @@ public:
     Eigen::VectorXx<double> m_feval_manual;
     std::string m_finepos_manual;
     
-    Eigen::MatrixXd fforthogonal;
-    Eigen::MatrixXd cforthogonal;
-    Eigen::MatrixXd fforthogonal2;
-    Eigen::MatrixXd cforthogonal2;
-    Eigen::MatrixXd fforthogonal3;
-    Eigen::MatrixXd cforthogonal3;
-    Eigen::MatrixXd fforthogonal4;
-    Eigen::MatrixXd cforthogonal4;
-    Eigen::MatrixXd fforthogonal5;
-    Eigen::MatrixXd cforthogonal5;
-    Eigen::MatrixXd fforthogonal6;
-    Eigen::MatrixXd cforthogonal6;
-    
     Eigen::SparseMatrix<double> m_fineP;
     Eigen::SparseMatrix<double> m_coarseP;
     
@@ -1415,6 +1497,8 @@ public:
     Eigen::MatrixXd m_Vc_current;
     Eigen::MatrixXi m_surfFf;
     Eigen::MatrixXi m_surfFc;
+    Eigen::VectorXd m_R;
+    int ratio_recalculation_switch;
     
 protected:
     
@@ -1459,7 +1543,7 @@ protected:
     //    unsigned int m_numToCorrect;
     
     //Ratios diagonal matrix, stored as vector
-    Eigen::VectorXd m_R;
+    
     Eigen::VectorXd m_I;
     
     
@@ -1475,7 +1559,6 @@ protected:
     
     
     bool ratio_recalculation_flag;
-    int ratio_recalculation_switch;
     
     
     unsigned int constraint_switch;

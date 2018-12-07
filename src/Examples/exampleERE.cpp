@@ -32,7 +32,7 @@ typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 
-typedef TimeStepperSIIMEX<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperERE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
@@ -113,6 +113,7 @@ int main(int argc, char **argv) {
     
     
     //    readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
+//    readTetgen(V, F, dataDir()+"/meshesTetgen/Beam/Beam.node", dataDir()+"/meshesTetgen/Beam/Beam.ele");
     readTetgen(V, F, dataDir()+"/meshesTetWild/arma/arma_4.node", dataDir()+"/meshesTetWild/arma/arma_4.ele");
     
     
@@ -248,13 +249,13 @@ int main(int argc, char **argv) {
         igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
         //
     }
-    //    //Display
-    //    QGuiApplication app(argc, argv);
-    //
-    //    MyScene *scene = new MyScene(&world, &stepper, preStepCallback);
-    //    GAUSSVIEW(scene);
-    //
-    //    return app.exec();
+//    //Display
+//    QGuiApplication app(argc, argv);
+//
+//    MyScene *scene = new MyScene(&world, &stepper, preStepCallback);
+//    GAUSSVIEW(scene);
+//
+//    return app.exec();
     
     
 }

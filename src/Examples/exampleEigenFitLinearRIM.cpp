@@ -6,8 +6,8 @@
 
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
-#include <TimeStepperEigenFitSMWIM.h>
-#include <EigenFit.h>
+#include <TimeStepperEigenFitLinearSMWIM.h>
+#include <EigenFitLinear.h>
 #include <fstream>
 #include <igl/boundary_facets.h>
 #include <igl/volume.h>
@@ -22,7 +22,7 @@ using namespace ParticleSystem; //For Force Spring
 
 //typedef scene
 //typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
-typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
+typedef PhysicalSystemFEM<double, LinearTet> FEMLinearTets;
 
 typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
@@ -32,7 +32,7 @@ std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 //                      std::tuple<ForceSpringFEMParticle<double> *>,
 //                      std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 //typedef TimeStepperEigenFitSMW<double, AssemblerEigenSparseMatrix<double>, AssemblerEigenVector<double>> MyTimeStepper;
-typedef TimeStepperEigenFitSMWIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperEigenFitLinearSMWIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     //    11. step size
     
     
-    std::cout<<"Test Neohookean FEM EigenFit with implicit midpoint solver\n";
+    std::cout<<"Test Linear FEM EigenFit with implicit midpoint solver \n";
     
     //Setup Physics
     MyWorld world;
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
         if(!Eigen::loadMarketVector(ratio_manual,"data/" + ratio_manual_file))
             ratio_manual.setZero();
         
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
+        EigenFitLinear *test = new EigenFitLinear(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
         
         // TODO: set rayleigh damping. should not be here...
         test->a = a;
@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
             
             P = fixedPointProjectionMatrix(indices, *test,world);
             
-//            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
+            //            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
             
             for(unsigned int ii=0; ii<indices.rows(); ++ii) {
                 movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
@@ -315,53 +315,6 @@ int main(int argc, char **argv) {
         // initialize the state (position and velocity)
         auto q = mapStateEigen(world);
         
-        // if static, should calculate the ratios here (before loading the deformation)
-        // or if DAC (dynamic_flag == 6), calculate the first ratio
-        if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0))
-        {
-            auto q_pos = mapStateEigen<0>(world);
-            q_pos.setZero();
-            
-            //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
-            AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
-            AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> stiffnessMatrix;
-            
-            //get mass matrix
-            ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-            ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
-            ASSEMBLEEND(massMatrix);
-            
-            
-            //get stiffness matrix
-            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-            ASSEMBLEEND(stiffnessMatrix);
-            
-            (*massMatrix) = P*(*massMatrix)*P.transpose();
-            (*stiffnessMatrix) = P*(*stiffnessMatrix)*P.transpose();
-            
-            
-            //Subspace Eigenvectors and eigenvalues from this coarse mesh
-            std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_coarseUs;
-            // for SMW
-            Eigen::MatrixXd Y;
-            Eigen::MatrixXd Z;
-            cout<<"calculating static ratio"<<endl;
-            test->calculateEigenFitData(q_pos,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
-            cout<<"static ratio calculated"<<endl;
-        }
-        if(dynamic_flag == 6)
-        {
-            double DAC_scalar = test->m_R(0);
-            // set material
-            cout<<"Resetting Youngs using DAC..."<<endl;
-            for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-                
-                test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
-                
-            }
-        }
         cout<<"Setting initial deformation..."<<endl;
         if (strcmp(argv[6],"0")==0) {
             // if specified no initial deformation
@@ -377,8 +330,7 @@ int main(int argc, char **argv) {
             cout<<"Loading initial deformation"<<qfileName<<endl;
             if(Eigen::loadMarketVector(tempv,qfileName))
             {
-            
-                std::cout<<"original state size "<<q.rows()<<"\nloaded state size "<<tempv.rows()<<endl;;
+            std::cout<<"original state size "<<q.rows()<<"\nloaded state size "<<tempv.rows();
             q = tempv;
             
             unsigned int idxc = 0;
@@ -398,7 +350,6 @@ int main(int argc, char **argv) {
             }
             else{
                 cout<<"can't load initial deformation\n";
-                exit(1);
             }
         }
         
@@ -425,11 +376,11 @@ int main(int argc, char **argv) {
                 
                 if(dynamic_flag == 3)
                 {
-//                    test->m_feval_manual =
-//                    Eigen::VectorXd eigv;
+                    //                    test->m_feval_manual =
+                    //                    Eigen::VectorXd eigv;
                     if(~Eigen::loadMarketVector(test->m_feval_manual, "data/" + ratio_manual_file +std::to_string(istep) + ".mtx"))
                     {
-//                        test->m_feval_manual.resize(numModes);
+                        //                        test->m_feval_manual.resize(numModes);
                         cout<<"ERROR: can't load eigenvalue from fine mesh for dynamics EigenFit.";
                         exit(1);
                     }
@@ -611,12 +562,12 @@ int main(int argc, char **argv) {
             
             test->m_Vc_current = V_disp;
             
-//             output mesh position with elements
+            //             output mesh position with elements
             igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
-    //
-    //            std::string cdeffilename = "cdef"+ std::to_string(file_ind) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(constraint_dir) + "_" + std::to_string(constraint_tol) + ".mtx";
-    //            Eigen::saveMarket(V_disp,cdeffilename);
-    //
+            //
+            //            std::string cdeffilename = "cdef"+ std::to_string(file_ind) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(constraint_dir) + "_" + std::to_string(constraint_tol) + ".mtx";
+            //            Eigen::saveMarket(V_disp,cdeffilename);
+            //
             //
             //            igl::readOBJ("pos33.obj",Vtemp2, Ftemp2);
             //
@@ -632,47 +583,47 @@ int main(int argc, char **argv) {
             
             // output mesh position with only surface mesh
             igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-//
+            //
             Eigen::VectorXd coarse_eig_def;
-//            if(dynamic_flag == 2)
-//            {
-//                V_disp = test->V_reset;
-//                for(int mode = 0; mode < numModes; mode++)
-//                {
-//                    V_disp = test->V_reset;
-//                    igl::writeOBJ("restart_coarse_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-//
-//                    idxc = 0;
-//                    coarse_eig_def = (P.transpose()*((test->m_coarseUs_restart).first.col(mode))).transpose();
-//                    // get the mesh position
-//                    for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-//
-//                        V_disp(vertexId,0) += coarse_eig_def(idxc);
-//                        idxc++;
-//                        V_disp(vertexId,1) += coarse_eig_def(idxc);
-//                        idxc++;
-//                        V_disp(vertexId,2) += coarse_eig_def(idxc);
-//                        idxc++;
-//                    }
-//                    igl::writeOBJ("restart_coarse_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-//                }
-//
-//
-//            }
+            //            if(dynamic_flag == 2)
+            //            {
+            //                V_disp = test->V_reset;
+            //                for(int mode = 0; mode < numModes; mode++)
+            //                {
+            //                    V_disp = test->V_reset;
+            //                    igl::writeOBJ("restart_coarse_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
+            //
+            //                    idxc = 0;
+            //                    coarse_eig_def = (P.transpose()*((test->m_coarseUs_restart).first.col(mode))).transpose();
+            //                    // get the mesh position
+            //                    for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+            //
+            //                        V_disp(vertexId,0) += coarse_eig_def(idxc);
+            //                        idxc++;
+            //                        V_disp(vertexId,1) += coarse_eig_def(idxc);
+            //                        idxc++;
+            //                        V_disp(vertexId,2) += coarse_eig_def(idxc);
+            //                        idxc++;
+            //                    }
+            //                    igl::writeOBJ("restart_coarse_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
+            //                }
+            //
+            //
+            //            }
             
             // output eigenvalues
             Eigen::saveMarketVector(test->coarseEig.second, "eigenvalues" + std::to_string(file_ind)+ ".mtx");
             // output eigenvalues
             Eigen::saveMarketVector(test->fineEig.second, "fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
-//
-//            if(dynamic_flag == 2)
-//            {
-//                cout<<"Writing restart coarse eigenvalues into files"<<endl;
-//                // output eigenvalues
-//                Eigen::saveMarketVector(test->m_coarseUs_restart.second, "restart_eigenvalues" + std::to_string(file_ind)+ ".mtx");
-//                // output eigenvalues
-//                Eigen::saveMarketVector(test->m_fineUs_restart.second, "restart_fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
-//            }
+            //
+            //            if(dynamic_flag == 2)
+            //            {
+            //                cout<<"Writing restart coarse eigenvalues into files"<<endl;
+            //                // output eigenvalues
+            //                Eigen::saveMarketVector(test->m_coarseUs_restart.second, "restart_eigenvalues" + std::to_string(file_ind)+ ".mtx");
+            //                // output eigenvalues
+            //                Eigen::saveMarketVector(test->m_fineUs_restart.second, "restart_fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
+            //            }
             
             Eigen::MatrixXd Vf_disp;
             if (numModes != 0)
@@ -699,31 +650,31 @@ int main(int argc, char **argv) {
                 test->m_Vf_current = Vf_disp;
             }
             
-//            
-//            Eigen::VectorXd fine_eig_def;
-//            if(dynamic_flag == 2)
-//            {
-//                Vf_disp = test->Vf_reset;
-//                for(int mode = 0; mode < numModes; mode++)
-//                {
-//                    Vf_disp = test->Vf_reset;
-//                    igl::writeOBJ("restart_fine_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
-//                    
-//                    idxc = 0;
-//                    fine_eig_def = (test->m_fineP.transpose()*((test->m_fineUs_restart).first.col(mode))).transpose();
-//                    // get the mesh position
-//                    for(unsigned int vertexId=0;  vertexId < std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-//                        
-//                        Vf_disp(vertexId,0) += fine_eig_def(idxc);
-//                        idxc++;
-//                        Vf_disp(vertexId,1) += fine_eig_def(idxc);
-//                        idxc++;
-//                        Vf_disp(vertexId,2) += fine_eig_def(idxc);
-//                        idxc++;
-//                    }
-//                    igl::writeOBJ("restart_fine_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
-//                }
-//            }
+            //
+            //            Eigen::VectorXd fine_eig_def;
+            //            if(dynamic_flag == 2)
+            //            {
+            //                Vf_disp = test->Vf_reset;
+            //                for(int mode = 0; mode < numModes; mode++)
+            //                {
+            //                    Vf_disp = test->Vf_reset;
+            //                    igl::writeOBJ("restart_fine_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
+            //
+            //                    idxc = 0;
+            //                    fine_eig_def = (test->m_fineP.transpose()*((test->m_fineUs_restart).first.col(mode))).transpose();
+            //                    // get the mesh position
+            //                    for(unsigned int vertexId=0;  vertexId < std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+            //
+            //                        Vf_disp(vertexId,0) += fine_eig_def(idxc);
+            //                        idxc++;
+            //                        Vf_disp(vertexId,1) += fine_eig_def(idxc);
+            //                        idxc++;
+            //                        Vf_disp(vertexId,2) += fine_eig_def(idxc);
+            //                        idxc++;
+            //                    }
+            //                    igl::writeOBJ("restart_fine_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
+            //                }
+            //            }
             // update step number;
             test->step_number++;
             cout<<"simulated frame: " << test->step_number<<endl;
@@ -774,7 +725,7 @@ int main(int argc, char **argv) {
         ratio_manual.setZero();
         int compute_frequency = 0;
         //        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes," "," ");
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
+        EigenFitLinear *test = new EigenFitLinear(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
         
         
         // set material

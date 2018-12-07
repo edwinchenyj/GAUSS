@@ -232,7 +232,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         //Eigendecomposition
         
         // if number of modes not equals to 0, use EigenFit
-        if (m_numModes != 0) {
+        if (m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
             
             try{
                 if(static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z)) throw 1;
@@ -317,14 +317,14 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             x0 = solver.solve((eigen_rhs));
             
 #endif
-        if(!matrix_fix_flag && m_numModes != 0 )
+        if(!matrix_fix_flag && m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
         {
         cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
         }
         else
         {
         //
-            if (m_numModes != 0) {
+            if (m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 //            Y = (-1.0/4.0*dt*dt)*Y;
                 Y = (-1.0/4.0*dt*dt+1.0/2.0*dt*b)*Y;
@@ -392,7 +392,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
             (*forceVector) = m_P*(*forceVector);
         
-        if (m_numModes != 0) {
+        if (m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
             
 //
 //
