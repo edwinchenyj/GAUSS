@@ -552,8 +552,9 @@ public:
         std::cout<<"Dynamic switch: "<<ratio_recalculation_switch<<std::endl;
         if((!ratio_calculated))
         {
-            if( ratio_recalculation_switch == 1 || ratio_recalculation_switch == 0)
+            if( ratio_recalculation_switch == 1 || ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
             {
+                // reset deformation if it is not zero. need zero (rest state configuration) to calculate static ratio.
                 cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
                 unsigned int mode = 0;
                 unsigned int idx = 0;
@@ -586,8 +587,8 @@ public:
                     Eigen::saveMarket(coarse_V_disp_n, cfilename);
                 }
                 
-                if(ratio_recalculation_switch == 0)
-                {
+                if(ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
+                 {
                     
                     cout<<"Static EigenFit. Try to load precalculated data"<<endl;
                     cout<<"Loading fine eigendecomp..."<<endl;
@@ -1035,6 +1036,7 @@ public:
                         //Eigendecomposition for the embedded fine mesh
                         //                        std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
                         m_Us = generalizedEigenvalueProblem(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                        Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues" + std::to_string(step_number) + ".mtx");
                         
                         fineEigMassProj = m_Us;
                         fineEig = m_Us;
@@ -1357,18 +1359,6 @@ public:
     Eigen::VectorXx<double> m_feval_manual;
     std::string m_finepos_manual;
     
-    Eigen::MatrixXd fforthogonal;
-    Eigen::MatrixXd cforthogonal;
-    Eigen::MatrixXd fforthogonal2;
-    Eigen::MatrixXd cforthogonal2;
-    Eigen::MatrixXd fforthogonal3;
-    Eigen::MatrixXd cforthogonal3;
-    Eigen::MatrixXd fforthogonal4;
-    Eigen::MatrixXd cforthogonal4;
-    Eigen::MatrixXd fforthogonal5;
-    Eigen::MatrixXd cforthogonal5;
-    Eigen::MatrixXd fforthogonal6;
-    Eigen::MatrixXd cforthogonal6;
     
     Eigen::SparseMatrix<double> m_fineP;
     Eigen::SparseMatrix<double> m_coarseP;
@@ -1415,6 +1405,8 @@ public:
     Eigen::MatrixXd m_Vc_current;
     Eigen::MatrixXi m_surfFf;
     Eigen::MatrixXi m_surfFc;
+    Eigen::VectorXd m_R;
+    int ratio_recalculation_switch;
     
 protected:
     
@@ -1459,7 +1451,6 @@ protected:
     //    unsigned int m_numToCorrect;
     
     //Ratios diagonal matrix, stored as vector
-    Eigen::VectorXd m_R;
     Eigen::VectorXd m_I;
     
     
@@ -1475,7 +1466,6 @@ protected:
     
     
     bool ratio_recalculation_flag;
-    int ratio_recalculation_switch;
     
     
     unsigned int constraint_switch;

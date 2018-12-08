@@ -315,6 +315,54 @@ int main(int argc, char **argv) {
         // initialize the state (position and velocity)
         auto q = mapStateEigen(world);
         
+        // if static, should calculate the ratios here (before loading the deformation)
+        // or if DAC (dynamic_flag == 6), calculate the first ratio
+        if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0))
+        {
+            auto q_pos = mapStateEigen<0>(world);
+            q_pos.setZero();
+            
+            //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
+            AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
+            AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> stiffnessMatrix;
+            
+            //get mass matrix
+            ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+            ASSEMBLEEND(massMatrix);
+            
+            
+            //get stiffness matrix
+            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+            ASSEMBLEEND(stiffnessMatrix);
+            
+            (*massMatrix) = P*(*massMatrix)*P.transpose();
+            (*stiffnessMatrix) = P*(*stiffnessMatrix)*P.transpose();
+            
+            
+            //Subspace Eigenvectors and eigenvalues from this coarse mesh
+            std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_coarseUs;
+            // for SMW
+            Eigen::MatrixXd Y;
+            Eigen::MatrixXd Z;
+            cout<<"calculating static ratio"<<endl;
+            test->calculateEigenFitData(q_pos,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+            cout<<"static ratio calculated"<<endl;
+        }
+        if(dynamic_flag == 6)
+        {
+            double DAC_scalar = test->m_R(0);
+            // set material
+            cout<<"Resetting Youngs using DAC..."<<endl;
+            for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                
+                test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
+                
+            }
+            
+        }
         cout<<"Setting initial deformation..."<<endl;
         if (strcmp(argv[6],"0")==0) {
             // if specified no initial deformation
@@ -350,6 +398,7 @@ int main(int argc, char **argv) {
             }
             else{
                 cout<<"can't load initial deformation\n";
+                exit(1);
             }
         }
         
