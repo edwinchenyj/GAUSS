@@ -55,3 +55,17 @@ ThirdParty
 data/meshesTetWild/brick_surf/
 data/meshesTetWild/bunny/
 data/meshesTetWild/rampant/
+ThirdParty/Spectra
+ThirdParty/fcl
+ThirdParty/libccd
+ThirdParty/libigl
+src/EigenFit/include/EigenFit.h
+src/EigenFit/include/EigenFitLinear.h
+src/EigenFit/include/TimeStepperEigenFitLinearSMWIM.h
+src/Examples/exampleEigenFitLinearRIM.cpp
+data/meshesTetWild/Archive.zip
+data/meshesTetWild/bimba/
+data/meshesTetWild/manhead/
+data/meshesTetWild/maxplank/
+data/meshesTetWild/octopus/
+data/meshesTetWild/warrior/
