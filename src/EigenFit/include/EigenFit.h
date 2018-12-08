@@ -527,8 +527,16 @@ public:
         
         //Eigendecomposition for the embedded fine mesh
         //        std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
-        m_Us = generalizedEigenvalueProblem((*fineStiffnessMatrix), (*m_fineMassMatrix), m_numModes, 0.00);
+        m_Us = generalizedEigenvalueProblemNotNormalized((*fineStiffnessMatrix), (*m_fineMassMatrix), m_numModes, 0.00);
+//        m_Us = generalizedEigenvalueProblemNotNormalized((*stiffnessMatrix), m_M, 10, 0.00);
+        //    Eigen::saveMarketDat(m_M,"mass.dat");
+        //    Eigen::saveMarketDat(m_Us.first,"not_normalized.dat");
+        Eigen::VectorXd normalizing_const;
+        normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
         
+        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+        //
         fineEigMassProj = m_Us;
         fineEig = m_Us;
         fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
@@ -541,7 +549,13 @@ public:
         
         //        Eigen::saveMarketDat((*coarseStiffnessMatrix), "coarseStiffness.dat");
         //        Eigen::saveMarketDat((*coarseMassMatrix), "coarseMass.dat");
-        m_coarseUs = generalizedEigenvalueProblem((*coarseStiffnessMatrix), (*coarseMassMatrix), m_numModes,0.0);
+        m_coarseUs = generalizedEigenvalueProblemNotNormalized((*coarseStiffnessMatrix), (*coarseMassMatrix), m_numModes,0.0);
+        Eigen::VectorXd normalizing_const;
+        normalizing_const = (m_coarseUs.first.transpose() * (*coarseMassMatrix) * m_coarseUs.first).diagonal();
+        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+        
+        m_coarseUs.first = m_coarseUs.first * (normalizing_const.asDiagonal());
+        
         //        Eigen::saveMarketDat(m_coarseUs.first, "coarseEigenvectors.dat");
         //        Eigen::saveMarketVectorDat(m_coarseUs.second, "coarseEigenvalues.dat");
         coarseEigMassProj = m_coarseUs;
@@ -633,7 +647,13 @@ public:
                         (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
                         
                         cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
-                        m_Us = generalizedEigenvalueProblem(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                        m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                        Eigen::VectorXd normalizing_const;
+                        normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                        
+                        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                        
                         
                         fineEigMassProj = m_Us;
                         fineEig = m_Us;
@@ -716,7 +736,12 @@ public:
                     (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
                     
                     cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
-                    m_Us = generalizedEigenvalueProblem(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                    m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                    Eigen::VectorXd normalizing_const;
+                    normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                    
+                    m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
                     
                     fineEigMassProj = m_Us;
                     fineEig = m_Us;
@@ -1035,7 +1060,13 @@ public:
                         
                         //Eigendecomposition for the embedded fine mesh
                         //                        std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
-                        m_Us = generalizedEigenvalueProblem(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                        m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                        Eigen::VectorXd normalizing_const;
+                        normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                        
+                        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                        
                         Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues" + std::to_string(step_number) + ".mtx");
                         
                         fineEigMassProj = m_Us;
@@ -1126,7 +1157,12 @@ public:
                     (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
                     
                     cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
-                    m_Us = generalizedEigenvalueProblem(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                    m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                    Eigen::VectorXd normalizing_const;
+                    normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                    
+                    m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
                     
                     fineEigMassProj = m_Us;
                     fineEig = m_Us;
@@ -1307,6 +1343,11 @@ public:
         //Eigendecomposition for the embedded fine mesh
         std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double>> m_restartUs;
         m_restartUs = generalizedEigenvalueProblemNotNormalized(((*restartStiffnessMatrix)), (*restartMassMatrix), m_numModes, 0.00);
+        Eigen::VectorXd normalizing_const;
+        normalizing_const = (m_restartUs.first.transpose() * (*restartMassMatrix) * m_restartUs.first).diagonal();
+        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+        
+        m_restartUs.first = m_restartUs.first * (normalizing_const.asDiagonal());
         
         eigenvalues = m_restartUs.second;
         //        Eigen::saveMarketVectorDat(m_fineUs_restart.second, "fine_restart_eigenvalues" + std::to_string(step_number)+".mtx");
