@@ -1079,6 +1079,104 @@ public:
                 
                 
             }
+            else if (ratio_recalculation_switch == 5)
+            {
+                
+                
+                cout<<"Static EigenFit Option 1. Try to load precalculated data"<<endl;
+                cout<<"Loading fine eigendecomp..."<<endl;
+                //                    std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
+                
+                std::string ffilename = "data/feigenval_" + m_fmeshname + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                cout<<ffilename<<endl;
+                if(!Eigen::loadMarketVector(m_Us.second, ffilename))
+                {
+                    // matrices passed in already eliminated the constraints
+                    cout<<"No file found. Performing eigendecomp on the fine mesh"<<endl;
+                    
+                    //            std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
+                    //lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
+                    // world name must match "world"?!
+                    World<double, std::tuple<PhysicalSystemImpl *>,
+                    std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
+                    std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
+                    
+                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
+                    
+                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
+                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
+                    
+                    Eigen::VectorXx<double> posFull;
+                    posFull = this->getFinePositionFull(q);
+                    //
+                    fine_q = posFull - eigen_fine_pos0;
+                    //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
+                    AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
+                    
+                    //            std::cout<<
+                    
+                    //get stiffness matrix
+                    ASSEMBLEMATINIT(fineStiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                    ASSEMBLELIST(fineStiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+                    ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+                    ASSEMBLEEND(fineStiffnessMatrix);
+                    
+                    
+                    //constraint Projection
+                    (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
+                    
+                    cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+                    m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                    Eigen::VectorXd normalizing_const;
+                    normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                    
+                    m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                    
+                    fineEigMassProj = m_Us;
+                    fineEig = m_Us;
+                    fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
+                    
+                    Eigen::saveMarketVector(m_Us.second, ffilename);
+                    for(int mode = 0; mode < m_numModes; mode ++)
+                    {
+                        cout<<"Saving fine eigenvectors "<<mode<<endl;
+                        
+                        ffilename = "data/feigenvec_" + m_fmeshname + "_" + std::to_string(mode) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                        
+                        
+                        Eigen::saveMarketVector(m_Us.first.col(mode),ffilename);
+                        
+                    }
+                }
+                for(int i = 0; i < m_numModes; ++i)
+                {
+                    m_R(i) = m_Us.second(i)/m_coarseUs.second(i);
+                    if (m_numConstraints == 3)
+                    {
+                        // if constraint is  a point constaint
+                        m_R(0) = 1.0;
+                        m_R(1) = 1.0;
+                        m_R(2) = 1.0;
+                    }
+                    else if(m_numConstraints == 0)
+                    {
+                        //  free boundary
+                        m_R(0) = 1.0;
+                        m_R(1) = 1.0;
+                        m_R(2) = 1.0;
+                        m_R(3) = 1.0;
+                        m_R(4) = 1.0;
+                        m_R(5) = 1.0;
+                        
+                    }
+                    //#ifdef EDWIN_DEBUG
+                    cout<<"recalculating ratio for static option 1"<<endl;
+                    std::cout<<m_R(i)<<std::endl;
+                    //#endif
+                    
+                }
+            }
             
             //            std::cout<<m_coarseUs.second<<std::endl;
             
