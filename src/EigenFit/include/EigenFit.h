@@ -528,7 +528,7 @@ public:
         //Eigendecomposition for the embedded fine mesh
         //        std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
         m_Us = generalizedEigenvalueProblemNotNormalized((*fineStiffnessMatrix), (*m_fineMassMatrix), m_numModes, 0.00);
-//        m_Us = generalizedEigenvalueProblemNotNormalized((*stiffnessMatrix), m_M, 10, 0.00);
+        //        m_Us = generalizedEigenvalueProblemNotNormalized((*stiffnessMatrix), m_M, 10, 0.00);
         //    Eigen::saveMarketDat(m_M,"mass.dat");
         //    Eigen::saveMarketDat(m_Us.first,"not_normalized.dat");
         Eigen::VectorXd normalizing_const;
@@ -569,37 +569,37 @@ public:
             if( ratio_recalculation_switch == 1 || ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
             {
                 // reset deformation if it is not zero. need zero (rest state configuration) to calculate static ratio.
-                cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
-                unsigned int mode = 0;
-                unsigned int idx = 0;
-                Eigen::VectorXd coarse_eig_def;
-                for (mode = 0; mode < m_numModes; ++mode) {
-                    coarse_eig_def = (m_coarseP.transpose()*m_coarseUs.first.col(mode)).transpose();
-                    //        //
-                    idx = 0;
-                    //                    // getGeometry().first is V
-                    Eigen::MatrixXd coarse_V_disp_p = this->getImpl().getV();
-                    Eigen::MatrixXd coarse_V_disp_n = this->getImpl().getV();
-                    for(unsigned int vertexId=0;  vertexId < this->getImpl().getV().rows(); ++vertexId) {
-                        coarse_V_disp_p(vertexId,0) += (1*coarse_eig_def(idx));
-                        coarse_V_disp_n(vertexId,0) -= (1*coarse_eig_def(idx));
-                        idx++;
-                        coarse_V_disp_p(vertexId,1) += (1*coarse_eig_def(idx));
-                        coarse_V_disp_n(vertexId,1) -= (1*coarse_eig_def(idx));
-                        idx++;
-                        coarse_V_disp_p(vertexId,2) += (1*coarse_eig_def(idx));
-                        coarse_V_disp_n(vertexId,2) -= (1*coarse_eig_def(idx));
-                        idx++;
-                    }
-                    Eigen::MatrixXi coarse_F;
-                    igl::boundary_facets(this->getImpl().getF(),coarse_F);
-                    
-                    //                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
-                    igl::writeOBJ("coarse_mesh_eigen_mode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
-                    igl::writeOBJ("coarse_mesh_eigen_mode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
-                    std::string cfilename = "ceigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
-                    Eigen::saveMarket(coarse_V_disp_n, cfilename);
-                }
+                //                cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
+                //                unsigned int mode = 0;
+                //                unsigned int idx = 0;
+                //                Eigen::VectorXd coarse_eig_def;
+                //                for (mode = 0; mode < m_numModes; ++mode) {
+                //                    coarse_eig_def = (m_coarseP.transpose()*m_coarseUs.first.col(mode)).transpose();
+                //                    //        //
+                //                    idx = 0;
+                //                    //                    // getGeometry().first is V
+                //                    Eigen::MatrixXd coarse_V_disp_p = this->getImpl().getV();
+                //                    Eigen::MatrixXd coarse_V_disp_n = this->getImpl().getV();
+                //                    for(unsigned int vertexId=0;  vertexId < this->getImpl().getV().rows(); ++vertexId) {
+                //                        coarse_V_disp_p(vertexId,0) += (1*coarse_eig_def(idx));
+                //                        coarse_V_disp_n(vertexId,0) -= (1*coarse_eig_def(idx));
+                //                        idx++;
+                //                        coarse_V_disp_p(vertexId,1) += (1*coarse_eig_def(idx));
+                //                        coarse_V_disp_n(vertexId,1) -= (1*coarse_eig_def(idx));
+                //                        idx++;
+                //                        coarse_V_disp_p(vertexId,2) += (1*coarse_eig_def(idx));
+                //                        coarse_V_disp_n(vertexId,2) -= (1*coarse_eig_def(idx));
+                //                        idx++;
+                //                    }
+                //                    Eigen::MatrixXi coarse_F;
+                //                    igl::boundary_facets(this->getImpl().getF(),coarse_F);
+                //
+                //                    //                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
+                //                    igl::writeOBJ("coarse_mesh_eigen_mode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
+                //                    igl::writeOBJ("coarse_mesh_eigen_mode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
+                //                    std::string cfilename = "ceigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                //                    Eigen::saveMarket(coarse_V_disp_n, cfilename);
+                //                }
                 
                 if(ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
                 {
@@ -608,7 +608,10 @@ public:
                     cout<<"Loading fine eigendecomp..."<<endl;
                     //                    std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
                     
-                    std::string ffilename = "data/feigenval_" + m_fmeshname + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+//                    std::string ffilename = "data/feigenval_" + m_fmeshname + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                    // trying to load the fine eigenvectors. only need to load the last one, if doesn't exist, perfrom decomposition
+                    std::string ffilename = "data/feigenvec_" + m_fmeshname + "_" + std::to_string(m_numModes) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                    
                     cout<<ffilename<<endl;
                     if(!Eigen::loadMarketVector(m_Us.second, ffilename))
                     {
@@ -669,7 +672,9 @@ public:
                             
                             Eigen::saveMarketVector(m_Us.first.col(mode),ffilename);
                             
+                            
                         }
+                        
                     }
                     else
                     {
@@ -700,7 +705,8 @@ public:
                         
                     }
                 }
-                else{
+                else
+                {
                     
                     // dynamic eigenfit dynamic flag = 1
                     World<double, std::tuple<PhysicalSystemImpl *>,
@@ -749,52 +755,88 @@ public:
                     
                 }
                 
-                
-                cout<<"Writing fine eigen deformation to file (for Hausdorff distance check)."<<endl;
-                //
-                mode = 0;
-                Eigen::VectorXd fine_eig_def;
-                for (mode = 0; mode < m_numModes; ++mode) {
-                    fine_eig_def = (m_fineP.transpose()*m_Us.first.col(mode)).transpose();
-                    idx = 0;
-                    // getGeometry().first is V
-                    Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
-                    for(unsigned int vertexId=0;  vertexId < std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+                if(haus || ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
+                {
+                    cout<<"Writing fine eigen deformation to file (for Hausdorff distance check and reloading in static)."<<endl;
+                    //
+                    int mode = 0;
+                    Eigen::VectorXd fine_eig_def;
+                    for (mode = 0; mode < m_numModes; ++mode) {
+                        fine_eig_def = (m_fineP.transpose()*m_Us.first.col(mode)).transpose();
+                        int idx = 0;
+                        // getGeometry().first is V
+                        Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
+                        for(unsigned int vertexId=0;  vertexId < std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+                            
+                            // because getFinePosition is in EigenFit, not another physical system Impl, so don't need getImpl()
+                            fine_V_disp(vertexId,0) += (1*fine_eig_def(idx));
+                            idx++;
+                            fine_V_disp(vertexId,1) += (1*fine_eig_def(idx));
+                            idx++;
+                            fine_V_disp(vertexId,2) += (1*fine_eig_def(idx));
+                            idx++;
+                        }
                         
-                        // because getFinePosition is in EigenFit, not another physical system Impl, so don't need getImpl()
-                        fine_V_disp(vertexId,0) += (1*fine_eig_def(idx));
-                        idx++;
-                        fine_V_disp(vertexId,1) += (1*fine_eig_def(idx));
-                        idx++;
-                        fine_V_disp(vertexId,2) += (1*fine_eig_def(idx));
-                        idx++;
+                        
+                        //                    Eigen::MatrixXi fine_F = surftri(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first, std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second);
+                        Eigen::MatrixXi fine_F;
+                        igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
+                        
+                        //                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first,fine_F);
+                        igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
+                        
+                        std::string ffilename = "data/feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                        Eigen::saveMarket(fine_V_disp, ffilename );
                     }
-                    
-                    
-                    //                    Eigen::MatrixXi fine_F = surftri(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first, std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second);
-                    Eigen::MatrixXi fine_F;
-                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
-                    
-                    //                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first,fine_F);
-                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
-                    
-                    std::string ffilename = "data/feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
-                    Eigen::saveMarket(fine_V_disp, ffilename );
-                    
-                    
-                    cout<<"Loading coarse eigen deformation."<<endl;
-                    Eigen::MatrixXd coarse_V_disp_p;
-                    Eigen::MatrixXd coarse_V_disp_n;
-                    Eigen::MatrixXi coarse_F;
-                    igl::readOBJ("coarse_mesh_eigen_mode_p" + std::to_string(mode) + ".obj",coarse_V_disp_p, coarse_F);
-                    igl::readOBJ("coarse_mesh_eigen_mode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
-                    if(haus)
-                    {
+                }
+                
+                if(haus)
+                {
+                    // reset deformation if it is not zero. need zero (rest state configuration) to calculate static ratio.
+                    cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
+                    unsigned int mode = 0;
+                    unsigned int idx = 0;
+                    Eigen::VectorXd coarse_eig_def;
+                    for (mode = 0; mode < m_numModes; ++mode) {
+                        coarse_eig_def = (m_coarseP.transpose()*m_coarseUs.first.col(mode)).transpose();
+                        //        //
+                        idx = 0;
+                        //                    // getGeometry().first is V
+                        Eigen::MatrixXd coarse_V_disp_p = this->getImpl().getV();
+                        Eigen::MatrixXd coarse_V_disp_n = this->getImpl().getV();
+                        for(unsigned int vertexId=0;  vertexId < this->getImpl().getV().rows(); ++vertexId) {
+                            coarse_V_disp_p(vertexId,0) += (1*coarse_eig_def(idx));
+                            coarse_V_disp_n(vertexId,0) -= (1*coarse_eig_def(idx));
+                            idx++;
+                            coarse_V_disp_p(vertexId,1) += (1*coarse_eig_def(idx));
+                            coarse_V_disp_n(vertexId,1) -= (1*coarse_eig_def(idx));
+                            idx++;
+                            coarse_V_disp_p(vertexId,2) += (1*coarse_eig_def(idx));
+                            coarse_V_disp_n(vertexId,2) -= (1*coarse_eig_def(idx));
+                            idx++;
+                        }
+                        Eigen::MatrixXi coarse_F;
+                        igl::boundary_facets(this->getImpl().getF(),coarse_F);
+                        
+                        //                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
+                        igl::writeOBJ("coarse_mesh_eigen_mode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
+                        igl::writeOBJ("coarse_mesh_eigen_mode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
+                        std::string cfilename = "ceigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                        Eigen::saveMarket(coarse_V_disp_n, cfilename);
+                        
+                        
+                        cout<<"Loading coarse eigen deformation."<<endl;
+                        igl::readOBJ("coarse_mesh_eigen_mode_p" + std::to_string(mode) + ".obj",coarse_V_disp_p, coarse_F);
+                        igl::readOBJ("coarse_mesh_eigen_mode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
+                        
                         double dist_p, dist_n, dist_scaled;
                         Eigen::MatrixXd coarse_V_disp = this->getImpl().getV();
-                        
+                        Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
                         Eigen::Array3d xyz_scales(coarse_V_disp.col(0).maxCoeff() - coarse_V_disp.col(0).minCoeff(), coarse_V_disp.col(1).maxCoeff() - coarse_V_disp.col(1).minCoeff(),coarse_V_disp.col(2).maxCoeff() - coarse_V_disp.col(2).minCoeff());
                         double max_scale = xyz_scales.abs().maxCoeff();
+                        Eigen::MatrixXi fine_F;
+                        igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
+                        
                         igl::hausdorff(fine_V_disp, fine_F, coarse_V_disp_p, coarse_F, dist_p);
                         igl::hausdorff(fine_V_disp, fine_F, coarse_V_disp_n, coarse_F, dist_n);
                         if(dist_p < dist_n) dist_scaled = dist_p/max_scale;
@@ -885,37 +927,37 @@ public:
                     //                        idx++;
                     //                    }
                     //
-                    //                    idx = 0;
-                    //                    Eigen::MatrixXd V_disp = this->getGeometry().first;
-                    //
-                    //                    for(unsigned int vertexId=0;  vertexId < this->getGeometry().first.rows(); ++vertexId) {
-                    //
-                    //                        V_disp(vertexId,0) += (1*q(idx));
-                    //                        idx++;
-                    //                        V_disp(vertexId,1) += (1*q(idx));
-                    //                        idx++;
-                    //                        V_disp(vertexId,2) += (1*q(idx));
-                    //                        idx++;
-                    //                    }
-                    //
-                    //
-                    //                    Vf_reset = fine_V_disp;
-                    //                    Eigen::MatrixXi fine_F;
-                    //                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
-                    igl::writeOBJ("fine_mesh_eigen_rest" +std::to_string(step_number)+ ".obj",m_Vf_current,m_surfFf);
-                    
-                    //                    V_reset = V_disp;
+//                                        int idx = 0;
+//                                        Eigen::MatrixXd V_disp = this->getGeometry().first;
+//                    
+//                                        for(unsigned int vertexId=0;  vertexId < this->getGeometry().first.rows(); ++vertexId) {
+//                    
+//                                            V_disp(vertexId,0) += (1*q(idx));
+//                                            idx++;
+//                                            V_disp(vertexId,1) += (1*q(idx));
+//                                            idx++;
+//                                            V_disp(vertexId,2) += (1*q(idx));
+//                                            idx++;
+//                                        }
+//                    //
+//                    //
+//                                        Vf_reset = fine_V_disp;
+//                    //                    Eigen::MatrixXi fine_F;
+//                    //                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
+//                    igl::writeOBJ("fine_mesh_eigen_rest" +std::to_string(step_number)+ ".obj",m_Vf_current,m_surfFf);
+//                    
+//                                        V_reset = V_disp;
                     //                    Eigen::MatrixXi coarse_F;
                     //                    igl::boundary_facets(this->getImpl().getF(),coarse_F);
                     //                    igl::writeOBJ("coarse_mesh_eigen_rest_original"+ std::to_string(step_number) +".obj",this->getGeometry().first,coarse_F);
                     
                     
                     Eigen::VectorXd coarse_eval;
-                    restartEigenvalues(m_Vc_current,m_Fc,m_coarseP,coarse_eval);
+                    restartEigenvalues(m_Vc_current,m_Fc,m_coarseP,coarse_eval,m_coarseUs_restart);
                     
                     
                     Eigen::VectorXd fine_eval;
-                    restartEigenvalues(m_Vf_current,m_Ff,m_fineP,fine_eval);
+                    restartEigenvalues(m_Vf_current,m_Ff,m_fineP,fine_eval,m_fineUs_restart);
                     
                     for(int i = 0; i < m_numModes; ++i)
                     {
@@ -1268,7 +1310,7 @@ public:
         return P;
     }
     
-    void restartEigenvalues(Eigen::MatrixXx<double> &V, Eigen::MatrixXi &F, Eigen::SparseMatrix<double> &P, Eigen::VectorXx<double> &eigenvalues)
+    void restartEigenvalues(Eigen::MatrixXx<double> &V, Eigen::MatrixXi &F, Eigen::SparseMatrix<double> &P, Eigen::VectorXx<double> &eigenvalues, std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > &m_restartUs)
     {
         World<double, std::tuple<PhysicalSystemImpl *>,
         std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
@@ -1341,7 +1383,7 @@ public:
         //                Eigen::saveMarketDat(*fineMassMatrix_reset,"fine_restart_mass" + std::to_string(step_number)+".dat");
         
         //Eigendecomposition for the embedded fine mesh
-        std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double>> m_restartUs;
+//        std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double>> m_restartUs;
         m_restartUs = generalizedEigenvalueProblemNotNormalized(((*restartStiffnessMatrix)), (*restartMassMatrix), m_numModes, 0.00);
         Eigen::VectorXd normalizing_const;
         normalizing_const = (m_restartUs.first.transpose() * (*restartMassMatrix) * m_restartUs.first).diagonal();
@@ -1349,6 +1391,7 @@ public:
         
         m_restartUs.first = m_restartUs.first * (normalizing_const.asDiagonal());
         
+//        restart_eig = m_restartUs;
         eigenvalues = m_restartUs.second;
         //        Eigen::saveMarketVectorDat(m_fineUs_restart.second, "fine_restart_eigenvalues" + std::to_string(step_number)+".mtx");
         
@@ -1540,6 +1583,8 @@ public:
     Eigen::MatrixXi m_surfFc;
     Eigen::VectorXd m_R;
     int ratio_recalculation_switch;
+    Eigen::MatrixXx<double> m_Vf;
+    
     
 protected:
     
@@ -1589,7 +1634,6 @@ protected:
     
     
     
-    Eigen::MatrixXx<double> m_Vf;
     Eigen::MatrixXi m_Ff;
     Eigen::MatrixXi m_Fc;
     Eigen::MatrixXd m_N;
