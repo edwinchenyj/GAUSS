@@ -929,9 +929,9 @@ public:
                     //
 //                                        int idx = 0;
 //                                        Eigen::MatrixXd V_disp = this->getGeometry().first;
-//                    
+//
 //                                        for(unsigned int vertexId=0;  vertexId < this->getGeometry().first.rows(); ++vertexId) {
-//                    
+//
 //                                            V_disp(vertexId,0) += (1*q(idx));
 //                                            idx++;
 //                                            V_disp(vertexId,1) += (1*q(idx));
@@ -945,7 +945,7 @@ public:
 //                    //                    Eigen::MatrixXi fine_F;
 //                    //                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
 //                    igl::writeOBJ("fine_mesh_eigen_rest" +std::to_string(step_number)+ ".obj",m_Vf_current,m_surfFf);
-//                    
+//
 //                                        V_reset = V_disp;
                     //                    Eigen::MatrixXi coarse_F;
                     //                    igl::boundary_facets(this->getImpl().getF(),coarse_F);
@@ -988,7 +988,7 @@ public:
                         
                     }
                     Eigen::saveMarketVector(m_R, "data/restart_ratio.mtx");
-                    ratio_calculated = true;
+//                    ratio_calculated = true;
                     
                 }
             }
@@ -1142,7 +1142,7 @@ public:
                             
                         }
                         
-                        ratio_calculated = true;
+//                        ratio_calculated = true;
                     }
                     else{
                         cout<<"can't load eigenvalues from fine mesh"<<endl;
@@ -1177,12 +1177,13 @@ public:
                     Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
                     
                     //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
-                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
-                    
-                    Eigen::VectorXx<double> posFull;
-                    posFull = this->getFinePositionFull(q);
-                    //
-                    fine_q = posFull - eigen_fine_pos0;
+//                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
+//
+//                    Eigen::VectorXx<double> posFull;
+//                    posFull = this->getFinePositionFull(q);
+//                    //
+//                    fine_q = posFull - eigen_fine_pos0;
+                    fine_q.setZero();
                     //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
                     AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
                     
@@ -1249,6 +1250,7 @@ public:
                     //#endif
                     
                 }
+                ratio_calculated == true;
             }
             
             //            std::cout<<m_coarseUs.second<<std::endl;
