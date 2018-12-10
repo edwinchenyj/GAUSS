@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
         
         // if static, should calculate the ratios here (before loading the deformation)
         // or if DAC (dynamic_flag == 6), calculate the first ratio
-        if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0))
+        if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0) || (dynamic_flag == 5 && numModes != 0))
         {
             auto q_pos = mapStateEigen<0>(world);
             q_pos.setZero();
@@ -443,6 +443,10 @@ int main(int argc, char **argv) {
                 else if(dynamic_flag == 4)
                 {
                     test->m_finepos_manual = ratio_manual_file;
+                }
+                else if(dynamic_flag == 6)
+                {
+                    test->ratio_calculated = true;
                 }
             }
             
@@ -645,7 +649,7 @@ int main(int argc, char **argv) {
                 Eigen::VectorXd coarse_eig_def;
                 if(dynamic_flag == 2)
                 {
-                    V_disp = test->V_reset;
+                    V_disp = test->m_Vc_current;
                     for(int mode = 0; mode < numModes; mode++)
                     {
                         V_disp = test->m_Vc_current;
