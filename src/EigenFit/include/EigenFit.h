@@ -702,6 +702,41 @@ public:
                                 m_Us.first.col(mode) = tempv;
                             }
                         }
+                        if(ratio_recalculation_switch == 6)
+                        {
+                            // if dynamic flag == 6 (static 1), still need to calculate eigenvalues
+                            World<double, std::tuple<PhysicalSystemImpl *>,
+                            std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
+                            std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
+                            
+                            Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
+                            
+                            //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
+                            Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
+                            
+                            Eigen::VectorXx<double> posFull;
+                            posFull = this->getFinePositionFull(q);
+                            //
+                            fine_q = posFull - eigen_fine_pos0;
+                            //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
+                            AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
+                            
+                            //            std::cout<<
+                            
+                            //get stiffness matrix
+                            ASSEMBLEMATINIT(fineStiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                            ASSEMBLELIST(fineStiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+                            ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+                            ASSEMBLEEND(fineStiffnessMatrix);
+                            
+                            
+                            //constraint Projection
+                            (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
+                            
+                            cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+                            m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), 1, 0.00);
+                            
+                        }
                         
                     }
                 }
