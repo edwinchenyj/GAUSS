@@ -8,6 +8,8 @@
 #include <ConstraintFixedPoint.h>
 #include <TimeStepperERE.h>
 #include <TimeStepperSIIMEX.h>
+#include <TimeStepperIM.h>
+#include <TimeStepperBE.h>
 #include <ExponentialIMEX.h>
 #include <TimeStepperEigenFitSMWIM.h>
 #include <EigenFit.h>
@@ -32,21 +34,22 @@ typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 
-typedef TimeStepperERE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
+//
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
 
 char **arg_list;
 unsigned int istep;
-
+//
 void preStepCallback(MyWorld &world) {
 }
 
 int main(int argc, char **argv) {
-
+    //
     
     std::cout<<"Test Neohookean FEM\n";
     
@@ -68,6 +71,7 @@ int main(int argc, char **argv) {
     
     //    default example meshes
     std::string meshname = "/meshesTetWild/brick/brick_surf/brick_surf_5";
+    
     
     
     //    default parameters
