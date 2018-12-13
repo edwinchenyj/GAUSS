@@ -66,8 +66,12 @@ public:
     // the constructor will take the two mesh parameters, one coarse one fine.
     // The coarse mesh data will be passed to the parent class constructor to constructor
     // the fine mesh data will be used to initialize the members specific to the EigenFit class
-    EigenFit(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_switch, double youngs, double poisson, int constraintDir, double constraintTol, unsigned int cswitch, unsigned int hausdorff_dist, unsigned int numModes, std::string cmeshname, std::string fmeshname, Eigen::VectorXx<double> ratio_manual, int compute_frequency ) : PhysicalSystemImpl(Vc,Fc)
+    EigenFit(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_switch, double youngs, double poisson, int constraintDir, double constraintTol, unsigned int cswitch, unsigned int hausdorff_dist, unsigned int numModes, std::string cmeshname, std::string fmeshname, Eigen::VectorXx<double> ratio_manual, int compute_frequency, bool simple_mass_flag ) : PhysicalSystemImpl(Vc,Fc)
     {
+        this->simple_mass_flag = simple_mass_flag;
+        coarse_mass_calculated = false;
+        fine_mass_calculated = false;
+        
         step_number = 0;
         cout<<"Hausdorff distance flag: "<<hausdorff_dist<<endl;
         if(numModes != 0)
@@ -444,6 +448,16 @@ public:
             //constraint Projection
             (*massMatrix) = m_fineP*(*massMatrix)*m_fineP.transpose();
             
+            if(simple_mass_flag && !fine_mass_calculated)
+            {
+                Eigen::VectorXx<double> ones(m_fineP.rows());
+                ones.setOnes();
+                fine_mass_lumped = ((*massMatrix)*ones);
+                fine_mass_lumped_inv = fine_mass_lumped.cwiseInverse();
+                
+                fine_mass_calculated = true;
+            }
+            
             // fill in the rest state position
             restFineState = m_fineWorld.getState();
             
@@ -537,6 +551,18 @@ public:
         
         //        Eigen::saveMarketDat((*coarseStiffnessMatrix), "coarseStiffness.dat");
         //        Eigen::saveMarketDat((*coarseMassMatrix), "coarseMass.dat");
+        
+        
+        if(simple_mass_flag && !coarse_mass_calculated)
+        {
+            Eigen::VectorXx<double> ones(m_coarseP.rows());
+            ones.setOnes();
+            coarse_mass_lumped = ((*coarseMassMatrix)*ones);
+            coarse_mass_lumped_inv = coarse_mass_lumped.cwiseInverse();
+            
+            coarse_mass_calculated = true;
+        }
+        
         m_coarseUs = generalizedEigenvalueProblemNotNormalized((*coarseStiffnessMatrix), (*coarseMassMatrix), m_numModes,0.0);
         Eigen::VectorXd normalizing_const;
         normalizing_const = (m_coarseUs.first.transpose() * (*coarseMassMatrix) * m_coarseUs.first).diagonal();
@@ -1043,7 +1069,14 @@ public:
     int ratio_recalculation_switch;
     Eigen::MatrixXx<double> m_Vf;
     
-    
+    bool simple_mass_flag;
+    bool coarse_mass_calculated;
+    bool fine_mass_calculated;
+    Eigen::VectorXx<double> coarse_mass_lumped;
+    Eigen::VectorXx<double> coarse_mass_lumped_inv;
+    Eigen::VectorXx<double> fine_mass_lumped;
+    Eigen::VectorXx<double> fine_mass_lumped_inv;
+
 protected:
     
     //

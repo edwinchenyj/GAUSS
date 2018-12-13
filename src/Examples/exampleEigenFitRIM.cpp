@@ -135,11 +135,16 @@ int main(int argc, char **argv) {
         std::string ratio_manual_file = (argv[15]);
         int compute_frequency = atoi(argv[16]);
         bool output_data_flag = false;
+        bool simple_mass_flag = false;
         if(argc > 17)
         {
             output_data_flag = atoi(argv[17]);
         }
-        cout<<"output flag: "<<output_data_flag<<endl;
+        if(argc > 18)
+        {
+            simple_mass_flag = atoi(argv[18]);
+        }
+//        cout<<"output flag: "<<output_data_flag<<endl;
         
         cout<<"Simulation parameters..."<<endl;
         cout<<"Youngs: "<<youngs<<endl;
@@ -154,8 +159,10 @@ int main(int argc, char **argv) {
         cout<<"Number of modes: "<<numModes<<endl;
         cout<<"Constraint profile: "<<const_profile<<endl;
         cout<<"Initial deformation: "<<initial_def<<endl;
-        cout<< "ratio manual file/feval manual file: "<< ratio_manual_file;
-        cout<< "compute frequency (only used for dynamics): "<< compute_frequency;
+        cout<< "ratio manual file/feval manual file: "<< ratio_manual_file<<endl;
+        cout<< "compute frequency (only used for dynamics): "<< compute_frequency<<endl;
+        cout<< "output data flag: "<< output_data_flag<<endl;
+        cout<< "simple mass flag: "<< simple_mass_flag<<endl;
         //
         // send the constraint switch in as well, or the fine embedded mesh. ugly
         // the flag indicate whether to recalculated or not
@@ -166,7 +173,7 @@ int main(int argc, char **argv) {
         if(!Eigen::loadMarketVector(ratio_manual,"data/" + ratio_manual_file))
             ratio_manual.setZero();
         
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
+        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency,simple_mass_flag);
         
         // TODO: set rayleigh damping. should not be here...
         test->a = a;
@@ -869,8 +876,9 @@ int main(int argc, char **argv) {
         Eigen::VectorXd ratio_manual(numModes);
         ratio_manual.setZero();
         int compute_frequency = 0;
+        bool simple_mass_flag = false;
         //        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes," "," ");
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency);
+        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency,simple_mass_flag);
         
         
         // set material
