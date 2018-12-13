@@ -55,7 +55,7 @@ namespace Gauss {
             c2 = 0.9;
             
             assembled = false;
-            
+            YZcalculated = false;
             //            a = 0.0;
             //            b = -0.01;
             
@@ -129,7 +129,7 @@ namespace Gauss {
         // residual
         double res, res_old, step_size, c1, c2;
         
-        bool assembled;
+        bool assembled, YZcalculated;
         
         //        Eigen::VectorXd res;
         
@@ -282,6 +282,8 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         
         // if number of modes not equals to 0, use EigenFitLinear
         if (m_numModes != 0 && static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if(!YZcalculated)
+            {
             try{
                 if(static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z)) throw 1;
             }catch(...)
@@ -290,7 +292,7 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
                 static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->flag = 2;
                 return;
             }
-            
+            }
             //    Correct Forces
             (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
             
