@@ -54,6 +54,8 @@ namespace Gauss {
             c1 = 1e-4;
             c2 = 0.9;
             
+            assembled = false;
+            
             //            a = 0.0;
             //            b = -0.01;
             
@@ -127,6 +129,8 @@ namespace Gauss {
         // residual
         double res, res_old, step_size, c1, c2;
         
+        bool assembled;
+        
         //        Eigen::VectorXd res;
         
 #ifdef GAUSS_PARDISO
@@ -199,6 +203,10 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         // set the state
         q = eigen_q_temp;
         
+        Eigen::SparseMatrix<DataType, Eigen::RowMajor> systemMatrix;
+        
+        if(!assembled)
+        {
         //get mass matrix
         ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
         ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
@@ -210,7 +218,49 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
         ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
         ASSEMBLEEND(stiffnessMatrix);
-        
+            
+            //constraint Projection
+            (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+            (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
+            
+            assembled = true;
+            
+            
+            m_pardiso_mass.symbolicFactorization(*massMatrix);
+            m_pardiso_mass.numericalFactorization();
+            
+            systemMatrix = -(*m_massMatrix) + 1.0/4.0* dt*dt*(*m_stiffnessMatrix) - 1.0/2.0 * dt * (a *(*m_massMatrix) + b * (*m_stiffnessMatrix));
+            
+#ifdef GAUSS_PARDISO
+            
+            m_pardiso.symbolicFactorization(systemMatrix, m_numModes);
+            m_pardiso.numericalFactorization();
+#else
+            //solve system (Need interface for solvers but for now just use Eigen LLt)
+            Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > solver;
+            
+            if(m_refactor || !m_factored) {
+                solver.compute(systemMatrix);
+            }
+            
+            if(solver.info()!=Eigen::Success) {
+                // decomposition failed
+                assert(1 == 0);
+                std::cout<<"Decomposition Failed \n";
+                exit(1);
+            }
+            
+            if(solver.info()!=Eigen::Success) {
+                // solving failed
+                assert(1 == 0);
+                std::cout<<"Solve Failed \n";
+                exit(1);
+            }
+            
+#endif
+            
+            
+        }
         
         
         //Need to filter internal forces seperately for this applicat
@@ -222,10 +272,9 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
         ASSEMBLEEND(fExt);
         
-        //constraint Projection
-        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
-        (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
         
+        
+
         (*forceVector) = m_P*(*forceVector);
         
         
@@ -264,8 +313,6 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         //setup RHS
         eigen_rhs = (*massMatrix)*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
         
-        m_pardiso_mass.symbolicFactorization(*massMatrix);
-        m_pardiso_mass.numericalFactorization();
         m_pardiso_mass.solve(*forceVector);
         
         //        res_old = 1.0/2.0 * dt * dt * ((m_pardiso_mass.getX()).transpose() * (m_pardiso_mass.getX()));
@@ -278,40 +325,15 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         
         Eigen::VectorXd x0;
         // last term is damping
-        Eigen::SparseMatrix<DataType, Eigen::RowMajor> systemMatrix = -(*m_massMatrix) + 1.0/4.0* dt*dt*(*m_stiffnessMatrix) - 1.0/2.0 * dt * (a *(*m_massMatrix) + b * (*m_stiffnessMatrix));
         
 #ifdef GAUSS_PARDISO
-        
-        m_pardiso.symbolicFactorization(systemMatrix, m_numModes);
-        m_pardiso.numericalFactorization();
-        
+       
         //    SMW update for EigenfitLinear here
         
         m_pardiso.solve(eigen_rhs);
         x0 = m_pardiso.getX();
         
 #else
-        //solve system (Need interface for solvers but for now just use Eigen LLt)
-        Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > solver;
-        
-        if(m_refactor || !m_factored) {
-            solver.compute(systemMatrix);
-        }
-        
-        if(solver.info()!=Eigen::Success) {
-            // decomposition failed
-            assert(1 == 0);
-            std::cout<<"Decomposition Failed \n";
-            exit(1);
-        }
-        
-        if(solver.info()!=Eigen::Success) {
-            // solving failed
-            assert(1 == 0);
-            std::cout<<"Solve Failed \n";
-            exit(1);
-        }
-        
         
         x0 = solver.solve((eigen_rhs));
         
@@ -370,11 +392,7 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         //        std::cout<<"q "<<q.rows()<< std::endl;
         
         cout<<" calculate the residual."<<endl;  //brute force for now. ugly
-        //get stiffness matrix
-        ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-        ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-        ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-        ASSEMBLEEND(stiffnessMatrix);
+        
         
         //Need to filter internal forces seperately for this applicat
         ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
@@ -384,10 +402,6 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
         ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
         ASSEMBLEEND(fExt);
-        
-        //constraint Projection
-        //        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
-        (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
         
         (*forceVector) = m_P*(*forceVector);
         
