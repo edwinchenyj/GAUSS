@@ -23,7 +23,7 @@ namespace Gauss {
         class EnergyKineticNonLumped : public virtual ShapeFunction {
         public:
             template<typename QDOFList, typename QDotDOFList>
-            EnergyKineticNonLumped(Eigen::MatrixXd &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList) : ShapeFunction(V, F, qDOFList, qDotDOFList) {
+            EnergyKineticNonLumped(Eigen::MatrixXx<DataType> &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList) : ShapeFunction(V, F, qDOFList, qDotDOFList) {
                 m_rho = 1000.0;
             }
 
@@ -118,7 +118,7 @@ namespace Gauss {
             }
 
             template<typename Matrix>
-            inline void getCauchyStress(Matrix &S, double *x, State<DataType> &state) {
+            inline void getCauchyStress(Matrix &S, double *x, const State<DataType> &state) const {
                 
                 Eigen::Matrix<DataType, 6, 1> s = m_C*B(this,x,state)*ShapeFunction::q(state);
                 
@@ -144,14 +144,14 @@ namespace Gauss {
         class BodyForceNone : public virtual ShapeFunction {
         public:
              template<typename QDOFList, typename QDotDOFList, typename ...Params>
-            BodyForceNone(Eigen::MatrixXd &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList, Params ...params) : ShapeFunction(V,F, qDOFList, qDotDOFList) { }
+            BodyForceNone(Eigen::MatrixXx<DataType> &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList, Params ...params) : ShapeFunction(V,F, qDOFList, qDotDOFList) { }
         };
 
         template<typename DataType, typename ShapeFunction>
         class BodyForceGravity : public virtual ShapeFunction {
         public:
             template<typename QDOFList, typename QDotDOFList>
-            BodyForceGravity(Eigen::MatrixXd &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList) : ShapeFunction(V,F, qDOFList, qDotDOFList)
+            BodyForceGravity(Eigen::MatrixXx<DataType> &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList) : ShapeFunction(V,F, qDOFList, qDotDOFList)
             {
                 m_rho = 1;
                 m_g << 0.0,-9.8,0.0;

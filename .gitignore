@@ -52,6 +52,7 @@ build
 #qt file
 *.run 
 ThirdParty 
+
 data/meshesTetWild/brick_surf/
 data/meshesTetWild/bunny/
 data/meshesTetWild/rampant/
@@ -69,3 +70,10 @@ data/meshesTetWild/manhead/
 data/meshesTetWild/maxplank/
 data/meshesTetWild/octopus/
 data/meshesTetWild/warrior/
+data/meshesTetWild/animal/
+data/meshesTetWild/arma/
+data/meshesTetWild/brick_surf/
+data/meshesTetWild/bunny/
+data/meshesTetWild/hand/
+data/meshesTetWild/rampant/
+data/meshesTetWild/skater/

@@ -17,11 +17,15 @@
 #include <EnergyNeohookeanHFixed.h>
 #include <EnergyMuscle.h>
 #include <EnergyStvk.h>
-//#include <EnergyStvkHFixed.h>
+
+#include <EnergyPrincipalStretch.h>
+#include <MaterialsPrincipalStretch.h>
+
 //Quadrature rules
 #include <Quadrature.h>
 #include <QuadratureExact.h>
 #include <QuadratureTetConstant.h>
+#include <QuadratureTetLinear.h>
 #include <QuadratureHex8.h>
 #include <QuadraturePlaneTri1.h>
 
