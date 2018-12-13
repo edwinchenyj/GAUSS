@@ -1,108 +1,104 @@
-#ifndef ENERGY_NEOHOOKEAN
-#define ENERGY_NEOHOOKEAN
+#ifndef ENERGY_PRINCIPALSTRETCH
+#define ENERGY_PRINCIPALSTRETCH
 
 #include<cmath>
-
-template<typename DataType, typename ShapeFunction>
-class EnergyNeohookean : public virtual ShapeFunction {
+#include <igl/svd3x3.h>
+//Energy PS is an object that can compute the energy, gradient and hessian of the energy, expressed as a function of principal stretches.
+template<typename DataType, typename ShapeFunction, typename EnergyPS>
+class EnergyPrincipalStretch : public virtual ShapeFunction {
 public:
     template<typename QDOFList, typename QDotDOFList>
-    EnergyNeohookean(Eigen::MatrixXd &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList) : ShapeFunction(V, F, qDOFList, qDotDOFList) {
-        setParameters(2e6, 0.45);
+    EnergyPrincipalStretch(Eigen::MatrixXx<DataType> &V, Eigen::MatrixXi &F, QDOFList &qDOFList, QDotDOFList &qDotDOFList) : ShapeFunction(V, F, qDOFList, qDotDOFList) {
+        
         
     }
-    
-    inline void setParameters(double youngsModulus, double poissonsRatio) {
-        m_D = 0.5*(youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
-        m_C = 0.5*youngsModulus/(2.0*(1.0+poissonsRatio));
-    }
+
+    inline EnergyPS & getPrincipalStretchObject() { return m_ps; }
     
     inline DataType getValue(double *x, const State<DataType> &state) {
-    
-        Eigen::Matrix<DataType, 3,3> F = ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity();
-        double detF = F.determinant();
-        double J23 = stablePow(detF,2.0);
-        J23=1.0/J23;
-        //double J23 = 1.0/(std::pow(detF*detF, 1.0/3.0));
-        Eigen::Matrix<DataType, 3,3> Cbar = J23*F.transpose()*F;
-        return m_C*(Cbar.trace() - 3.0) + m_D*(detF - 1)*(detF - 1);
+        
+        Eigen::Matrix33x<float> F = (ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity()).template cast<float>();;
+        
+        igl::svd3x3(F,m_U,m_S,m_V);
+        
+        //evaluate energy
+        return static_cast<DataType>(m_ps.energy(m_S));
     }
     
     template<typename Vector>
     inline void getGradient(Vector &f, double *x, const State<DataType> &state) {
         
         //Deformation Gradient
-        double f11, f12, f13, f21, f22, f23, f31, f32, f33;
+        Eigen::Matrix33x<float> F = (ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity()).template cast<float>();
         
-        Eigen::Matrix<DataType, 3,3> F = ShapeFunction::F(x,state);
+        igl::svd3x3(F,m_U,m_S,m_V);
         
-        f11 = F(0,0)+1.0;
-        f12 = F(0,1);
-        f13 = F(0,2);
-        f21 = F(1,0);
-        f22 = F(1,1)+1.0;
-        f23 = F(1,2);
-        f31 = F(2,0);
-        f32 = F(2,1);
-        f33 = F(2,2)+1.0;
+        Eigen::Vector3x<float> Plam = m_ps.gradient(m_S);
         
-        //Force Vector computation from Mathematica notebook
-        Eigen::Matrix<DataType, 9,1> dw;
-        double C,D;
-        C = m_C;
-        D = m_D;
-       
-        dw[0] = 2*D*(f23*f32 - f22*f33)*(1 + f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) + (2*C*(3*f11*(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f12*f21*f33) + std::pow(f11,2)*(-2*f23*f32 + 2*f22*f33) + (f23*f32 - f22*f33)*(std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2))))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
+        //Eigen::MatrixXx<DataType> P = svd.matrixU()*(Plam.asDiagonal()*svd.matrixV().transpose());
+        Eigen::MatrixXx<float> P = m_U*(Plam.asDiagonal()*m_V.transpose());
+        P.transposeInPlace();
+        P.resize(9,1);
+                        
         
-        dw[1] = 2*D*(f23*f31 - f21*f33)*(-1 - f13*f22*f31 + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33) - (2*C*(std::pow(f12,2)*(-2*f23*f31 + 2*f21*f33) + 3*f12*(f13*f22*f31 - f13*f21*f32 + f11*f23*f32 - f11*f22*f33) + (f23*f31 - f21*f33)*(std::pow(f11,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2))))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-        
-        dw[2] = 2*D*(f22*f31 - f21*f32)*(1 + f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) + (2*C*f13)/stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,2.0) + (2*C*(f22*f31 - f21*f32)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2)))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-        
-        dw[3] = 2*D*(f13*f32 - f12*f33)*(-1 - f13*f22*f31 + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33) + (2*C*f21)/stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,2.0) - (2*C*(f13*f32 - f12*f33)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2)))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-        
-        dw[4] = 2*D*(f13*f31 - f11*f33)*(1 + f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) + (2*C*f22)/stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,2.0) + (2*C*(f13*f31 - f11*f33)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2)))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-        
-        dw[5] = 2*D*(f12*f31 - f11*f32)*(-1 - f13*f22*f31 + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33) + (2*C*f23)/stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,2.0) - (2*C*(f12*f31 - f11*f32)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2)))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-        
-        dw[6] = 2*D*(f13*f22 - f12*f23)*(1 + f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) + (2*C*f31)/stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,2.0) + (2*C*(f13*f22 - f12*f23)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2.0) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2)))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-        
-        dw[7] = 2*D*(f13*f21 - f11*f23)*(-1 - f13*f22*f31 + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33) + (2*C*f32)/stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,2.0) - (2*C*(f13*f21 - f11*f23)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2)))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-        
-        dw[8] = 2*D*(f12*f21 - f11*f22)*(1 + f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) - (2*C*((-(f12*f21) + f11*f22)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2)) + 3*(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32)*f33 + 2*(f12*f21 - f11*f22)*std::pow(f33,2)))/(3.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,5.0));
-
-        f = -ShapeFunction::GradJ(0,x,state).transpose()*dw.segment(0,3) +
-            -ShapeFunction::GradJ(1,x,state).transpose()*dw.segment(3,3) +
-            -ShapeFunction::GradJ(2,x,state).transpose()*dw.segment(6,3);
-        
+        //build force vector
+        f = -ShapeFunction::GradJ(0,x,state).transpose()*P.block(0,0, 3,1).template cast<DataType>() +
+            -ShapeFunction::GradJ(1,x,state).transpose()*P.block(3,0, 3,1).template cast<DataType>() +
+            -ShapeFunction::GradJ(2,x,state).transpose()*P.block(6,0, 3,1).template cast<DataType>();
         
     }
     
     template<typename Matrix>
-    inline void getHessian(Matrix &H, double *x, const State<DataType> &state) {
-        //H = -ShapeFunction::B(x,state).transpose()*m_C*ShapeFunction::B(x,state);
-        Eigen::Matrix<DataType, 3,3> F = ShapeFunction::F(x,state);
-        double f11, f12, f13, f21, f22, f23, f31, f32, f33;
+    inline void getHessian(Matrix &H, DataType *x, const State<DataType> &state) {
         
-        f11 = F(0,0)+1.0;
-        f12 = F(0,1);
-        f13 = F(0,2);
-        f21 = F(1,0);
-        f22 = F(1,1)+1.0;
-        f23 = F(1,2);
-        f31 = F(2,0);
-        f32 = F(2,1);
-        f33 = F(2,2)+1.0;
+        //Deformation Gradient
+        Eigen::Matrix33x<float> F = (ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity()).template cast<float>();
         
-        //H = -B(this, x, state).transpose()*m_C*B(this, x, state);
-        Eigen::Matrix<DataType,9,9> ddw;
+        igl::svd3x3(F,m_U,m_S,m_V);
+        
+        //Eigen::Vector3x<DataType> Plam = m_ps.gradient(svd.singularValues()*maxVal);
+        Eigen::Matrix<DataType,9,9, Eigen::RowMajor> ddw2;
+        Eigen::Vector3x<float> Plam = m_ps.gradient(m_S);
+        Eigen::Matrix33x<float> Plam2 = m_ps.hessian(m_S);
+        
+        //derivative of SVD wrt to F
+        Eigen::dSVD(m_dU, m_dS, m_dV, m_U, m_S, m_V);
+        Eigen::Matrix33x<DataType> rowMat;
+        
+        //This formatting is quite complicated
+        for(unsigned int r = 0; r <3; ++r) {
+            for(unsigned int s = 0; s<3; ++s) {
+                Eigen::Vector3x<float> PlamVec = Plam2*m_dS[r][s];
+                rowMat = (m_dU[r][s]*Plam.asDiagonal()*m_V.transpose() + m_U*Plam.asDiagonal()*m_dV[r][s].transpose() + m_U*PlamVec.asDiagonal()*m_V.transpose()).template cast<DataType>();
+                rowMat.transposeInPlace();
+                ddw2.row(3*r + s) = Eigen::Map<Eigen::Matrix<DataType, 1,9> >(rowMat.data(), 9);
+                
+            }
+        }
+
         typename ShapeFunction::MatrixJ gradX, gradY, gradZ;
         gradX = ShapeFunction::GradJ(0,x,state);
         gradY = ShapeFunction::GradJ(1,x,state);
         gradZ = ShapeFunction::GradJ(2,x,state);
         
-        double C,D;
-        C = m_C;
-        D = m_D;
+        /*double f11, f12, f13, f21, f22, f23, f31, f32, f33;
+        
+        f11 = F(0,0);
+        f12 = F(0,1);
+        f13 = F(0,2);
+        f21 = F(1,0);
+        f22 = F(1,1);
+        f23 = F(1,2);
+        f31 = F(2,0);
+        f32 = F(2,1);
+        f33 = F(2,2);
+        
+        //H = -B(this, x, state).transpose()*m_C*B(this, x, state);
+        double youngsModulus = 2e6;
+        double poissonsRatio = 0.45;
+        Eigen::Matrix<DataType,9,9> ddw;
+        DataType D = 0.5*(youngsModulus*poissonsRatio)/((1.0+poissonsRatio)*(1.0-2.0*poissonsRatio));
+        DataType C = 0.5*youngsModulus/(2.0*(1.0+poissonsRatio));
         
         //From Mathematica
         ddw(0,0) = 2*D*std::pow(f23*f32 - f22*f33,2) + (2*C*(-12*f11*(f23*f32 - f22*f33)*(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) + 9*std::pow(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33,2) + 5*std::pow(f23*f32 - f22*f33,2)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2))))/(9.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,8.0));
@@ -265,48 +261,42 @@ public:
         
         ddw(7,8) = 2*D*(-(f12*f21) + f11*f22)*(f13*f21 - f11*f23) + (2*C*(-6*(f12*f21 - f11*f22)*f32*(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) - 6*(f13*f21 - f11*f23)*f33*(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33) + 5*(-(f12*f21) + f11*f22)*(f13*f21 - f11*f23)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2))))/(9.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,8.0));
         
-        ddw(8,8) = 2*D*std::pow(f12*f21 - f11*f22,2) + (2*C*(-12*(f12*f21 - f11*f22)*f33*(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) + 9*std::pow(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33,2) + 5*std::pow(f12*f21 - f11*f22,2)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2))))/(9.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,8.0));
+        ddw(8,8) = 2*D*std::pow(f12*f21 - f11*f22,2) + (2*C*(-12*(f12*f21 - f11*f22)*f33*(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33) + 9*std::pow(f13*f22*f31 - f12*f23*f31 - f13*f21*f32 + f11*f23*f32 + f12*f21*f33 - f11*f22*f33,2) + 5*std::pow(f12*f21 - f11*f22,2)*(std::pow(f11,2) + std::pow(f12,2) + std::pow(f13,2) + std::pow(f21,2) + std::pow(f22,2) + std::pow(f23,2) + std::pow(f31,2) + std::pow(f32,2) + std::pow(f33,2))))/(9.*stablePow(-(f13*f22*f31) + f12*f23*f31 + f13*f21*f32 - f11*f23*f32 - f12*f21*f33 + f11*f22*f33,8.0));*/
         
-        //End mathematica code
-        H = -gradX.transpose()*ddw.block(0,0,3,3)*gradX +
-            -gradX.transpose()*ddw.block(0,3,3,3)*gradY +
-            -gradX.transpose()*ddw.block(0,6,3,3)*gradZ +
-            -gradY.transpose()*ddw.block(3,0,3,3)*gradX +
-            -gradY.transpose()*ddw.block(3,3,3,3)*gradY +
-            -gradY.transpose()*ddw.block(3,6,3,3)*gradZ +
-            -gradZ.transpose()*ddw.block(6,0,3,3)*gradX +
-            -gradZ.transpose()*ddw.block(6,3,3,3)*gradY +
-            -gradZ.transpose()*ddw.block(6,6,3,3)*gradZ;
+        H = -gradX.transpose()*ddw2.block(0,0,3,3)*gradX +
+        -gradX.transpose()*ddw2.block(0,3,3,3)*gradY +
+        -gradX.transpose()*ddw2.block(0,6,3,3)*gradZ +
+        -gradY.transpose()*ddw2.block(3,0,3,3)*gradX +
+        -gradY.transpose()*ddw2.block(3,3,3,3)*gradY +
+        -gradY.transpose()*ddw2.block(3,6,3,3)*gradZ +
+        -gradZ.transpose()*ddw2.block(6,0,3,3)*gradX +
+        -gradZ.transpose()*ddw2.block(6,3,3,3)*gradY +
+        -gradZ.transpose()*ddw2.block(6,6,3,3)*gradZ;
         
-        
+        //std::cout<<"Actual Hessian: \n"<<ddw<<"\n";
+        //std::cout<<"PS Hessian: \n"<<ddw2<<"\n";
     }
     
     template<typename Matrix>
     inline void getCauchyStress(Matrix &S, double *x, State<DataType> &state) {
-
-        double mu = 50.0;
-        double lambda = 50.0;
-
-        Eigen::Matrix<DataType, 3,3> F = ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity();
-        double J = F.determinant();
-        auto F_inv_T = F.inverse().transpose();
-
-        auto P = mu * (F - F_inv_T) + lambda * log(J) * F_inv_T;
-
-        S = (P * F.transpose()) / J;
+        std::cout<<"GetCauchyStress not implemented in EnergyPrincipalStrain \n";
+        std::exit(1);
     }
-
     
-    inline const DataType & getC() const { return m_C; }
-    inline const DataType & getD() const { return m_D; }
+    inline const DataType getE() const { return 10.0; }
     
-    inline const DataType & getE() const { return m_C; }
-
 protected:
-    DataType m_C, m_D;
+    
+    //Energy PS object
+    EnergyPS m_ps;
+    Eigen::Vector3x<float> m_S;
+    Eigen::Matrix33x<float> m_U,m_V;
+    Eigen::Tensor3333x<float> m_dU, m_dV;
+    Eigen::Tensor333x<float> m_dS;
 private:
     
 };
 
 #endif
+
 
