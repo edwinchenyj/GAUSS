@@ -131,6 +131,8 @@ namespace Gauss {
         
         bool assembled, YZcalculated;
         
+        Eigen::SparseMatrix<DataType, Eigen::RowMajor> systemMatrix;
+        
         //        Eigen::VectorXd res;
         
 #ifdef GAUSS_PARDISO
@@ -190,20 +192,20 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         eigen_v_temp(ind) = qDot(ind);
     }
     
-    cout<<"Newton iteration for implicit midpoint..."<<endl;
-    do {
-        std::cout<<"Newton it outer: " << it_outer<<std::endl;
-        it_outer = it_outer + 1;
-        if (it_outer > 20) {
-            std::cout<< "warning: quasi-newton more than 20 iterations." << std::endl;
-        }
+//    cout<<"Newton iteration for implicit midpoint..."<<endl;
+//    do {
+//        std::cout<<"Newton it outer: " << it_outer<<std::endl;
+//        it_outer = it_outer + 1;
+//        if (it_outer > 20) {
+//            std::cout<< "warning: quasi-newton more than 20 iterations." << std::endl;
+//        }
         
         eigen_q_temp = eigen_q_old + 1.0/4.0 * dt * (eigen_v_old + qDot);
         
         // set the state
         q = eigen_q_temp;
         
-        Eigen::SparseMatrix<DataType, Eigen::RowMajor> systemMatrix;
+
         
         if(!assembled)
         {
@@ -292,6 +294,7 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
                 static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->flag = 2;
                 return;
             }
+                YZcalculated = true;
             }
             //    Correct Forces
             (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
@@ -388,54 +391,54 @@ void TimeStepperImplEigenFitLinearSMWIMImpl<DataType, MatrixAssembler, VectorAss
         eigen_v_temp = qDot;
         eigen_v_temp = eigen_v_temp + Dv*step_size;
         //update state
-        q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
+//        q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
         
         
-        //        std::cout<<"q "<<q.rows()<< std::endl;
-        
-        cout<<" calculate the residual."<<endl;  //brute force for now. ugly
-        
-        
-        //Need to filter internal forces seperately for this applicat
-        ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
-        ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
-        ASSEMBLEEND(forceVector);
-        
-        ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
-        ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
-        ASSEMBLEEND(fExt);
-        
-        (*forceVector) = m_P*(*forceVector);
-        
-        if (m_numModes != 0 && static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
-            //
-            //
-            //            static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitLinearData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
-            
-            //    Correct Forces
-            (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
-            
-            // add damping
-            (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
-
-            
-        }
-        else
-        {
-            (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
-            
-        }
-        // add external force
-        (*forceVector) = (*forceVector) + m_P*(*fExt);
-        
-        m_pardiso_mass.solve(*forceVector);
-        std::cout << "res: " << 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_pardiso_mass.getX()).squaredNorm()<< std::endl;
-        res  = 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_pardiso_mass.getX()).squaredNorm();
+//        //        std::cout<<"q "<<q.rows()<< std::endl;
+//
+//        cout<<" calculate the residual."<<endl;  //brute force for now. ugly
+//
+//
+//        //Need to filter internal forces seperately for this applicat
+//        ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
+//        ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
+//        ASSEMBLEEND(forceVector);
+//
+//        ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
+//        ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
+//        ASSEMBLEEND(fExt);
+//
+//        (*forceVector) = m_P*(*forceVector);
+//
+//        if (m_numModes != 0 && static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+//            //
+//            //
+//            //            static_cast<EigenFitLinear*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitLinearData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+//
+//            //    Correct Forces
+//            (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
+//
+//            // add damping
+//            (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+//
+//
+//        }
+//        else
+//        {
+//            (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+//
+//        }
+//        // add external force
+//        (*forceVector) = (*forceVector) + m_P*(*fExt);
+//
+//        m_pardiso_mass.solve(*forceVector);
+//        std::cout << "res: " << 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_pardiso_mass.getX()).squaredNorm()<< std::endl;
+//        res  = 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_pardiso_mass.getX()).squaredNorm();
         
         qDot = eigen_v_temp;
         q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
         
-    } while(res > 1e-6);
+//    } while(res > 1e-6);
     it_outer = 0;
     q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
 }
