@@ -42,111 +42,6 @@
 #include <SparseGenRealShiftSolvePardiso.h>
 
 
-class MatrixReplacement;
-using Eigen::SparseMatrix;
-
-namespace Eigen {
-    namespace internal {
-        // MatrixReplacement looks-like a SparseMatrix, so let's inherits its traits:
-        template<>
-        struct traits<MatrixReplacement> :  public Eigen::internal::traits<Eigen::SparseMatrix<double> > {};
-    }
-}
-// Example of a matrix-free wrapper from a user type to Eigen's compatible type
-// For the sake of simplicity, this example simply wrap a Eigen::SparseMatrix.
-class MatrixReplacement : public Eigen::EigenBase<MatrixReplacement> {
-public:
-    // Required typedefs, constants, and method:
-    typedef double Scalar;
-    typedef double RealScalar;
-    typedef int StorageIndex;
-
-    enum {
-        ColsAtCompileTime = Eigen::Dynamic,
-        MaxColsAtCompileTime = Eigen::Dynamic,
-        IsRowMajor = false
-    };
-
-    Index rows() const { return 2*(M_lumped->rows()); }
-    Index cols() const { return 2*(MinvK->cols()); }
-
-    template<typename Rhs>
-    Eigen::Product<MatrixReplacement,Rhs,Eigen::AliasFreeProduct> operator*(const Eigen::MatrixBase<Rhs>& x) const {
-        return Eigen::Product<MatrixReplacement,Rhs,Eigen::AliasFreeProduct>(*this, x.derived());
-
-    }
-    // Custom API:
-//    MatrixReplacement() : NK(0) {}
-    void attachMyMatrix(const SparseMatrix<double> &minvk, const Eigen::VectorXx<double> &mass, double a, double b, double dt) {
-//        mp_mat = &mat;
-        MinvK = &minvk;
-        M_lumped = &mass;
-        this->a = a;
-        this->b = b;
-        this->dt = dt;
-        Eigen::saveMarketDat(*MinvK, "MinvK.dat");
-//        (*minvk) = -mass.asDiagonal().inverse() * nStiff;
-    }
-//    const SparseMatrix<double> my_matrix() const { return *mp_mat; }
-    const SparseMatrix<double> minvk() const { return *MinvK; }
-    const Eigen::VectorXx<double> mass() const { return *M_lumped; }
-//    const SparseMatrix<double> minvk() const { return (*minvk); }
-    double a, b, dt;
-private:
-//    const SparseMatrix<double> *mp_mat;
-    const SparseMatrix<double> *MinvK;
-    const Eigen::VectorXx<double> *M_lumped;
-//    SparseMatrix<double> *minvk;
-    
-
-};
-// Implementation of MatrixReplacement * Eigen::DenseVector though a specialization of internal::generic_product_impl:
-namespace Eigen {
-    namespace internal {
-        template<typename Rhs>
-        struct generic_product_impl<MatrixReplacement, Rhs, SparseShape, DenseShape, GemvProduct> // GEMV stands for matrix-vector
-        : generic_product_impl_base<MatrixReplacement,Rhs,generic_product_impl<MatrixReplacement,Rhs> >
-        {
-            typedef typename Product<MatrixReplacement,Rhs>::Scalar Scalar;
-            template<typename Dest>
-            static void scaleAndAddTo(Dest& dst, const MatrixReplacement& lhs, const Rhs& rhs, const Scalar& alpha)
-            {
-                // This method should implement "dst += alpha * lhs * rhs" inplace,
-                // however, for iterative solvers, alpha is always equal to 1, so let's not bother about it.
-                assert(alpha==Scalar(1) && "scaling is not implemented");
-                EIGEN_ONLY_USED_FOR_DEBUG(alpha);
-                // Here we could simply call dst.noalias() += lhs.my_matrix() * rhs,
-                // but let's do something fancier (and less efficient):
-//                for(Index i=0; i<lhs.cols(); ++i)
-//                    dst += rhs(i) * lhs.my_matrix().col(i);
-                dst.head(lhs.rows()/2) = rhs.head(lhs.rows()/2) - lhs.dt * rhs.tail(lhs.rows()/2);
-                dst.tail(lhs.rows()/2) = lhs.dt * lhs.minvk()*rhs.head(lhs.rows()/2) + rhs.tail(lhs.rows()/2) - lhs.dt * lhs.b * lhs.minvk() * rhs.tail(lhs.rows()/2);
-            }
-        };
-//        template<typename Rhs>
-//        struct generic_product_impl<MatrixReplacement, Rhs, SparseShape, DenseShape, GemmProduct> // GEMM stands for matrix-matrix
-//        : generic_product_impl_base<MatrixReplacement,Rhs,generic_product_impl<MatrixReplacement,Rhs> >
-//        {
-//            typedef typename Product<MatrixReplacement,Rhs>::Scalar Scalar;
-//            template<typename Dest>
-//            static void scaleAndAddTo(Dest& dst, const MatrixReplacement& lhs, const Rhs& rhs, const Scalar& alpha)
-//            {
-//                // This method should implement "dst += alpha * lhs * rhs" inplace,
-//                // however, for iterative solvers, alpha is always equal to 1, so let's not bother about it.
-//                assert(alpha==Scalar(1) && "scaling is not implemented");
-//                EIGEN_ONLY_USED_FOR_DEBUG(alpha);
-//                // Here we could simply call dst.noalias() += lhs.my_matrix() * rhs,
-//                // but let's do something fancier (and less efficient):
-//                //                for(Index i=0; i<lhs.cols(); ++i)
-//                //                    dst += rhs(i) * lhs.my_matrix().col(i);
-//                dst.head(lhs.rows()/2) = rhs.head(lhs.rows()/2) - lhs.dt * rhs.tail(lhs.rows()/2);
-//                dst.tail(lhs.rows()/2) = lhs.dt * lhs.minvk()*rhs.head(lhs.rows()/2) + rhs.tail(lhs.rows()/2) - lhs.dt * lhs.b * lhs.minvk() * rhs.tail(lhs.rows()/2);
-//            }
-//        };
-    }
-}
-
-
 
 void phi(Eigen::MatrixXd &A, Eigen::MatrixXd &output)
 {
@@ -594,17 +489,6 @@ void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step
     }
     (J).setFromTriplets(tripletList.begin(), tripletList.end());
 
-//
-//    ASSEMBLEMATINIT(J, 2*world.getNumQDotDOFs(), 2*world.getNumQDotDOFs());
-//    ASSEMBLELISTOFFSET(J, world.getSystemList(), getStiffnessMatrix,world.getNumQDotDOFs(),0);
-//    ASSEMBLELISTOFFSET(J, world.getForceList(), getStiffnessMatrix,world.getNumQDotDOFs(),0);
-//    ASSEMBLELISTOFFSET(J, world.getSystemList(), getStiffnessMatrix,world.getNumQDotDOFs(),world.getNumQDotDOFs());
-//    ASSEMBLELISTOFFSET(J, world.getForceList(), getStiffnessMatrix,world.getNumQDotDOFs(),world.getNumQDotDOFs());
-//    ASSEMBLEEND(J);
-//    (*J) = m_P2 * (*J) * m_P2.transpose();
-//    Eigen::saveMarketDat(*J,"J.dat");
-//    Eigen::saveMarketDat(*stiffnessMatrix,"stiffness.dat");
-    
     (J) = mass_lumped_inv2.asDiagonal() * (J) * rayleigh_b_scaling.asDiagonal();
     J += J21;
 
