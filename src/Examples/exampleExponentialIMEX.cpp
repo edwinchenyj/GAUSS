@@ -81,6 +81,7 @@ int main(int argc, char **argv) {
     int constraint_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
     double a = 0.0;
     double b = -0.0001;
+    int numModes = 5;
     
     //    parameters
     if(argc > 1)
@@ -103,6 +104,8 @@ int main(int argc, char **argv) {
         a = atof(argv[9]);
     if(argc > 10)
         b = atof(argv[10]);
+    if(argc > 11)
+        numModes = atoi(argv[11]);
     
     readTetgen(V, F, dataDir()+meshname +".node", dataDir()+meshname+".ele");
     
@@ -302,7 +305,7 @@ int main(int argc, char **argv) {
     }
     
     
-    MyTimeStepper stepper(step_size,P, a, b);
+    MyTimeStepper stepper(step_size,P, a, b,numModes);
     
     unsigned int file_ind = 0;
     struct stat buf;
