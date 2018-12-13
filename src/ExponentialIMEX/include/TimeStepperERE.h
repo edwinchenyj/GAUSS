@@ -199,28 +199,28 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
     
     // add external force
     (*forceVector) = (*forceVector) + m_P*(*fExt);
-    
-    //solve mass (Need interface for solvers but for now just use Eigen LLt)
-    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > solver_mass;
-    
-    if(m_refactor || !m_factored) {
-        solver_mass.compute(*massMatrix);
-    }
-    
-    if(solver_mass.info()!=Eigen::Success) {
-        // decomposition failed
-        assert(1 == 0);
-        std::cout<<"Decomposition Failed \n";
-        exit(1);
-    }
-    
-    if(solver_mass.info()!=Eigen::Success) {
-        // solving failed
-        assert(1 == 0);
-        std::cout<<"Solve Failed \n";
-        exit(1);
-    }
-    
+//
+//    //solve mass (Need interface for solvers but for now just use Eigen LLt)
+//    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > solver_mass;
+//
+//    if(m_refactor || !m_factored) {
+//        solver_mass.compute(*massMatrix);
+//    }
+//
+//    if(solver_mass.info()!=Eigen::Success) {
+//        // decomposition failed
+//        assert(1 == 0);
+//        std::cout<<"Decomposition Failed \n";
+//        exit(1);
+//    }
+//
+//    if(solver_mass.info()!=Eigen::Success) {
+//        // solving failed
+//        assert(1 == 0);
+//        std::cout<<"Solve Failed \n";
+//        exit(1);
+//    }
+//
 //    Eigen::saveMarket(*stiffnessMatrix,"stiffness.dat");
 //    Eigen::saveMarket(*massMatrix,"mass.dat");
 //    Eigen::saveMarket(m_P,"m_P.dat");
@@ -511,7 +511,7 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
         double err = s_error;
         hump = hump / normv;
 //    }
-    Eigen::saveMarketVector(X,"X.dat");
+//    Eigen::saveMarketVector(X,"X.dat");
     
 //
     q = m_P.transpose() * X.head(N);

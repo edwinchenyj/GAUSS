@@ -360,7 +360,7 @@ void TimeStepperImplIMImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wor
         //update state
         //        std::cout<<"m_S*eigen_v_temp"<< m_S*eigen_v_temp <<std::endl;
         
-        q = eigen_q_old + dt*eigen_v_temp;
+        q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old) ;
         
         
         //        std::cout<<"q "<<q.rows()<< std::endl;

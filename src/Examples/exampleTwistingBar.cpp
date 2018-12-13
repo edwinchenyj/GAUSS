@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
 
     world.addSystem(test);
     
-    fixDisplacementMin(world, test,0,1e-2); //fix one side
+    fixDisplacementMin(world, test,0,2e-1); //fix one side
     Eigen::saveMarketVector(minVertices(test,0,1e-2),"brick_surf_2_fixed_min_verts.mtx");
     movingVerts = maxVertices(test, 0,1e-1);//indices for moving parts
 
