@@ -28,7 +28,7 @@ a->funcName(assembler, world, world.getState()); \
 #define ASSEMBLELISTOFFSET(assembler, list, funcName, rowOffset, colOffset) \
 assembler.setOffset(rowOffset, colOffset);\
 forEach(list, [&world, &assembler](auto a) { \
-a->funcName(assembler, world.getState()); \
+a->funcName(assembler, world, world.getState()); \
 });
 
 #define ASSEMBLELISTOFFSETTRANSPOSE(assembler, list, funcName, rowOffset, colOffset) \
@@ -36,7 +36,6 @@ assembler.setOffset(rowOffset, colOffset);\
 forEach(list, [&world, &assembler](auto a) { \
 a->template funcName<decltype(world), decltype(assembler), 1>(assembler, world, world.getState()); \
 });
-
 //ASSEMBLEBLAH(list)
 //ENDASSEMBLE()
 //a = b

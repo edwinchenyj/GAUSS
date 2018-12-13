@@ -6,11 +6,11 @@
 
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
-#include <TimeStepperERE.h>
+//#include <TimeStepperERE.h>
 #include <TimeStepperSIIMEX.h>
 #include <ExponentialIMEX.h>
-#include <TimeStepperEigenFitSMWIM.h>
-#include <EigenFit.h>
+//#include <TimeStepperEigenFitSMWIM.h>
+//#include <EigenFit.h>
 #include <fstream>
 #include <igl/boundary_facets.h>
 
