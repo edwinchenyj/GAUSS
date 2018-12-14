@@ -119,11 +119,6 @@ public:
         return 1;
     }
     
-    int compute(Eigen::SparseMatrix<double, Eigen::RowMajor> &A, unsigned int nrhs = 1) {
-        symbolicFactorization(A,1);
-        numericalFactorization();
-    }
-    
     int numericalFactorization() {
     
         int phase = 22;
@@ -143,7 +138,7 @@ public:
     }
 
     template<typename Vector>
-    const auto &  solve(Vector &rhs) {
+    int solve(Vector &rhs) {
         int phase = 33;
         int      idum = 0;              /* Integer dummy. */
         int error = 0;
@@ -164,7 +159,7 @@ public:
             return 0;
         }
 
-        return m_x;
+        return 1;
     }
     
     template<typename Vector>
