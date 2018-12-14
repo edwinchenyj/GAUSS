@@ -26,6 +26,7 @@
 #include <fstream>
 #include <SolverPardiso.h>
 #include <SparseRegularInversePardiso.h>
+#include <SparseGenRealShiftSolvePardiso.h>
 #include <igl/boundary_facets.h>
 
 using namespace Gauss;
@@ -452,11 +453,16 @@ public:
             {
                 Eigen::VectorXx<double> ones(m_fineP.rows());
                 ones.setOnes();
+                fine_mass_lumped.resize(m_fineP.rows());
+                fine_mass_lumped_inv.resize(m_fineP.rows());
                 fine_mass_lumped = ((*massMatrix)*ones);
                 fine_mass_lumped_inv = fine_mass_lumped.cwiseInverse();
                 
                 fine_mass_calculated = true;
             }
+            
+            fineMinvK.resize(fine_mass_lumped.rows(),fine_mass_lumped.rows());
+            coarseMinvK.resize(m_coarseP.rows(),m_coarseP.rows());
             
             // fill in the rest state position
             restFineState = m_fineWorld.getState();
@@ -557,25 +563,51 @@ public:
         {
             Eigen::VectorXx<double> ones(m_coarseP.rows());
             ones.setOnes();
+            coarse_mass_lumped.resize(m_coarseP.rows());
+            coarse_mass_lumped_inv.resize(m_coarseP.rows());
             coarse_mass_lumped = ((*coarseMassMatrix)*ones);
             coarse_mass_lumped_inv = coarse_mass_lumped.cwiseInverse();
             
             coarse_mass_calculated = true;
+            
+            coarseMinvK = (1)*coarse_mass_lumped_inv.asDiagonal()*(*coarseStiffnessMatrix);
+            
+            Spectra::SparseGenRealShiftSolvePardiso<double> op(coarseMinvK);
+            
+            // Construct eigen solver object, requesting the smallest three eigenvalues
+            Spectra::GenEigsRealShiftSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<double>> eigs(&op, m_numModes, 5*m_numModes,0.0);
+            
+            // Initialize and compute
+            eigs.init();
+            eigs.compute();
+            
+            if(eigs.info() == Spectra::SUCCESSFUL)
+            {
+                m_coarseUs = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
+            }
+            else{
+                cout<<"eigen solve failed"<<endl;
+                exit(1);
+            }
+            Eigen::VectorXd normalizing_const;
+            normalizing_const.noalias() = (m_coarseUs.first.transpose() * coarse_mass_lumped.asDiagonal() * m_coarseUs.first).diagonal();
+            normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+            
+            m_coarseUs.first.noalias() = m_coarseUs.first * (normalizing_const.asDiagonal());
+        }
+        else
+        {
+            m_coarseUs = generalizedEigenvalueProblemNotNormalized((*coarseStiffnessMatrix), (*coarseMassMatrix), m_numModes,0.0);
+            Eigen::VectorXd normalizing_const;
+            normalizing_const = (m_coarseUs.first.transpose() * (*coarseMassMatrix) * m_coarseUs.first).diagonal();
+            normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+            
+            m_coarseUs.first = m_coarseUs.first * (normalizing_const.asDiagonal());
         }
         
-        m_coarseUs = generalizedEigenvalueProblemNotNormalized((*coarseStiffnessMatrix), (*coarseMassMatrix), m_numModes,0.0);
-        Eigen::VectorXd normalizing_const;
-        normalizing_const = (m_coarseUs.first.transpose() * (*coarseMassMatrix) * m_coarseUs.first).diagonal();
-        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
-        
-        m_coarseUs.first = m_coarseUs.first * (normalizing_const.asDiagonal());
-        
-//        cout<<"coarse eval:"<<m_coarseUs.second<<endl;
-        //        Eigen::saveMarketDat(m_coarseUs.first, "coarseEigenvectors.dat");
-        //        Eigen::saveMarketVectorDat(m_coarseUs.second, "coarseEigenvalues.dat");
         coarseEigMassProj = m_coarseUs;
         coarseEig = m_coarseUs;
-        coarseEigMassProj.first = (*coarseMassMatrix)*coarseEigMassProj.first;
+        //        coarseEigMassProj.first = (*coarseMassMatrix)*coarseEigMassProj.first;
         
         
         std::cout<<"Dynamic switch: "<<ratio_recalculation_switch<<std::endl;
@@ -588,45 +620,74 @@ public:
                 if(ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
                 {
                     
-                        World<double, std::tuple<PhysicalSystemImpl *>,
-                        std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
-                        std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
-                        
-                        Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
-                        
-                        //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
-                        Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
-                        
-                        Eigen::VectorXx<double> posFull;
-                        posFull = this->getFinePositionFull(q);
-                        //
-                        fine_q = posFull - eigen_fine_pos0;
-                        //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
-                        AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
+                    World<double, std::tuple<PhysicalSystemImpl *>,
+                    std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
+                    std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
                     
-                        //get stiffness matrix
-                        ASSEMBLEMATINIT(fineStiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-                        ASSEMBLELIST(fineStiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-                        ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-                        ASSEMBLEEND(fineStiffnessMatrix);
+                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
+                    
+                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
+                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
+                    
+                    Eigen::VectorXx<double> posFull;
+                    posFull = this->getFinePositionFull(q);
+                    //
+                    fine_q = posFull - eigen_fine_pos0;
+                    //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
+                    AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
+                    
+                    //get stiffness matrix
+                    ASSEMBLEMATINIT(fineStiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                    ASSEMBLELIST(fineStiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+                    ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+                    ASSEMBLEEND(fineStiffnessMatrix);
+                    
+                    
+                    //constraint Projection
+                    (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
+                    
+                    cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+                    
+                    if(simple_mass_flag)
+                    {
+                        cout<<"using simple mass for fine mesh"<<endl;
+                        fineMinvK = (1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
                         
+                        Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
                         
-                        //constraint Projection
-                        (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
+                        // Construct eigen solver object, requesting the smallest three eigenvalues
+                        Spectra::GenEigsRealShiftSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<double>> eigs(&op, m_numModes, 5*m_numModes,0.0);
                         
-                        cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+                        // Initialize and compute
+                        eigs.init();
+                        eigs.compute();
+                        
+                        if(eigs.info() == Spectra::SUCCESSFUL)
+                        {
+                            m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
+                        }
+                        else{
+                            cout<<"eigen solve failed"<<endl;
+                            exit(1);
+                        }
+                        Eigen::VectorXd normalizing_const;
+                        normalizing_const.noalias() = (m_Us.first.transpose() * fine_mass_lumped.asDiagonal() * m_Us.first).diagonal();
+                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                        
+                        m_Us.first.noalias() = m_Us.first * (normalizing_const.asDiagonal());
+                    }
+                    else
+                    {
                         m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
                         Eigen::VectorXd normalizing_const;
                         normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
                         normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
                         
                         m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
-                        
-                        
-                        fineEigMassProj = m_Us;
-                        fineEig = m_Us;
-                        fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
+                    }
                     
+                    fineEigMassProj = m_Us;
+                    fineEig = m_Us;
                 }
                 else
                 {
@@ -653,16 +714,47 @@ public:
                     (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
                     
                     cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
-                    m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
-                    Eigen::VectorXd normalizing_const;
-                    normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
-                    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
                     
-                    m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                    if(simple_mass_flag)
+                    {
+                        cout<<"using simple mass for fine mesh"<<endl;
+                        fineMinvK = (1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
+                        
+                        Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
+                        
+                        // Construct eigen solver object, requesting the smallest three eigenvalues
+                        Spectra::GenEigsRealShiftSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<double>> eigs(&op, m_numModes, 5*m_numModes,0.0);
+                        
+                        // Initialize and compute
+                        eigs.init();
+                        eigs.compute();
+                        
+                        if(eigs.info() == Spectra::SUCCESSFUL)
+                        {
+                            m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
+                        }
+                        else{
+                            cout<<"eigen solve failed"<<endl;
+                            exit(1);
+                        }
+                        Eigen::VectorXd normalizing_const;
+                        normalizing_const.noalias() = (m_Us.first.transpose() * fine_mass_lumped.asDiagonal() * m_Us.first).diagonal();
+                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                        
+                        m_Us.first.noalias() = m_Us.first * (normalizing_const.asDiagonal());
+                    }
+                    else
+                    {
+                        m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                        Eigen::VectorXd normalizing_const;
+                        normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                        
+                        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                    }
                     
                     fineEigMassProj = m_Us;
                     fineEig = m_Us;
-                    fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
                     
                 }
                 
@@ -867,19 +959,48 @@ public:
                         //constraint Projection
                         (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
                         
-                        
-                        m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
-                        Eigen::VectorXd normalizing_const;
-                        normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
-                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
-                        
-                        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
-                        
+                        if(simple_mass_flag)
+                        {
+                            cout<<"using simple mass for fine mesh"<<endl;
+                            fineMinvK = (1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
+                            
+                            Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
+                            
+                            // Construct eigen solver object, requesting the smallest three eigenvalues
+                            Spectra::GenEigsRealShiftSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<double>> eigs(&op, m_numModes, 5*m_numModes,0.0);
+                            
+                            // Initialize and compute
+                            eigs.init();
+                            eigs.compute();
+                            
+                            if(eigs.info() == Spectra::SUCCESSFUL)
+                            {
+                                m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
+                            }
+                            else{
+                                cout<<"eigen solve failed"<<endl;
+                                exit(1);
+                            }
+                            Eigen::VectorXd normalizing_const;
+                            normalizing_const.noalias() = (m_Us.first.transpose() * fine_mass_lumped.asDiagonal() * m_Us.first).diagonal();
+                            normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                            
+                            m_Us.first.noalias() = m_Us.first * (normalizing_const.asDiagonal());
+                        }
+                        else
+                        {
+                            m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_numModes, 0.00);
+                            Eigen::VectorXd normalizing_const;
+                            normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                            normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                            
+                            m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                        }
                         Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues" + std::to_string(step_number) + ".mtx");
                         
                         fineEigMassProj = m_Us;
                         fineEig = m_Us;
-                        fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
+                        //                        fineEigMassProj.first = (*m_fineMassMatrix)*fineEigMassProj.first;
                         
                         for(int i = 0; i < m_numModes; ++i)
                         {
@@ -925,11 +1046,17 @@ public:
         
         cout<<"using ratio: "<<endl;
         cout<<m_R<<endl;
-        Y = (*coarseMassMatrix)*m_coarseUs.first*(m_R-m_I).asDiagonal();
-        Z =  (m_coarseUs.second.asDiagonal()*m_coarseUs.first.transpose()*(*coarseMassMatrix));
-        //        Eigen::saveMarket(Y, "Y.dat");
-        //        Eigen::saveMarket(Z, "Z.dat");
-        
+        if(simple_mass_flag)
+        {
+            Y = (coarse_mass_lumped.asDiagonal())*m_coarseUs.first*(m_R-m_I).asDiagonal();
+            Z =  (m_coarseUs.second.asDiagonal()*m_coarseUs.first.transpose()*(coarse_mass_lumped.asDiagonal()));
+            
+        }
+        else
+        {
+            Y = (*coarseMassMatrix)*m_coarseUs.first*(m_R-m_I).asDiagonal();
+            Z =  (m_coarseUs.second.asDiagonal()*m_coarseUs.first.transpose()*(*coarseMassMatrix));
+        }
         // no error
         return 0;
     }
@@ -1076,7 +1203,9 @@ public:
     Eigen::VectorXx<double> coarse_mass_lumped_inv;
     Eigen::VectorXx<double> fine_mass_lumped;
     Eigen::VectorXx<double> fine_mass_lumped_inv;
-
+    
+    Eigen::SparseMatrix<double,Eigen::RowMajor> coarseMinvK;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> fineMinvK;
 protected:
     
     //
