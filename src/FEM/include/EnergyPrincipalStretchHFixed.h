@@ -67,13 +67,13 @@ public:
         Eigen::Matrix33x<float> F = (ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity()).template cast<float>();
         
         igl::svd3x3(F,m_U,m_S,m_V);
-
-        for (int i = 0; i < 3; i++) {
-            if (m_S(i) <= 1e-6) {
-                m_S(i) = 1e-3;
-            }
-
-        }
+//
+//        for (int i = 0; i < 3; i++) {
+//            if (m_S(i) <= 1e-3) {
+//                m_S(i) = 1e-3;
+//            }
+//
+//        }
         
         //Eigen::Vector3x<DataType> Plam = m_ps.gradient(svd.singularValues()*maxVal);
         Eigen::Matrix<DataType,9,9, Eigen::RowMajor> ddw2;
@@ -110,19 +110,19 @@ public:
         -gradZ.transpose()*ddw2.block(6,3,3,3)*gradY +
         -gradZ.transpose()*ddw2.block(6,6,3,3)*gradZ;
 //        
-//        // hard coded for tet, need to change size for hex
-//        Eigen::SelfAdjointEigenSolver<Matrix> es(-H);
-//        
-//        Eigen::MatrixXd DiagEval = es.eigenvalues().real().asDiagonal();
-//        Eigen::MatrixXd Evec = es.eigenvectors().real();
-//
-//        for (int i = 0; i < 12; ++i) {
-//            if (es.eigenvalues()[i]<1e-6) {
-//                DiagEval(i,i) = 1e-3;
-//            }
-//        }
-//        //        saveMarket(H, "H.dat");
-//        H = -Evec * DiagEval * Evec.transpose();
+        // hard coded for tet, need to change size for hex
+        Eigen::SelfAdjointEigenSolver<Matrix> es(-H);
+
+        Eigen::MatrixXd DiagEval = es.eigenvalues().real().asDiagonal();
+        Eigen::MatrixXd Evec = es.eigenvectors().real();
+
+        for (int i = 0; i < 12; ++i) {
+            if (es.eigenvalues()[i]<1e-6) {
+                DiagEval(i,i) = 1e-3;
+            }
+        }
+        //        saveMarket(H, "H.dat");
+        H = -Evec * DiagEval * Evec.transpose();
         
     }
     

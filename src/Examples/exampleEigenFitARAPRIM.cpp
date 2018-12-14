@@ -1,5 +1,5 @@
 //
-//  exampleEigenFitCoRotRIM.cpp
+//  exampleEigenFitARAPRIM.cpp
 //  Base
 //
 //  Created by Yu Ju Edwin Chen on 2018-12-12.
@@ -13,9 +13,9 @@
 
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
-#include <TimeStepperEigenFitCoRotIM.h>
+#include <TimeStepperEigenFitARAPIM.h>
 //#include <TimeStepperEigenFitCoRotBE.h>
-#include <EigenFitCoRot.h>
+#include <EigenFitARAP.h>
 #include <fstream>
 #include <igl/boundary_facets.h>
 #include <igl/volume.h>
@@ -54,7 +54,7 @@ std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 //                      std::tuple<ForceSpringFEMParticle<double> *>,
 //                      std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 //typedef TimeStepperEigenFitSMW<double, AssemblerEigenSparseMatrix<double>, AssemblerEigenVector<double>> MyTimeStepper;
-typedef TimeStepperEigenFitCoRotIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperEigenFitARAPIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
         {
             simple_mass_flag = atoi(argv[18]);
         }
-//        cout<<"output flag: "<<output_data_flag<<endl;
+        //        cout<<"output flag: "<<output_data_flag<<endl;
         
         cout<<"Simulation parameters..."<<endl;
         cout<<"Youngs: "<<youngs<<endl;
@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
         if(!Eigen::loadMarketVector(ratio_manual,"data/" + ratio_manual_file))
             ratio_manual.setZero();
         
-        EigenFitCoRot *test = new EigenFitCoRot(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency,simple_mass_flag);
+        EigenFitARAP *test = new EigenFitARAP(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency,simple_mass_flag);
         
         // TODO: set rayleigh damping. should not be here...
         test->a = a;
@@ -339,12 +339,12 @@ int main(int argc, char **argv) {
             std::cout<<"warning: wrong constraint profile\n";
         }
         
-//        // set material
+        //        // set material
         cout<<"Setting Youngs and Poisson..."<<endl;
         for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-
-            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-
+            
+            test->getImpl().getElement(iel)->setParameters(youngs);
+            
         }
         
         // initialize the state (position and velocity)
@@ -355,10 +355,8 @@ int main(int argc, char **argv) {
         if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0) || (dynamic_flag == 5 && numModes != 0))
         {
             auto q_pos = mapStateEigen<0>(world);
-//            cout<<"setting random perturbation to vertices"<<endl;
-            q_pos.setZero();
-            q_pos.setRandom();
-            q_pos *= 1e-5;
+            q_pos.setOne();
+            q_pos *= 1e-6;
             
             //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
             AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
@@ -388,8 +386,6 @@ int main(int argc, char **argv) {
             cout<<"calculating static ratio"<<endl;
             test->calculateEigenFitData(q_pos,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
             cout<<"static ratio calculated"<<endl;
-            cout<<"reset perturbation to 0"<<endl;
-            q_pos.setZero();
         }
         if(dynamic_flag == 6)
         {
@@ -397,9 +393,9 @@ int main(int argc, char **argv) {
             // set material
             cout<<"Resetting Youngs using DAC..."<<endl;
             for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-//
-//                test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
-//
+                //
+                //                test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
+                //
             }
         }
         cout<<"Setting initial deformation..."<<endl;
@@ -905,14 +901,14 @@ int main(int argc, char **argv) {
         int compute_frequency = 0;
         bool simple_mass_flag = false;
         //        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes," "," ");
-        EigenFitCoRot *test = new EigenFitCoRot(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency, simple_mass_flag);
+        EigenFitARAP *test = new EigenFitARAP(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual,ratio_manual,compute_frequency, simple_mass_flag);
         
         
-//        // set material
+        //        // set material
         for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-
-            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-
+            
+            test->getImpl().getElement(iel)->setParameters(youngs);
+            
         }
         
         world.addSystem(test);

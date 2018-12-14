@@ -1,12 +1,12 @@
 //
-//  TimeStepperEigenFitCoRotIM.h
+//  TimeStepperEignFitARAPIM.h
 //  Gauss
 //
-//  Created by Yu Ju Edwin Chen on 2018-12-12.
+//  Created by Yu Ju Edwin Chen on 2018-12-14.
 //
 
-#ifndef TimeStepperEigenFitCoRotIM_h
-#define TimeStepperEigenFitCoRotIM_h
+#ifndef TimeStepperEignFitARAPIM_h
+#define TimeStepperEignFitARAPIM_h
 
 
 #include <World.h>
@@ -18,7 +18,7 @@
 #include <UtilitiesMATLAB.h>
 #include <Eigen/SparseCholesky>
 #include <SolverPardiso.h>
-#include <EigenFitCoRot.h>
+#include <EigenFitARAP.h>
 #include <limits>
 
 
@@ -27,12 +27,12 @@ namespace Gauss {
     
     //Given Initial state, step forward in time using linearly implicit Euler Integrator
     template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
-    class TimeStepperImplEigenFitCoRotIMImpl
+    class TimeStepperImplEigenFitARAPIMImpl
     {
     public:
         
         template<typename Matrix>
-        TimeStepperImplEigenFitCoRotIMImpl(Matrix &P, unsigned int numModes) {
+        TimeStepperImplEigenFitARAPIMImpl(Matrix &P, unsigned int numModes) {
             
             m_numModes = (numModes);
             
@@ -56,11 +56,11 @@ namespace Gauss {
             
         }
         
-        TimeStepperImplEigenFitCoRotIMImpl(const TimeStepperImplEigenFitCoRotIMImpl &toCopy) {
+        TimeStepperImplEigenFitARAPIMImpl(const TimeStepperImplEigenFitARAPIMImpl &toCopy) {
             
         }
         
-        ~TimeStepperImplEigenFitCoRotIMImpl() { }
+        ~TimeStepperImplEigenFitARAPIMImpl() { }
         
         //Methods
         //init() //initial conditions will be set at the begining
@@ -152,13 +152,13 @@ namespace Gauss {
 
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
 template<typename World>
-void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembler>::step(World &world, double dt, double t) {
+void TimeStepperImplEigenFitARAPIMImpl<DataType, MatrixAssembler, VectorAssembler>::step(World &world, double dt, double t) {
     
     // TODO: should not be here... set the rayleigh damping parameter
-    a = static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->a;
-    b = static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->b;
+    a = static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->a;
+    b = static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->b;
     
-    simple_mass_flag = static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->simple_mass_flag;
+    simple_mass_flag = static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->simple_mass_flag;
     
     //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
     MatrixAssembler &massMatrix = m_massMatrix;
@@ -174,8 +174,8 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
     (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
     
     if(simple_mass_flag)
-//        if(simple_mass_flag && !mass_calculated)
-        {
+        //        if(simple_mass_flag && !mass_calculated)
+    {
         
         
         Eigen::VectorXx<double> ones(m_P.rows());
@@ -289,9 +289,9 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             
             //Eigendecomposition
             // if number of modes not equals to 0, use EigenFit
-            if (m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_numModes != 0 && static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
-                static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
                 //    Correct Forces
                 (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
@@ -357,7 +357,7 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             x0 = solver.solve((eigen_rhs));
             
 #endif
-            if(!matrix_fix_flag && m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
+            if(!matrix_fix_flag && m_numModes != 0 && static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
             {
                 cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
             }
@@ -393,7 +393,7 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             
             (*forceVector) = m_P*(*forceVector);
             
-            if (m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_numModes != 0 && static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 //            static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
@@ -417,9 +417,9 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
         else {
             //Eigendecomposition
             // if number of modes not equals to 0, use EigenFit
-            if (m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_numModes != 0 && static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
-                static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 cout<<"calculated eigenfit data"<<endl;
                 //    Correct Forces
                 (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
@@ -486,7 +486,7 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             x0 = solver.solve((eigen_rhs));
             
 #endif
-            if(!matrix_fix_flag && m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
+            if(!matrix_fix_flag && m_numModes != 0 && static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
             {
                 cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
             }
@@ -522,7 +522,7 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             
             (*forceVector) = m_P*(*forceVector);
             
-            if (m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_numModes != 0 && static_cast<EigenFitARAP*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 //            static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
@@ -551,16 +551,14 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
         prev_update_step = 1.0/2.0 * dt * (qDot + eigen_v_old);
         cout<<" step size: " << update_step_size<<endl;
     } while(res > 1e-6  && update_step_size > 1e-3);
-    //    } while(res > 1e-6); can't use res for corot energy
+    //    } while(res > 1e-6); can't use res for arap energy
     it_outer = 0;
     q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
 }
 
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
-using TimeStepperEigenFitCoRotIM = TimeStepper<DataType, TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembler> >;
+using TimeStepperEigenFitARAPIM = TimeStepper<DataType, TimeStepperImplEigenFitARAPIMImpl<DataType, MatrixAssembler, VectorAssembler> >;
 
 
 
-
-
-#endif /* TimeStepperEigenFitCoRotIM_h */
+#endif /* TimeStepperEignFitARAPIM_h */

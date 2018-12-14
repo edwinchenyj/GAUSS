@@ -1,13 +1,12 @@
 //
-//  EigenFitCoRot.h
+//  EigenFitARAP.h
 //  Gauss
 //
-//  Created by Yu Ju Edwin Chen on 2018-12-12.
+//  Created by Yu Ju Edwin Chen on 2018-12-14.
 //
 
-#ifndef EigenFitCoRot_h
-#define EigenFitCoRot_h
-
+#ifndef EigenFitARAP_h
+#define EigenFitARAP_h
 
 #include <FEMIncludes.h>
 #include <GaussIncludes.h>
@@ -45,13 +44,13 @@ using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunctio
 
 /* Tetrahedral finite elements */
 template<typename DataType>
-using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSNHHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
+using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSARAPHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
 
 
 // subclass a hard-coded templated class from PhysicalSystemFEM
 // this means that this EigenFit only works for NeohookeanHFixedTets
-class EigenFitCoRot: public PhysicalSystemFEM<double, FEMPSNHTet>{
-    //class EigenFitCoRot: public PhysicalSystemFEM<double, NeohookeanHFixedTet>{
+class EigenFitARAP: public PhysicalSystemFEM<double, FEMPSNHTet>{
+    //class EigenFitARAP: public PhysicalSystemFEM<double, NeohookeanHFixedTet>{
     
 public:
     // alias the hard-coded template name. Easier to read
@@ -79,8 +78,8 @@ public:
     // constructor
     // the constructor will take the two mesh parameters, one coarse one fine.
     // The coarse mesh data will be passed to the parent class constructor to constructor
-    // the fine mesh data will be used to initialize the members specific to the EigenFitCoRot class
-    EigenFitCoRot(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_switch, double youngs, double poisson, int constraintDir, double constraintTol, unsigned int cswitch, unsigned int hausdorff_dist, unsigned int numModes, std::string cmeshname, std::string fmeshname, Eigen::VectorXx<double> ratio_manual, int compute_frequency, bool simple_mass_flag ) : PhysicalSystemImpl(Vc,Fc)
+    // the fine mesh data will be used to initialize the members specific to the EigenFitARAP class
+    EigenFitARAP(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_switch, double youngs, double poisson, int constraintDir, double constraintTol, unsigned int cswitch, unsigned int hausdorff_dist, unsigned int numModes, std::string cmeshname, std::string fmeshname, Eigen::VectorXx<double> ratio_manual, int compute_frequency, bool simple_mass_flag ) : PhysicalSystemImpl(Vc,Fc)
     {
         this->simple_mass_flag = simple_mass_flag;
         coarse_mass_calculated = false;
@@ -141,9 +140,9 @@ public:
             this->youngs = youngs;
             this->poisson = poisson;
             for(unsigned int iel=0; iel<m_fineMeshSystem->getImpl().getF().rows(); ++iel) {
-
-                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
-
+                
+                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs);
+                
             }
             m_fineWorld.addSystem(m_fineMeshSystem);
             
@@ -506,7 +505,7 @@ public:
     }
     
     
-    ~EigenFitCoRot() {delete fine_pos0;
+    ~EigenFitARAP() {delete fine_pos0;
     }
     
     
@@ -761,9 +760,9 @@ public:
                         igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
                         
                         //                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first,fine_F);
-                        igl::writeOBJ("finemesh_coroteigenmode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
+                        igl::writeOBJ("finemesh_arapeigenmode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
                         
-                        std::string ffilename = "data/feigendefcorot"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                        std::string ffilename = "data/feigendefarap"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
                         Eigen::saveMarket(fine_V_disp, ffilename );
                     }
                 }
@@ -797,15 +796,15 @@ public:
                         igl::boundary_facets(this->getImpl().getF(),coarse_F);
                         
                         //                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
-                        igl::writeOBJ("cmesh_corot_eigenmode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
-                        igl::writeOBJ("cmesh_corot_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
-                        std::string cfilename = "ceigendef_corot"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                        igl::writeOBJ("cmesh_arap_eigenmode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
+                        igl::writeOBJ("cmesh_arap_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
+                        std::string cfilename = "ceigendef_arap"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
                         Eigen::saveMarket(coarse_V_disp_n, cfilename);
                         
                         
                         cout<<"Loading coarse eigen deformation."<<endl;
-                        igl::readOBJ("cmesh_corot_eigenmode_p" + std::to_string(mode) + ".obj",coarse_V_disp_p, coarse_F);
-                        igl::readOBJ("cmesh_corot_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
+                        igl::readOBJ("cmesh_arap_eigenmode_p" + std::to_string(mode) + ".obj",coarse_V_disp_p, coarse_F);
+                        igl::readOBJ("cmesh_arap_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
                         
                         double dist_p, dist_n, dist_scaled;
                         Eigen::MatrixXd coarse_V_disp = this->getImpl().getV();
@@ -971,7 +970,7 @@ public:
                             
                             m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
                         }
-                        Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues_corot" + std::to_string(step_number) + ".mtx");
+                        Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues_arap" + std::to_string(step_number) + ".mtx");
                         
                         fineEigMassProj = m_Us;
                         fineEig = m_Us;
@@ -1249,4 +1248,5 @@ private:
     
 };
 
-#endif /* EigenFitCoRot_h */
+
+#endif /* EigenFitARAP_h */
