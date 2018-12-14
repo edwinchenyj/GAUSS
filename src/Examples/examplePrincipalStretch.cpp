@@ -42,7 +42,7 @@ typedef PhysicalSystemFEM<double, FEMPSNHTet> FEMLinearTets;
 typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
-typedef TimeStepperEulerImplicitLinear<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double> >,
+typedef TimeStepperEulerImplicitBFGS<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double> >,
 AssemblerParallel<double, AssemblerEigenVector<double> > > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
@@ -72,7 +72,11 @@ int main(int argc, char **argv) {
     auto q = mapStateEigen(world);
     q.setZero();
     
-    MyTimeStepper stepper(0.1);
+    Eigen::VectorXi indices = minVertices(test, 0);
+    
+    Eigen::SparseMatrix<double> P = fixedPointProjectionMatrix(indices, *test,world);
+    
+    MyTimeStepper stepper(0.05, P, true);
     
     //Display
     QGuiApplication app(argc, argv);
