@@ -44,6 +44,7 @@ namespace Gauss {
         
         template<typename DataType, template<typename A, typename B> class EnergyPS>
         using FEMPrincipalStretchTet = ElementBase<DataType, 4, QuadratureExact, QuadratureTetConstant, QuadratureTetConstant, EnergyKineticNonLumped, EnergyPS, BodyForceGravity, ShapeFunctionLinearTet>;
+        
 
     }
 }

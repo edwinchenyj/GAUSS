@@ -824,7 +824,7 @@ public:
                         //                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
                         igl::writeOBJ("cmesh_neohookean_eigenmode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
                         igl::writeOBJ("cmesh_neohookean_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
-                        std::string cfilename = "ceigendefneohookean"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
+                        std::string cfilename = "ceigendef_neohookean"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(constraint_switch) + "_" + std::to_string(m_constraintDir) + "_" + std::to_string(m_constraintTol) + ".mtx";
                         Eigen::saveMarket(coarse_V_disp_n, cfilename);
                         
                         
@@ -996,7 +996,7 @@ public:
                             
                             m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
                         }
-                        Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues" + std::to_string(step_number) + ".mtx");
+                        Eigen::saveMarketVector(m_Us.second, "finemesheigenvalues_neohookean" + std::to_string(step_number) + ".mtx");
                         
                         fineEigMassProj = m_Us;
                         fineEig = m_Us;

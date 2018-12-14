@@ -41,7 +41,7 @@ namespace Spectra {
         SparseMatrix& m_mat;
 //        Eigen::ConjugateGradient<SparseMatrix> m_cg;
         
-        mutable SolverPardiso<SparseMatrix> m_pardiso;
+        mutable SolverPardiso<Eigen::SparseMatrix<double,Eigen::RowMajor> > m_pardiso;
 
 
         
@@ -183,19 +183,19 @@ namespace Gauss {
                                              unsigned int numVecs, DataType shift) {
         
         //Spectra seems to freak out if you use row storage, this copy just ensures everything is setup the way the solver likes
-        Eigen::SparseMatrix<DataType> K = -A + shift*B;
+        Eigen::SparseMatrix<DataType, Flags,Indices> K = -A + shift*B;
         Eigen::SparseMatrix<DataType, Flags,Indices> M = B;
         
         
-        Spectra::SparseSymMatProd<DataType> Aop(K);
-        ::Spectra::SparseRegularInversePardiso<DataType>   Bop(M);
+        Spectra::SparseSymMatProd<DataType> Aop(M);
+        ::Spectra::SparseRegularInversePardiso<DataType>   Bop(K);
         
         //Spectra::SparseSymShiftSolve<DataType> Aop(K);
         
         //Aop.set_shift(1e-3);
         
         // Construct eigen solver object, requesting the smallest three eigenvalues
-        Spectra::SymGEigsSolver<DataType, Spectra::SMALLEST_MAGN, Spectra::SparseSymMatProd<DataType>, ::Spectra::SparseRegularInversePardiso<DataType>, Spectra::GEIGS_REGULAR_INVERSE > eigs(&Aop, &Bop, numVecs, 5*numVecs);
+        Spectra::SymGEigsSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseSymMatProd<DataType>, ::Spectra::SparseRegularInversePardiso<DataType>, Spectra::GEIGS_REGULAR_INVERSE > eigs(&Aop, &Bop, numVecs, 5*numVecs);
         
         
         // Initialize and compute
@@ -203,21 +203,27 @@ namespace Gauss {
         eigs.compute();
         
         Eigen::VectorXx<DataType> eigsCorrected;
-        Eigen::MatrixXx<DataType> evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
+//        Eigen::MatrixXx<DataType> evsCorrected; //magnitude of eigenvectors can be wrong in this formulation
         eigsCorrected.resize(eigs.eigenvalues().rows());
-        evsCorrected.resize(eigs.eigenvectors().rows(), eigs.eigenvectors().cols());
+//        evsCorrected.resize(eigs.eigenvectors().rows(), eigs.eigenvectors().cols());
         
-        //int nconv = eigs.compute();
+        Eigen::VectorXd normalizing_const;
+        
+        normalizing_const.noalias() = (eigs.eigenvectors().transpose() * B *eigs.eigenvectors()).diagonal();
+        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+        
+        eigs.eigenvectors().noalias() = eigs.eigenvectors() * (normalizing_const.asDiagonal());
+        //TO DO optimize this so there's not so much data copying going on.
+        //Eigenvector magnitudes are wrong ... need to make sure this isn't a theoretical bug if not just rescale properly
         
         // Retrieve results
         if(eigs.info() == Spectra::SUCCESSFUL) {
             //correct eigenvalues
             for(unsigned int ii=0; ii<eigs.eigenvalues().rows(); ++ii) {
                 eigsCorrected[ii] = -(static_cast<DataType>(1)/(eigs.eigenvalues()[ii]) + shift);
-                evsCorrected.col(ii)  = eigs.eigenvectors().col(ii)/sqrt(eigs.eigenvectors().col(ii).transpose()*M*eigs.eigenvectors().col(ii));
             }
             
-            return std::make_pair(eigs.eigenvectors(), eigs.eigenvalues());
+            return std::make_pair(eigs.eigenvectors(), eigsCorrected);
         } else {
             std::cout<<"Failure: "<<eigs.info()<<"\n";
             exit(1);
