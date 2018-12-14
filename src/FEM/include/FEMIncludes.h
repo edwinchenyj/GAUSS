@@ -19,6 +19,7 @@
 #include <EnergyStvk.h>
 
 #include <EnergyPrincipalStretch.h>
+#include <EnergyPrincipalStretchHFixed.h>
 #include <MaterialsPrincipalStretch.h>
 
 //Quadrature rules
