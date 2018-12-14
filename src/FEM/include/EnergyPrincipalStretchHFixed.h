@@ -22,6 +22,11 @@ public:
     
     inline EnergyPS & getPrincipalStretchObject() { return m_ps; }
     
+    template<typename ...Params>
+    inline void setParameters(Params ...params) {
+        m_ps.setParameters(params...);
+    }
+    
     inline DataType getValue(double *x, const State<DataType> &state) {
         
         Eigen::Matrix33x<float> F = (ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity()).template cast<float>();;
@@ -62,13 +67,13 @@ public:
         Eigen::Matrix33x<float> F = (ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity()).template cast<float>();
         
         igl::svd3x3(F,m_U,m_S,m_V);
-//
-//        for (int i = 0; i < 3; i++) {
-//            if (m_S(i) <= 1e-6) {
-//                m_S(i) = 1e-3;
-//            }
-//
-//        }
+
+        for (int i = 0; i < 3; i++) {
+            if (m_S(i) <= 1e-6) {
+                m_S(i) = 1e-3;
+            }
+
+        }
         
         //Eigen::Vector3x<DataType> Plam = m_ps.gradient(svd.singularValues()*maxVal);
         Eigen::Matrix<DataType,9,9, Eigen::RowMajor> ddw2;

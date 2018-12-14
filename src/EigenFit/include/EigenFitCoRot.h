@@ -45,7 +45,7 @@ using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunctio
 
 /* Tetrahedral finite elements */
 template<typename DataType>
-using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSARAPHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
+using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
 
 
 // subclass a hard-coded templated class from PhysicalSystemFEM
@@ -140,11 +140,11 @@ public:
             // set up material parameters
             this->youngs = youngs;
             this->poisson = poisson;
-//            for(unsigned int iel=0; iel<m_fineMeshSystem->getImpl().getF().rows(); ++iel) {
-//
-//                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
-//
-//            }
+            for(unsigned int iel=0; iel<m_fineMeshSystem->getImpl().getF().rows(); ++iel) {
+
+                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+
+            }
             m_fineWorld.addSystem(m_fineMeshSystem);
             
             //            Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);

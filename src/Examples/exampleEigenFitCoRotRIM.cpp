@@ -339,12 +339,12 @@ int main(int argc, char **argv) {
         }
         
 //        // set material
-//        cout<<"Setting Youngs and Poisson..."<<endl;
-//        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-//
-//            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-//
-//        }
+        cout<<"Setting Youngs and Poisson..."<<endl;
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+
+        }
         
         // initialize the state (position and velocity)
         auto q = mapStateEigen(world);
@@ -390,11 +390,11 @@ int main(int argc, char **argv) {
             double DAC_scalar = test->m_R(0);
             // set material
             cout<<"Resetting Youngs using DAC..."<<endl;
-//            for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-////                
-////                test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
-////                
-//            }
+            for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+//
+//                test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
+//
+            }
         }
         cout<<"Setting initial deformation..."<<endl;
         if (strcmp(argv[6],"0")==0) {
@@ -903,11 +903,11 @@ int main(int argc, char **argv) {
         
         
 //        // set material
-//        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-//
-//            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-//
-//        }
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+
+        }
         
         world.addSystem(test);
         
