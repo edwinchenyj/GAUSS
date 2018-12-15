@@ -437,10 +437,9 @@ int main(int argc, char **argv) {
             ofile.open("Hamiltonian.txt", std::ios::app); //app is append which means it will put the text at the end
             ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
             ofile.close();
+            
+            // only need PE and total energy. KE can be calculated from the diff
 
-            ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
-            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
-            ofile.close();
 
 
             // check if the file already exist

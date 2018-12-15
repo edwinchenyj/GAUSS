@@ -384,7 +384,7 @@ void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step
     (*forceVector) = m_P*(*forceVector);
     
     // add damping
-    (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * ( qDot);
+    (*forceVector).noalias() -= (b*(*stiffnessMatrix)) * (m_P * ( qDot));
     
     // add external force
     (*forceVector) = (*forceVector) + m_P*(*fExt);
