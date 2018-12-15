@@ -20,6 +20,8 @@
 #include <Eigen/Core>
 #include <Eigen/IterativeLinearSolvers>
 #include <unsupported/Eigen/IterativeSolvers>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 using namespace Gauss;
 using namespace FEM;
