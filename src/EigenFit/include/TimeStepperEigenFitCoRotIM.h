@@ -45,6 +45,11 @@ namespace Gauss {
             // init residual
             res = std::numeric_limits<double>::infinity();
             
+            m_M.resize(P.rows(),P.rows());
+            m_M.reserve(P.rows()); //simple mass
+            mass_lumped.resize(P.rows());
+            mass_lumped_inv.resize(P.rows());
+            
             it_outer = 0;
             it_inner = 0;
             // constants from Nocedal and Wright
@@ -53,6 +58,8 @@ namespace Gauss {
             c2 = 0.9;
             
             simple_mass_flag = false;
+            mass_calculated = false;
+            mass_factorized = false;
             
         }
         
@@ -85,11 +92,12 @@ namespace Gauss {
         
         bool simple_mass_flag;
         bool mass_calculated;
+        bool mass_factorized;
         Eigen::VectorXx<double> mass_lumped;
         Eigen::VectorXx<double> mass_lumped_inv;
         
         Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK;
-        Eigen::SparseMatrix<DataType,Eigen::RowMajor> m_M;
+        Eigen::SparseMatrix<double,Eigen::RowMajor> m_M;
         
         double update_step_size;
         Eigen::VectorXd update_step;
@@ -166,17 +174,23 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
     VectorAssembler &forceVector = m_forceVector;
     VectorAssembler &fExt = m_fExt;
     
-    //get mass matrix
+    if(!simple_mass_flag)
+    {//get mass matrix
     ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
     ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
     ASSEMBLEEND(massMatrix);
     
     (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+    }
     
-    if(simple_mass_flag)
+    if(simple_mass_flag && !mass_calculated)
 //        if(simple_mass_flag && !mass_calculated)
         {
-        
+            ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+            ASSEMBLEEND(massMatrix);
+            
+            (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
         
         Eigen::VectorXx<double> ones(m_P.rows());
         ones.setOnes();
@@ -186,7 +200,7 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
         mass_lumped_inv = mass_lumped.cwiseInverse();
         
         
-        m_M.resize(mass_lumped.rows(),mass_lumped.rows());
+//        m_M.resize(mass_lumped.rows(),mass_lumped.rows());
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
         tripletList.reserve(mass_lumped.rows());
@@ -198,21 +212,6 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
         
         mass_calculated = true;
     }
-    //    else
-    //    {
-    //        //get mass matrix
-    //        ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-    //        ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
-    //        ASSEMBLEEND(massMatrix);
-    //
-    //        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
-    //    }
-    
-    //    if(simple_mass_flag)
-    //    {
-    //        (*massMatrix) = m_M;
-    //        (*m_massMatrix) = m_M;
-    //    }
     
     
     
@@ -291,28 +290,32 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             // if number of modes not equals to 0, use EigenFit
             if (m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
-                static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
                 //    Correct Forces
                 (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
                 
                 // add damping
-                (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  (a * (*m_massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
                 
             }
             else
             {
                 // add damping
-                (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  (a * (*m_massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
             }
             // add external force
             (*forceVector) = (*forceVector) + m_P*(*fExt);
             
             //setup RHS
-            eigen_rhs = (*massMatrix)*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
+            eigen_rhs = (*m_massMatrix)*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
             
-            m_pardiso_mass.symbolicFactorization(*massMatrix);
+            if(!mass_factorized)
+            {
+                m_pardiso_mass.symbolicFactorization(*m_massMatrix);
             m_pardiso_mass.numericalFactorization();
+                mass_factorized = true;
+            }
             m_pardiso_mass.solve(*forceVector);
             
             res_old = 1.0/2.0 * dt * dt * ((m_pardiso_mass.getX()).transpose()).squaredNorm();
@@ -361,7 +364,7 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             {
                 cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
             }
-            else
+            else if(m_numModes != 0)
             {
                 cout<<"Warning: stiffness fix not implemented"<<endl;
             }
@@ -401,11 +404,11 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
                 (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
                 
                 // add damping
-                (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  (a * (*m_massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
             }
             else
             {
-                (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  (a * (*m_massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
             }
             // add external force
             (*forceVector) = (*forceVector) + m_P*(*fExt);
@@ -415,11 +418,13 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             res  = 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_pardiso_mass.getX()).squaredNorm();
         }
         else {
+            
+            cout<<"using simple mass"<<endl;
             //Eigendecomposition
             // if number of modes not equals to 0, use EigenFit
             if (m_numModes != 0 && static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
-                static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                static_cast<EigenFitCoRot*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 cout<<"calculated eigenfit data"<<endl;
                 //    Correct Forces
                 (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
@@ -437,11 +442,15 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             (*forceVector) = (*forceVector) + m_P*(*fExt);
             cout<<"external force added"<<endl;
             //setup RHS
-            eigen_rhs = (m_M)*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
+            eigen_rhs = (mass_lumped.asDiagonal())*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
             cout<<"set up rhs"<<endl;
             
+            if(!mass_factorized)
+            {
             m_pardiso_mass.symbolicFactorization(m_M);
             m_pardiso_mass.numericalFactorization();
+                mass_factorized = true;
+            }
             m_pardiso_mass.solve(*forceVector);
             
             res_old = 1.0/2.0 * dt * dt * ((m_pardiso_mass.getX()).transpose()).squaredNorm();
@@ -490,7 +499,7 @@ void TimeStepperImplEigenFitCoRotIMImpl<DataType, MatrixAssembler, VectorAssembl
             {
                 cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
             }
-            else
+            else if(m_numModes != 0)
             {
                 cout<<"Warning: stiffness fix not implemented"<<endl;
             }

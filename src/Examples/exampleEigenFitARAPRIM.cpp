@@ -355,8 +355,7 @@ int main(int argc, char **argv) {
         if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0) || (dynamic_flag == 5 && numModes != 0))
         {
             auto q_pos = mapStateEigen<0>(world);
-            q_pos.setOne();
-            q_pos *= 1e-6;
+            q_pos.setZero();
             
             //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
             AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
