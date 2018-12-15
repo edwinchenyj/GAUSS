@@ -352,13 +352,11 @@ int main(int argc, char **argv) {
         
         // if static, should calculate the ratios here (before loading the deformation)
         // or if DAC (dynamic_flag == 6), calculate the first ratio
-        if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0) || (dynamic_flag == 5 && numModes != 0))
+        if(dynamic_flag == 6 || (dynamic_flag == 0 && numModes != 0))
         {
             auto q_pos = mapStateEigen<0>(world);
 //            cout<<"setting random perturbation to vertices"<<endl;
             q_pos.setZero();
-            q_pos.setRandom();
-            q_pos *= 1e-5;
             
             //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
             AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
@@ -639,8 +637,6 @@ int main(int argc, char **argv) {
             idxc = 0;
             Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
             // output mesh position with only surface mesh
-            // igl::writeOBJ("surfpos_rest" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-            
             
             // get the mesh position
             for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
@@ -657,22 +653,6 @@ int main(int argc, char **argv) {
             
             //             output mesh position with elements
             igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
-            //
-            //            std::string cdeffilename = "cdef"+ std::to_string(file_ind) + "_" + std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(constraint_dir) + "_" + std::to_string(constraint_tol) + ".mtx";
-            //            Eigen::saveMarket(V_disp,cdeffilename);
-            //
-            //
-            //            igl::readOBJ("pos33.obj",Vtemp2, Ftemp2);
-            //
-            //            cout<<Vtemp2.rows()<<endl;
-            //            cout<<Vtemp2.cols()<<endl;
-            //            cout<<Ftemp2.rows()<<endl;
-            //            cout<<Ftemp2.cols()<<endl;
-            //
-            //            cout<<V.rows()<<endl;
-            //            cout<<V.cols()<<endl;
-            //            cout<<F.rows()<<endl;
-            //            cout<<F.cols()<<endl;
             
             // output mesh position with only surface mesh
             igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
@@ -681,34 +661,7 @@ int main(int argc, char **argv) {
             {
                 cout<<"writing coarse eigenmode..."<<endl;
                 Eigen::VectorXd coarse_eig_def;
-                if(dynamic_flag == 2)
-                {
-                    V_disp = test->m_Vc_current;
-                    for(int mode = 0; mode < numModes; mode++)
-                    {
-                        V_disp = test->m_Vc_current;
-                        //                        igl::writeOBJ("restart_coarse_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-                        
-                        idxc = 0;
-                        coarse_eig_def = (P.transpose()*((test->m_coarseUs_restart).first.col(mode))).transpose();
-                        // get the mesh position
-                        for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId)
-                        {
-                            
-                            V_disp(vertexId,0) += coarse_eig_def(idxc);
-                            idxc++;
-                            V_disp(vertexId,1) += coarse_eig_def(idxc);
-                            idxc++;
-                            V_disp(vertexId,2) += coarse_eig_def(idxc);
-                            idxc++;
-                        }
-                        igl::writeOBJ("restart_coarse_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-                    }
-                    
-                    
-                }
-                else
-                {
+                
                     V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first; ;
                     for(int mode = 0; mode < numModes; mode++)
                     {
@@ -730,7 +683,7 @@ int main(int argc, char **argv) {
                         }
                         igl::writeOBJ("coarse_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
                     }
-                }
+                
                 
             }
             // output eigenvalues
@@ -740,15 +693,6 @@ int main(int argc, char **argv) {
             {
                 Eigen::saveMarketVector(test->m_Us.second, "fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
                 
-            }
-            
-            if(dynamic_flag == 2)
-            {
-                cout<<"Writing restart coarse eigenvalues into files"<<endl;
-                // output eigenvalues
-                Eigen::saveMarketVector(test->m_coarseUs_restart.second, "restart_eigenvalues" + std::to_string(file_ind)+ ".mtx");
-                // output eigenvalues
-                Eigen::saveMarketVector(test->m_fineUs_restart.second, "restart_fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
             }
             
             // out data for matlab
@@ -763,70 +707,17 @@ int main(int argc, char **argv) {
                     
                 }
                 
-                if(dynamic_flag == 2)
-                {
-                    cout<<"Writing restart coarse eigenvalues into files"<<endl;
-                    // output eigenvalues
-                    Eigen::saveMarketVectorDat(test->m_coarseUs_restart.second, "restart_eigenvalues" + std::to_string(file_ind)+ ".dat");
-                    // output eigenvalues
-                    Eigen::saveMarketVectorDat(test->m_fineUs_restart.second, "restart_fineeigenvalues" + std::to_string(file_ind)+ ".dat");
-                }
             }
             
             
             Eigen::MatrixXd Vf_disp;
-            if (numModes != 0)
-            {// declare variable for fine mesh rest pos
-                // embedded V
-                auto fine_q = mapStateEigen<0>(test->getFineWorld());
-                fine_q = (*(test->N)) * q.head(q.rows()/2);
-                idxc = 0; // reset index counter
-                Vf_disp = std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first;
-                // output mesh position with only surface mesh
-                for(unsigned int vertexId=0;  vertexId < std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-                    
-                    Vf_disp(vertexId,0) += fine_q(idxc);
-                    idxc++;
-                    Vf_disp(vertexId,1) += fine_q(idxc);
-                    idxc++;
-                    Vf_disp(vertexId,2) += fine_q(idxc);
-                    idxc++;
-                }
-                
-                igl::writeOBJ("finepos" + std::to_string(file_ind) + ".obj",Vf_disp,std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().second);
-                // output mesh position with only surface mesh
-                igl::writeOBJ("finesurfpos" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
-                test->m_Vf_current = Vf_disp;
-            }
+            
             
             if(output_data_flag)
             {
                 
                 Eigen::VectorXd fine_eig_def;
-                if(dynamic_flag == 2)
-                {
-                    Vf_disp = test->m_Vf_current;
-                    for(int mode = 0; mode < numModes; mode++)
-                    {
-                        Vf_disp = test->m_Vf_current;
-                        //                        igl::writeOBJ("restart_fine_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
-                        
-                        idxc = 0;
-                        fine_eig_def = (test->m_fineP.transpose()*((test->m_fineUs_restart).first.col(mode))).transpose();
-                        // get the mesh position
-                        for(unsigned int vertexId=0;  vertexId < std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-                            
-                            Vf_disp(vertexId,0) += fine_eig_def(idxc);
-                            idxc++;
-                            Vf_disp(vertexId,1) += fine_eig_def(idxc);
-                            idxc++;
-                            Vf_disp(vertexId,2) += fine_eig_def(idxc);
-                            idxc++;
-                        }
-                        igl::writeOBJ("restart_fine_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
-                    }
-                }
-                else if(dynamic_flag == 1 || dynamic_flag == 4)
+                if(dynamic_flag == 1 || dynamic_flag == 4)
                 {
                     Vf_disp = test->m_Vf;
                     for(int mode = 0; mode < numModes; mode++)

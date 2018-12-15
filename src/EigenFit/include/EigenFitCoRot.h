@@ -122,13 +122,9 @@ public:
             //element[i] is a n-vector that stores the index of the element containing the ith vertex in the embedded mesh
             // *N is the upsample operator
             // (*N).transpose is downsample operator
-            getShapeFunctionMatrix(N,m_elements,Vf, (*this).getImpl());
+//            getShapeFunctionMatrix(N,m_elements,Vf, (*this).getImpl());
             
             Eigen::Vector3x<double> vertex = m_Vf.row(0);
-            
-            // col of the shape func, I think. 12 for Tet, 24 for hex
-            unsigned int numCols = (*this).getImpl().getElements()[0]->N(vertex.data()).cols();
-            unsigned int el;
             
             // set the flag
             haus = hausdorff_dist;
@@ -543,7 +539,7 @@ public:
         if(simple_mass_flag)
         {
             
-            coarseMinvK = (1)*coarse_mass_lumped_inv.asDiagonal()*(*coarseStiffnessMatrix);
+            coarseMinvK = (-1)*coarse_mass_lumped_inv.asDiagonal()*(*coarseStiffnessMatrix);
             
             Spectra::SparseGenRealShiftSolvePardiso<double> op(coarseMinvK);
             
@@ -552,7 +548,7 @@ public:
             
             // Initialize and compute
             eigs.init();
-            eigs.compute();
+            eigs.compute(1000,1e-10,Spectra::SMALLEST_MAGN);
             
             if(eigs.info() == Spectra::SUCCESSFUL)
             {
@@ -571,7 +567,7 @@ public:
         }
         else
         {
-            cout<<"not consistent mass"<<endl;
+            cout<<"use consistent mass"<<endl;
             m_coarseUs = generalizedEigenvalueProblemNotNormalized((*coarseStiffnessMatrix), (*coarseMassMatrix), m_numModes,0.0);
             Eigen::VectorXd normalizing_const;
             normalizing_const = (m_coarseUs.first.transpose() * (*coarseMassMatrix) * m_coarseUs.first).diagonal();
@@ -598,16 +594,17 @@ public:
                     World<double, std::tuple<PhysicalSystemImpl *>,
                     std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
                     std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
+                    // should make sure this is performed at fine_q = 0;
                     
-                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
-                    
-                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
-                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
-                    
-                    Eigen::VectorXx<double> posFull;
-                    posFull = this->getFinePositionFull(q);
-                    //
-                    fine_q = posFull - eigen_fine_pos0;
+//                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
+//
+//                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
+//                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
+//
+//                    Eigen::VectorXx<double> posFull;
+//                    posFull = this->getFinePositionFull(q);
+//                    //
+//                    fine_q = posFull - eigen_fine_pos0;
                     //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
                     AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
                     
@@ -626,7 +623,7 @@ public:
                     if(simple_mass_flag)
                     {
                         cout<<"using simple mass for fine mesh"<<endl;
-                        fineMinvK = (1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
+                        fineMinvK = (-1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
                         
                         Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
                         
@@ -635,7 +632,7 @@ public:
                         
                         // Initialize and compute
                         eigs.init();
-                        eigs.compute();
+                        eigs.compute(1000,1e-10,Spectra::SMALLEST_MAGN);
                         
                         if(eigs.info() == Spectra::SUCCESSFUL)
                         {
@@ -673,7 +670,7 @@ public:
                     std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
                     
                     Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
-                    fine_q = (*(this->N)) * q;
+//                    fine_q = (*(this->N)) * q; need to get shape function to use N
                     
                     //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
                     AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
@@ -693,7 +690,7 @@ public:
                     if(simple_mass_flag)
                     {
                         cout<<"using simple mass for fine mesh"<<endl;
-                        fineMinvK = (1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
+                        fineMinvK = (-1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
                         
                         Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
                         
@@ -1097,7 +1094,7 @@ public:
         //            std::cout<<((*N)*V).cols()<<std::endl;
         Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,m_fineWorld.getNumQDOFs());
         
-        return eigen_fine_pos0 + (*N)*V;
+        return eigen_fine_pos0 + (*N)*V; // need getShapeFunction to use this
     }
     
     
@@ -1136,7 +1133,7 @@ public:
     
     AssemblerEigenVector<double> m_forceVector;
     
-    AssemblerEigenSparseMatrix<double> N;
+    AssemblerEigenSparseMatrix<double> N; //need getShapeFunction to use this
     
     SolverPardiso<Eigen::SparseMatrix<double, Eigen::RowMajor> > m_pardiso_test;
     Eigen::VectorXd minvf;
