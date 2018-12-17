@@ -1,3 +1,10 @@
+//
+//  exampleEigenFitCoRotRIM.cpp
+//  Base
+//
+//  Created by Yu Ju Edwin Chen on 2018-12-12.
+//
+
 #include <functional>
 
 #include <Qt3DIncludes.h>
@@ -6,10 +13,12 @@
 
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
-#include <TimeStepperEigenFitSMW.h>
+#include <TimeStepperEigenFitSMWIM.h>
+#include <resultsUtilities.h>
 #include <EigenFit.h>
 #include <fstream>
 #include <igl/boundary_facets.h>
+#include <igl/volume.h>
 
 using namespace Gauss;
 using namespace FEM;
@@ -19,19 +28,31 @@ using namespace ParticleSystem; //For Force Spring
 
 //typedef physical entities I need
 
-//typedef scene
-//typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
+////typedef scene
+////build specific principal stretch material
+//template<typename DataType, typename ShapeFunction>
+//using  EnergyPSNHHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSNeohookean>;
+//
+//template<typename DataType, typename ShapeFunction>
+//using  EnergyPSARAPHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSARAP>;
+//
+//template<typename DataType, typename ShapeFunction>
+//using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSCorotatedLinear>;
+//
+////
+/////* Tetrahedral finite elements */
+//template<typename DataType>
+//using FEMPSCoRotTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
 typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
 
 typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
-
 //typedef World<double, std::tuple<FEMLinearTets *,PhysicalSystemParticleSingle<double> *>,
 //                      std::tuple<ForceSpringFEMParticle<double> *>,
 //                      std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 //typedef TimeStepperEigenFitSMW<double, AssemblerEigenSparseMatrix<double>, AssemblerEigenVector<double>> MyTimeStepper;
-typedef TimeStepperEigenFitSMW<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperEigenFitSMWIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
@@ -46,8 +67,8 @@ std::vector<ConstraintFixedPoint<double> *> movingConstraints;
 std::vector<ConstraintFixedPoint<double> *> fixedConstraints;
 Eigen::VectorXi movingVerts;
 Eigen::VectorXi fixedVerts;
-Eigen::MatrixXd V, Vtemp;
-Eigen::MatrixXi F;
+Eigen::MatrixXd V, Vtemp, Vtemp2;
+Eigen::MatrixXi F, Ftemp2;
 Eigen::MatrixXi surfF;
 Eigen::MatrixXi surfFf;
 
@@ -55,42 +76,13 @@ char **arg_list;
 unsigned int istep;
 
 void preStepCallback(MyWorld &world) {
-    //    // This is an example callback
-    //    if (atoi(arg_list[5]) == 2)
-    //    {
-    //        // This is an example callback
-    //
-    //        //script some motion
-    ////
-    //        if (istep < 50) {
-    //
-    //            for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-    //                if(movingConstraints[jj]->getImpl().getFixedPoint()[0] > -3) {
-    //                    Eigen::Vector3d v = V.row(movingVerts[jj]);
-    //                    Eigen::Vector3d new_p = v + Eigen::Vector3d(0.0,1.0/10,0.0);
-    //                    movingConstraints[jj]->getImpl().setFixedPoint(new_p);
-    //                }
-    //            }
-    //        }
-    //    }
 }
 
 int main(int argc, char **argv) {
-    //    arg list
-    //    1: full path to coarse mesh
-    //    2: full path to fine mesh
-    //    3: youngs modulus (SI unit)
-    //    4: constraint threshold (for defualt constraint profile)
-    //    5: constraint profile switch
-    //    6: name of the initial deformation profile
-    //    7. number of time steps
-    //    8. flag for using hausdorff distance
-    //    9. number of modes to modifies
-    //    10. constraint direction
-    //    11. step size
     
     
-    std::cout<<"Test Neohookean FEM EigenFit\n";
+    
+    std::cout<<"Test Neohookean FEM EigenFit with implicit midpoint solver\n";
     
     //Setup Physics
     MyWorld world;
@@ -109,47 +101,67 @@ int main(int argc, char **argv) {
     '/';
 #endif
     
-    if (argc > 1) {
-        // must supply all 9 parameters
+    std::string cmeshname = "/meshesTetWild/brick_surf/brick_surf_4";
+    std::string fmeshname = "/meshesTetWild/brick_surf/brick_surf_3";
+    
+    //    parameters
+    double youngs = 2e6;
+    double poisson = 0.45;
+    double constraint_tol = 1e-2;
+    int const_profile = 1;
+    std::string initial_def = "0";
+    int numSteps = 10;
+    bool hausdorff = false;
+    int num_modes = 5;
+    int constraint_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
+    double step_size = 1e-2;
+    int dynamic_flag = 0;
+    double a = 0;
+    double b = 1e-3;
+    //        std::string ratio_manual_file = (argv[15]);
+    int compute_frequency = 1; // not used anymore
+    bool output_data_flag = false;
+    bool simple_mass_flag = false;
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag);
+    cout<<"Simulation parameters..."<<endl;
+    cout<<"Youngs: "<<youngs<<endl;
+    cout<<"Poisson: "<<poisson<<endl;
+    cout<<"Constraint direction: "<<constraint_dir<<endl;
+    cout<<"Constraint threshold: "<<constraint_tol<<endl;
+    cout<<"Step size: "<<step_size<<endl;
+    cout<<"Number of steps:"<<numSteps<<endl;
+    cout<<"dynamic_flag: "<<dynamic_flag<<endl;
+    cout<<"Rayleigh a: "<<a<<endl;
+    cout<<"Rayleigh b: "<<b<<endl;
+    cout<<"Number of modes: "<<num_modes<<endl;
+    cout<<"Constraint profile: "<<const_profile<<endl;
+    cout<<"Initial deformation: "<<initial_def<<endl;
+    cout<< "output data flag: "<< output_data_flag<<endl;
+    cout<< "simple mass flag: "<< simple_mass_flag<<endl;
+    
+    readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
+    readTetgen(Vf, Ff, dataDir()+fmeshname+".node", dataDir()+fmeshname+".ele");
+    
+    Vtemp = V;
+    //        find the surface mesh
+    igl::boundary_facets(F,surfF);
+    igl::boundary_facets(Ff,surfFf);
+    
+    std::string::size_type found = cmeshname.find_last_of(kPathSeparator);
+    //    acutal name for the mesh, no path
+    std::string cmeshnameActual = cmeshname.substr(found+1);
+    
+    //    acutal name for the mesh, no path
+    std::string fmeshnameActual = fmeshname.substr(found+1);
+    
+    cout<<"Using coarse mesh "<<cmeshname<<endl;
+    cout<<"Using fine mesh "<<fmeshname<<endl;
+    
+        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag);
         
-        std::string cmeshname = argv[1];
-        std::string fmeshname = argv[2];
-        
-        readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
-        readTetgen(Vf, Ff, dataDir()+fmeshname+".node", dataDir()+fmeshname+".ele");
-        
-        Vtemp = V;
-        //        find the surface mesh
-        igl::boundary_facets(F,surfF);
-        igl::boundary_facets(Ff,surfFf);
-        
-        std::string::size_type found = cmeshname.find_last_of(kPathSeparator);
-        //    acutal name for the mesh, no path
-        std::string cmeshnameActual = cmeshname.substr(found+1);
-        
-        //    acutal name for the mesh, no path
-        std::string fmeshnameActual = fmeshname.substr(found+1);
-        
-        
-        //    parameters
-        double youngs = atof(argv[3]);
-        double poisson = 0.45;
-        int constraint_dir = atoi(argv[10]); // constraint direction. 0 for x, 1 for y, 2 for z
-        double constraint_tol = atof(argv[4]);
-        int numModes = atoi(argv[9]);
-        bool hausdorff = atoi(argv[8]);
-        int const_profile = atoi(argv[5]);
-        int initial_def = atoi(argv[6]);
-        double step_size = atof(argv[11]);
-        int numSteps = atoi(argv[7]);
-        bool dynamic_flag = atoi(argv[12]);
-        //
-        // send the constraint switch in as well, or the fine embedded mesh. ugly
-        // the flag indicate whether to recalculated or not
-        // need to pass the material and constraint parameters to embedding too. need to do it again below. ugly
-        // also use the last two args to determine how many modes to fix. have to put it here now. ugly
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,numModes,cmeshnameActual,fmeshnameActual);
-        
+        // TODO: set rayleigh damping. should not be here...
+        test->a = a;
+        test->b = b;
         
         world.addSystem(test);
         
@@ -157,9 +169,12 @@ int main(int argc, char **argv) {
         // projection matrix for constraints
         Eigen::SparseMatrix<double> P;
         
+        
+        
+        
+        // constraint switch
         if ((const_profile) == 0) {
-            // constraint switch
-            
+            cout<<"Setting zero gravity..."<<endl;
             //            zero gravity
             Eigen::Vector3x<double> g;
             g(0) = 0;
@@ -183,43 +198,27 @@ int main(int argc, char **argv) {
         }
         else if(const_profile == 1)
         {
+            cout<<"Building fix constraint projection matrix"<<endl;
             //    default constraint
             fixDisplacementMin(world, test,constraint_dir,constraint_tol);
             world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
             
+            Eigen::VectorXi indices;
             // construct the projection matrix for stepper
-            Eigen::VectorXi indices = minVertices(test, constraint_dir,constraint_tol);
-            P = fixedPointProjectionMatrix(indices, *test,world);
-            // for debugging
-            //            if(numModes!=0)
-            //            {
-            //                Eigen::saveMarket(P, "coarse_P.dat");
-            //            }
-            //            else
-            //            {
-            //                Eigen::saveMarket(P, "noeigenfit_P.dat");
-            //            }
-        }
-        else if (const_profile == 2)
-        {
-            
-            
-            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
-            //
-            for(unsigned int ii=0; ii<movingVerts.rows(); ++ii) {
-                movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[movingVerts[ii]], Eigen::Vector3d(0,0,0)));
-                world.addConstraint(movingConstraints[ii]);
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            if(!Eigen::loadMarketVector(indices,constraint_file_name))
+            {
+                cout<<"File does not exist, creating new file..."<<endl;
+                indices = minVertices(test, constraint_dir,constraint_tol);
+                Eigen::saveMarketVector(indices,constraint_file_name);
             }
-            fixDisplacementMin(world, test,constraint_dir,constraint_tol);
             
-            world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-            
-            P = fixedPointProjectionMatrix(movingVerts, *test,world);
-            
+            P = fixedPointProjectionMatrix(indices, *test,world);
         }
-        else if (const_profile == 3)
+        else if(const_profile == 2)
         {
             //            zero gravity
+            cout<<"Setting zero gravity..."<<endl;
             Eigen::Vector3x<double> g;
             g(0) = 0;
             g(1) = 0;
@@ -230,22 +229,80 @@ int main(int argc, char **argv) {
                 test->getImpl().getElement(iel)->setGravity(g);
                 
             }
-            // read constraints
             
-            Eigen::loadMarketVector(fixedVerts, "def_init/" + cmeshnameActual + "_fixed_min_verts.mtx");
-            //
-            for(unsigned int ii=0; ii<fixedVerts.rows(); ++ii) {
-                fixedConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[fixedVerts[ii]], Eigen::Vector3d(0,0,0)));
-                world.addConstraint(fixedConstraints[ii]);
+            world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+            
+            Eigen::VectorXi indices;
+            // construct the projection matrix for stepper
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+            if(!Eigen::loadMarketVector(indices,constraint_file_name))
+            {
+                cout<<"File does not exist, creating new file..."<<endl;
+                indices = minVertices(test, constraint_dir,constraint_tol);
+                Eigen::saveMarketVector(indices,constraint_file_name);
+            }
+            P = fixedPointProjectionMatrix(indices, *test,world);
+            
+            for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+                movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
+                world.addConstraint(movingConstraints[ii]);
+            }
+            
+            fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+            
+            
+            
+            
+        }
+        else if (const_profile == 4 || const_profile == 5 || const_profile == 6 || const_profile == 7 || const_profile == 8)
+        {
+            //            zero gravity
+            cout<<"Setting zero gravity..."<<endl;
+            Eigen::Vector3x<double> g;
+            g(0) = 0;
+            g(1) = 0;
+            g(2) = 0;
+            
+            for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                
+                test->getImpl().getElement(iel)->setGravity(g);
+                
             }
             
             world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-            std::cout<<"# of fixedVerts" << fixedVerts.rows()<<std::endl;
-            P = fixedPointProjectionMatrix(fixedVerts, *test,world);
+            
+            Eigen::VectorXi indices;
+            // construct the projection matrix for stepper
+            std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+            cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
+            cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+            if(!Eigen::loadMarketVector(indices,constraint_file_name))
+            {
+                cout<<"File does not exist, creating new file..."<<endl;
+                indices = minVertices(test, constraint_dir,constraint_tol);
+                Eigen::saveMarketVector(indices,constraint_file_name);
+            }
+            
+            P = fixedPointProjectionMatrix(indices, *test,world);
+            
+            //            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
+            
+            for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+                movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
+                world.addConstraint(movingConstraints[ii]);
+            }
+            fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+            
             
         }
+        else
+        {
+            std::cout<<"warning: wrong constraint profile\n";
+        }
         
-        // set material
+        //        // set material
+        cout<<"Setting Youngs and Poisson..."<<endl;
         for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
             
             test->getImpl().getElement(iel)->setParameters(youngs, poisson);
@@ -254,50 +311,100 @@ int main(int argc, char **argv) {
         
         // initialize the state (position and velocity)
         auto q = mapStateEigen(world);
-        //        if (numModes != 0) {
-        //        Eigen::VectorXd fine_q(Vf.rows() * 3);
-        //        std::cout<<mapStateEigen(test->getFineWorld())<<std::endl;
-        //        fine_q = mapStateEigen(test->getFineWorld());
-        //        }
-        //    default to zero deformation
-        std::cout<<q.rows()<<std::endl;
-        std::cout<<q.cols()<<std::endl;
-        //        q.setZero();
         
-        
+        // if static, should calculate the ratios here (before loading the deformation)
+        // or if DAC (dynamic_flag == 6), calculate the first ratio
+        if(dynamic_flag == 6 || (dynamic_flag == 0 && num_modes != 0))
+        {
+            auto q_pos = mapStateEigen<0>(world);
+            //            cout<<"setting random perturbation to vertices"<<endl;
+            q_pos.setZero();
+            
+            //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
+            AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
+            AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> stiffnessMatrix;
+            
+            //get mass matrix
+            ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+            ASSEMBLEEND(massMatrix);
+            
+            
+            //get stiffness matrix
+            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+            ASSEMBLEEND(stiffnessMatrix);
+            
+            (*massMatrix) = P*(*massMatrix)*P.transpose();
+            (*stiffnessMatrix) = P*(*stiffnessMatrix)*P.transpose();
+            
+            
+            //Subspace Eigenvectors and eigenvalues from this coarse mesh
+            std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_coarseUs;
+            // for SMW
+            Eigen::MatrixXd Y;
+            Eigen::MatrixXd Z;
+            cout<<"calculating static ratio"<<endl;
+            test->calculateEigenFitData(q_pos,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+            cout<<"static ratio calculated"<<endl;
+            cout<<"reset perturbation to 0"<<endl;
+            q_pos.setZero();
+        }
+        if(dynamic_flag == 6)
+        {
+            double DAC_scalar = test->m_R(0);
+            // set material
+            cout<<"Resetting Youngs using DAC..."<<endl;
+            for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                //
+                //                test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
+                //
+            }
+        }
+        cout<<"Setting initial deformation..."<<endl;
         if (strcmp(argv[6],"0")==0) {
             // if specified no initial deformation
+            cout<<"No initial deformation"<<endl;
             q.setZero();
         }
         else
         {
+            cout<<"Loading initial deformation"<<endl;
             // load the initial deformation (and velocity) from file)
             std::string qfileName(argv[6]);
             Eigen::VectorXd  tempv;
-            Eigen::loadMarketVector(tempv,qfileName);
-            
-            std::cout<<"original state size "<<q.rows()<<"\nloaded state size "<<tempv.rows();
-            q = tempv;
-            
-            unsigned int idxc = 0;
-            
-            // get the mesh position
-            for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+            cout<<"Loading initial deformation"<<qfileName<<endl;
+            if(Eigen::loadMarketVector(tempv,qfileName))
+            {
                 
-                Vtemp(vertexId,0) += q(idxc);
-                idxc++;
-                Vtemp(vertexId,1) += q(idxc);
-                idxc++;
-                Vtemp(vertexId,2) += q(idxc);
-                idxc++;
+                std::cout<<"original state size "<<q.rows()<<"\nloaded state size "<<tempv.rows()<<endl;;
+                q = tempv;
+                
+                unsigned int idxc = 0;
+                
+                // get the mesh position
+                for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+                    
+                    Vtemp(vertexId,0) += q(idxc);
+                    idxc++;
+                    Vtemp(vertexId,1) += q(idxc);
+                    idxc++;
+                    Vtemp(vertexId,2) += q(idxc);
+                    idxc++;
+                }
+                
+                igl::writeOBJ("loadedpos.obj",Vtemp,surfF);
             }
-            
-            igl::writeOBJ("loadedpos.obj",Vtemp,surfF);
-            
+            else{
+                cout<<"can't load initial deformation\n";
+                exit(1);
+            }
         }
         
-        MyTimeStepper stepper(step_size,P,numModes);
+        MyTimeStepper stepper(step_size,P,num_modes,a,b);
         
+        // rayleigh damping. should not be here but this will do for now
         //         the number of steps to take
         
         unsigned int file_ind = 0;
@@ -309,45 +416,125 @@ int main(int argc, char **argv) {
         struct stat buf;
         unsigned int idxc;
         
-        for(istep=0; istep<numSteps ; ++istep) {
-            stepper.step(world);
-            
+        for(istep=0; istep<numSteps ; ++istep)
+        {
+                stepper.step(world);
+             
             // acts like the "callback" block for moving constraint
             if (const_profile == 2)
             {
                 // constraint profile 2 will move some vertices
                 //script some motion
+                cout<<"Moving constrained vertices in y..."<<endl;
                 for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
                     
                     auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                    //
-                    //                    if ((istep%150) < 50) {
-                    //                        Eigen::Vector3d new_q = (istep%150)*Eigen::Vector3d(0.0,-1.0/100,0.0);
-                    //                        v_q = new_q;
-                    //                    }
-                    //                    else if ((istep%150) < 100)
-                    //                    {}
-                    //                    else
-                    //                    {
-                    //                        Eigen::Vector3d new_q =  (150-(istep%150))*Eigen::Vector3d(0.0,-1.0/100,0.0);
-                    //                        v_q = new_q;
-                    //                    }
                     Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,-1.0/100,0.0);
                     v_q = new_q;
                     
                 }
             }
-            
-            //output data stream into text
+            else if (const_profile == 4 )
+            {
+                cout<<"Moving constrained vertices in x..."<<endl;
+                for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+                    
+                    auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
+                    //
+                    if ((istep) < 50) {
+                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(-1.0/100,0.0,0.0);
+                        v_q = new_q;
+                    }
+                    
+                }
+            }
+            else if (const_profile == 5)
+            {
+                cout<<"Moving constraint vertices in y..."<<endl;
+                for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+                    
+                    auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
+                    //
+                    if ((istep) < 50) {
+                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,-1.0/100,0.0);
+                        v_q = new_q;
+                    }
+                    
+                }
+            }else if (const_profile == 6)
+            {
+                cout<<"Moving constrained vertices in z..."<<endl;
+                for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+                    
+                    auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
+                    //
+                    if ((istep) < 50) {
+                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
+                        v_q = new_q;
+                    }
+                    
+                    
+                }
+            }else if (const_profile == 7)
+            {
+                cout<<"Moving constrained vertices using mouse motion"<<endl;
+                Eigen::VectorXd Xvel;
+                if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+                {
+                    cout<<"fail loading mouse x motion"<<endl;
+                }
+                Eigen::VectorXd Yvel;
+                if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+                    cout<<"fail loading mouse y motion"<<endl;
+                Eigen::VectorXd Zvel;
+                if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+                    cout<<"fail loading mouse z motion"<<endl;
+                
+                for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+                    
+                    auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
+                    //
+                    if ((istep) < 250) {
+                        //                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
+                        v_q(0) += 0.1*Xvel(istep);
+                        v_q(1) += 0.1*Yvel(istep);
+                        v_q(2) += 0.1*Zvel(istep);
+                    }
+                    
+                    
+                }
+            }else if (const_profile == 8)
+            {
+                cout<<"Moving constrained vertices using mouse motion"<<endl;
+                Eigen::VectorXd Xvel;
+                if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+                {
+                    cout<<"fail loading mouse x motion"<<endl;
+                }
+                Eigen::VectorXd Yvel;
+                if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+                    cout<<"fail loading mouse y motion"<<endl;
+                Eigen::VectorXd Zvel;
+                if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+                    cout<<"fail loading mouse z motion"<<endl;
+                
+                for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+                    auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
+                    if ((istep) < 250) {
+                        if(Xvel(istep) <= 0){   v_q(0) += 0.5*std::max(Xvel(istep),-0.005);}
+                        else{ v_q(0) += 0.5*std::min(Xvel(istep),0.005);}
+                        if(Yvel(istep) <= 0){   v_q(1) += 0.5*std::max(Yvel(istep),-0.005);}
+                        else{ v_q(1) += 0.5*std::min(Yvel(istep),0.005);}
+                        if(Zvel(istep) <= 0){   v_q(2) += 0.5*std::max(Zvel(istep),-0.005);}
+                        else{ v_q(2) += 0.5*std::min(Zvel(istep),0.005);}
+                    }
+                }
+            }//output data stream into text
             // the following ones append one number to an opened file along the simulation
             std::ofstream ofile;
-            ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
-            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getKineticEnergy(world.getState()) << std::endl;
-            ofile.close();
-            
             //output data stream into text
             ofile.open("PE.txt", std::ios::app); //app is append which means it will put the text at the end
-            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getStrainEnergy(world.getState()) << std::endl;
+            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState()) << std::endl;
             ofile.close();
             
             //output data stream into text
@@ -355,21 +542,26 @@ int main(int argc, char **argv) {
             ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
             ofile.close();
             
+            ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
+            ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
+            ofile.close();
+            
+            
             // check if the file already exist
-            std::string filename = "pos" + std::to_string(file_ind) + ".obj";
+            std::string filename = "surfpos" + std::to_string(file_ind) + ".obj";
             while (stat(filename.c_str(), &buf) != -1)
             {
                 file_ind++;
-                filename = "pos" + std::to_string(file_ind) + ".obj";
+                filename = "surfpos" + std::to_string(file_ind) + ".obj";
             }
+            
+            
             
             // rest pos for the coarse mesh getGeometry().first is V
             q = mapStateEigen(world);
             idxc = 0;
             Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
             // output mesh position with only surface mesh
-            igl::writeOBJ("surfpos_rest" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-            
             
             // get the mesh position
             for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
@@ -382,190 +574,107 @@ int main(int argc, char **argv) {
                 idxc++;
             }
             
-            // output mesh position with elements
+            test->m_Vc_current = V_disp;
+            
+            //             output mesh position with elements
             igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
             
             // output mesh position with only surface mesh
             igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-            
-            
-            if (numModes != 0) {
-                // declare variable for fine mesh rest pos
-                Eigen::MatrixXd Vf_disp;
+            //
+            if(output_data_flag)
+            {
+                cout<<"writing coarse eigenmode..."<<endl;
+                Eigen::VectorXd coarse_eig_def;
                 
-                // embedded V
-                auto fine_q = mapStateEigen(test->getFineWorld());
-                idxc = 0; // reset index counter
-                Vf_disp = std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first;
-                // output mesh position with only surface mesh
-                for(unsigned int vertexId=0;  vertexId < std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+                V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first; ;
+                for(int mode = 0; mode < num_modes; mode++)
+                {
+                    V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;;
+                    //                igl::writeOBJ("restart_coarse_restshape_" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
                     
-                    Vf_disp(vertexId,0) += fine_q(idxc);
-                    idxc++;
-                    Vf_disp(vertexId,1) += fine_q(idxc);
-                    idxc++;
-                    Vf_disp(vertexId,2) += fine_q(idxc);
-                    idxc++;
+                    idxc = 0;
+                    coarse_eig_def = (P.transpose()*((test->coarseEig).first.col(mode))).transpose();
+                    // get the mesh position
+                    for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId)
+                    {
+                        
+                        V_disp(vertexId,0) += coarse_eig_def(idxc);
+                        idxc++;
+                        V_disp(vertexId,1) += coarse_eig_def(idxc);
+                        idxc++;
+                        V_disp(vertexId,2) += coarse_eig_def(idxc);
+                        idxc++;
+                    }
+                    igl::writeOBJ("coarse_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",V_disp,surfF);
                 }
-                // output mesh position with only surface mesh
-                igl::writeOBJ("finesurfpos" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
                 
-                // output full state coarse mesh data
-                Eigen::saveMarketVector(q, cmeshnameActual + "FullState" + std::to_string(file_ind) + ".mtx");
-                // fine mesh data from embedded mesh in eigenfit
-                Eigen::saveMarketVector(fine_q, fmeshnameActual + "FullState" + std::to_string(file_ind) + ".mtx");
                 
-                // project velocity onto the eigenspace to check how effective Eigenfit should be
-                //            auto coarseVel = mapStateEigen<1>(world);
-                //            auto fineVel = mapStateEigen<1>(test->getFineWorld());
-                //                    for (mode = 0; mode < atoi(argv[9]); ++mode) {
-                //                        coarse_eig_def = (P.transpose()*();
-                //            filename_p = name_p + "_" +std::to_string(file_ind) + ".dat";
-                //            Eigen::saveMarket(test->coarseEigMassProj.first, filename_p);
-                //            Eigen::saveMarket((test->m_coarseMassMatrix), "mass" + std::to_string(file_ind) + ".dat");
-                
-                // velocity
-                //            Eigen::saveMarket((P*mapStateEigen<1>(world)).transpose(), "vel" +std::to_string(file_ind) + ".dat");
-                
-                // velocity projection
-                //                Eigen::VectorXd proj = (P*mapStateEigen<1>(world)).transpose() * (test->coarseEigMassProj.first);
-                //                Eigen::saveMarket(proj, "vel_proj" +std::to_string(file_ind) + ".dat");
-                //                Eigen::saveMarketVector(test->coarseEigMassProj.second, "coarse_eigval" + std::to_string(file_ind) + ".dat");
-                //                Eigen::saveMarketVector(test->fineEigMassProj.second, "fine_eigval" + std::to_string(file_ind) + ".dat");
-                //
-                
-                //                Eigen::saveMarket((test->minvf), "minvf" +std::to_string(file_ind) + ".dat");
-                //                Eigen::saveMarket((test->minvfCP), "minvfCP" +std::to_string(file_ind) + ".dat");
-                
-                //
-                //            std::cout<<(test->m_fineP.rows())<<std::endl;
-                //            std::cout<<(test->m_fineP.cols())<<std::endl;
-                //            std::cout<<(test->m_coarseP.rows())<<std::endl;
-                //            std::cout<<(test->m_coarseP.cols())<<std::endl;
-                //
-                //            std::cout<<(test->fineEig.first.rows())<<std::endl;
-                //            std::cout<<(test->fineEig.first.cols())<<std::endl;
-                //            std::cout<<(test->coarseEig.first.rows())<<std::endl;
-                //            std::cout<<(test->coarseEig.first.cols())<<std::endl;
-                //
-                //            std::cout<<(((*(test->N) * test->coarseEig.first)).rows() )<<std::endl;
-                //            std::cout<<(((*(test->N) * test->coarseEig.first)).cols() )<<std::endl;
-                
-                //            std::cout<<(test->N->cols())<<std::endl;
-                
-                //// output eigen deformation
-                //                unsigned int mode = 0;
-                //                unsigned int idxc = 0;
-                //                unsigned int idxf = 0;
-                //                Eigen::VectorXd coarse_eig_def;
-                //                Eigen::VectorXd fine_eig_def;
-                //                for (mode = 0; mode < numModes; ++mode) {
-                //                    coarse_eig_def = (test->m_coarseP.transpose()*test->coarseEig.first.col(mode)).transpose();
-                //                    fine_eig_def = (test->m_fineP.transpose()*test->fineEig.first.col(mode)).transpose();
-                //
-                //                    idxc = 0;
-                //                    idxf = 0;
-                //                    // getGeometry().first is V
-                //                    Eigen::MatrixXd coarse_V_disp_p = V_disp;
-                //                    Eigen::MatrixXd coarse_V_disp_n = V_disp;
-                //                    Eigen::MatrixXd fine_V_disp_p = Vf_disp;
-                //                    //            Eigen::MatrixXd coarse_V_disp_n = this->getImpl().getV();
-                ////                    for(unsigned int vertexId=0;  vertexId < test->getImpl().getV().rows(); ++vertexId) {
-                ////                        //        //
-                ////                        coarse_V_disp_p(vertexId,0) += (1*coarse_eig_def(idxc));
-                ////                        coarse_V_disp_n(vertexId,0) -= (1*coarse_eig_def(idxc));
-                ////
-                ////                        idxc++;
-                ////                        coarse_V_disp_p(vertexId,1) += (1*coarse_eig_def(idxc));
-                ////                        coarse_V_disp_n(vertexId,1) -= (1*coarse_eig_def(idxc));
-                ////                        idxc++;
-                ////                        coarse_V_disp_p(vertexId,2) += (1*coarse_eig_def(idxc));
-                ////                        coarse_V_disp_n(vertexId,2) -= (1*coarse_eig_def(idxc));
-                ////                        idxc++;
-                ////                    }
-                ////                    igl::writeOBJ(cmeshnameActual+"mode"+std::to_string(mode)+"_"+std::to_string(file_ind)+"p.obj",coarse_V_disp_p, surfF);
-                ////                    igl::writeOBJ(cmeshnameActual+"mode"+std::to_string(mode)+"_"+std::to_string(file_ind)+"n.obj",coarse_V_disp_n, surfF);
-                //
-                ////                    for(unsigned int vertexId=0;  vertexId < Vf.rows(); ++vertexId) {
-                ////                        //        //
-                ////                        fine_V_disp_p(vertexId,0) += (1*fine_eig_def(idxf));
-                ////                        idxf++;
-                ////                        fine_V_disp_p(vertexId,1) += (1*fine_eig_def(idxf));
-                ////                        idxf++;
-                ////                        fine_V_disp_p(vertexId,2) += (1*fine_eig_def(idxf));
-                ////                        idxf++;
-                ////                    }
-                ////                    igl::writeOBJ(fmeshnameActual+"mode"+std::to_string(mode)+"_"+std::to_string(file_ind)+".obj",fine_V_disp_p, surfFf);
-                //
-                //                }
             }
+            // output eigenvalues
+            Eigen::saveMarketVector(test->coarseEig.second, "eigenvalues" + std::to_string(file_ind)+ ".mtx");
+            // output eigenvalues
+            if(dynamic_flag == 1 || dynamic_flag == 4)
+            {
+                Eigen::saveMarketVector(test->m_Us.second, "fineeigenvalues" + std::to_string(file_ind)+ ".mtx");
+                
+            }
+            
+            // out data for matlab
+            if(output_data_flag)
+            {
+                // output eigenvalues
+                Eigen::saveMarketVectorDat(test->coarseEig.second, "eigenvalues" + std::to_string(file_ind)+ ".dat");
+                // output eigenvalues
+                if(dynamic_flag == 1 || dynamic_flag == 4)
+                {
+                    Eigen::saveMarketVectorDat(test->m_Us.second, "fineeigenvalues" + std::to_string(file_ind)+ ".dat");
+                    
+                }
+                
+            }
+            
+            
+            Eigen::MatrixXd Vf_disp;
+            
+            
+            if(output_data_flag)
+            {
+                
+                Eigen::VectorXd fine_eig_def;
+                if(dynamic_flag == 1 || dynamic_flag == 4)
+                {
+                    Vf_disp = test->m_Vf;
+                    for(int mode = 0; mode < num_modes; mode++)
+                    {
+                        Vf_disp = test->m_Vf;
+                        
+                        idxc = 0;
+                        fine_eig_def = (test->m_fineP.transpose()*((test->m_Us).first.col(mode))).transpose();
+                        // get the mesh position
+                        for(unsigned int vertexId=0;  vertexId < std::get<0>(test->getFineWorld().getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+                            
+                            Vf_disp(vertexId,0) += fine_eig_def(idxc);
+                            idxc++;
+                            Vf_disp(vertexId,1) += fine_eig_def(idxc);
+                            idxc++;
+                            Vf_disp(vertexId,2) += fine_eig_def(idxc);
+                            idxc++;
+                        }
+                        igl::writeOBJ("fine_eigenmode" + std::to_string(mode) + "_" + std::to_string(file_ind) + ".obj",Vf_disp,surfFf);
+                    }
+                }
+                
+                if(num_modes != 0) Eigen::saveMarketVectorDat(test->m_R, "m_R" + std::to_string(file_ind)+ ".dat");
+                
+                
+                
+            }
+            // update step number;
+            test->step_number++;
+            cout<<"simulated frame: " << test->step_number<<endl;
         }
         
-    }
-    else
-    {
-        // using all default paramters for eigenfit
-        
-        //    default example meshes
-        std::string cmeshname = "/meshesTetWild/brick_surf/brick_surf_4";
-        std::string fmeshname = "/meshesTetWild/brick_surf/brick_surf_4";
-        
-        readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
-        readTetgen(Vf, Ff, dataDir()+fmeshname+".node", dataDir()+fmeshname+".ele");
-        
-        std::string::size_type found = cmeshname.find_last_of(kPathSeparator);
-        //    acutal name for the mesh, no path
-        std::string cmeshnameActual = cmeshname.substr(found+1);
-        
-        
-        //    default parameters
-        double youngs = 2e5;
-        double poisson = 0.45;
-        int constraint_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
-        double constraint_tol = 1e-2;
-        
-        // no constraint switch so just create the eigenfit obj with constraint switch set to 1
-        // the flag indicate whether to recalculated or not
-        // need to pass the material and constraint parameters to embedding too. need to do it again below. ugly
-        // also use the last two args to determine how many modes to fix. default not using hausdorff distance, and use 10 modes. have to put it here now.  ugly
-        EigenFit *test = new EigenFit(V,F,Vf,Ff,true,youngs,poisson,constraint_dir,constraint_tol, 0,false,0," "," ");
-        
-        // set material
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-            
-        }
-        
-        world.addSystem(test);
-        
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        // IMPORTANT, need to finalized before fix boundary
-        
-        //    default constraint
-        fixDisplacementMin(world, test,constraint_dir,constraint_tol);
-        
-        // construct the projection matrix for stepper
-        Eigen::VectorXi indices = minVertices(test, constraint_dir,constraint_tol);
-        Eigen::SparseMatrix<double> P = fixedPointProjectionMatrix(indices, *test,world);
-        
-        
-        auto q = mapStateEigen(world);
-        
-        //    default to zero deformation
-        q.setZero();
-        
-        
-        MyTimeStepper stepper(0.01,P,0);
-        
-        //Display
-        QGuiApplication app(argc, argv);
-        
-        MyScene *scene = new MyScene(&world, &stepper, preStepCallback);
-        GAUSSVIEW(scene);
-        
-        return app.exec();
-        
-    }
+    
     
 }

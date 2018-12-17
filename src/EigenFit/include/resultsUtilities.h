@@ -21,112 +21,8 @@ std::string filename_number_padded(std::string filename, int file_ind, std::stri
     return filename;
 }
 
-void output_sim_data(
-
 //template <typename Vector>
 void parse_input(int argc, char **argv, std::string &cmeshname,
-                 std::string &fmeshname, double &youngs, double &const_tol,
-                 int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
-                 int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
-                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag)
-{
-    for (int i = 1; i < argc; i++) {
-        std::string arg(argv[i]);
-        arg.erase(remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
-        std::size_t eq_found = arg.find_first_of("=");
-        std::string field(arg.substr(1,eq_found-1));
-        
-        if (field.compare("cmeshname") == 0) {
-            cmeshname =arg.substr(eq_found+1,arg.length()-eq_found-1);
-            cout<<"Using coarse mesh: "<<cmeshname<<endl;
-            
-        }
-        else if(field.compare("fmeshname") == 0) {
-            fmeshname =arg.substr(eq_found+1,arg.length()-eq_found-1);
-            cout<<"Using fine mesh: "<<fmeshname<<endl;
-        }
-        else if(field.compare("youngs") == 0)
-        {
-            youngs = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using Youngs: "<<youngs<<endl;
-        }
-        else if(field.compare("const_tol") == 0)
-        {
-            const_tol =stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using constraint tolerance: "<<const_tol<<endl;
-        }
-        else if(field.compare("const_profile") == 0)
-        {
-            const_profile =stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using constriant profile: "<<const_profile<<endl;
-        }
-        else if(field.compare("initial_def") == 0)
-        {
-            initial_def = arg.substr(eq_found+1,arg.length()-eq_found-1);
-            cout<<"Using initial deformation: "<<initial_def<<endl;
-        }
-        else if(field.compare("num_steps") == 0)
-        {
-            num_steps = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using number of steps: "<< num_steps<<endl;
-        }
-        else if(field.compare("haus") == 0)
-        {
-            haus = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using haus: "<<haus<<endl;
-        }
-        else if(field.compare("num_modes") == 0)
-        {
-            num_modes = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using number of modes: "<<num_modes<<endl;
-        }
-        else if(field.compare("const_dir") == 0)
-        {
-            const_dir = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using constraint direction: "<<const_dir<<endl;
-        }
-        else if(field.compare("step_size") == 0)
-        {
-            step_size = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using step size: "<<step_size<<endl;
-        }
-        else if(field.compare("dynamic_flag") == 0)
-        {
-            dynamic_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using dynamic_flag: "<<dynamic_flag<<endl;
-        }
-        else if(field.compare("a") == 0)
-        {
-            a = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using a: "<<a<<endl;
-        }
-        else if(field.compare("b") == 0)
-        {
-            b = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using b: "<<b<<endl;
-        }
-        else if(field.compare("output_data_flag") == 0)
-        {
-            output_data_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using output data flag: "<<output_data_flag<<endl;
-        }
-        else if(field.compare("simple_mass_flag") == 0)
-        {
-            simple_mass_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using simple mass flag: "<<simple_mass_flag<<endl;
-        }
-        else
-        {
-            cout<<"Warning: Unknown field "<< field<<" with unused value " << arg.substr(eq_found+1,arg.length()-eq_found-1)<<endl;
-        }
-        
-    }
-    
-    
-}
-
-template<typename World, typename
-void generate_constraints(int argc, char **argv, std::string &cmeshname,
                  std::string &fmeshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
                  int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
@@ -243,7 +139,7 @@ void q_state_to_position(Eigen::VectorXd& q, Eigen::MatrixXd& V_pos)
 }
 
 template<typename DataType>
-void apply_moving_constraint(int const_profile, State<DataType> & state, std::vector<ConstraintFixedPoint<double> *> & movingConstraints)
+void apply_moving_constraint(int const_profile, State<DataType> & state, std::vector<ConstraintFixedPoint<double> *> & movingConstraints, int frame_number)
 {
     
     // acts like the "callback" block for moving constraint
@@ -255,7 +151,7 @@ void apply_moving_constraint(int const_profile, State<DataType> & state, std::ve
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
-            Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,-1.0/100,0.0);
+            Eigen::Vector3d new_q = (frame_number)*Eigen::Vector3d(0.0,-1.0/100,0.0);
             v_q = new_q;
             
         }
@@ -267,8 +163,8 @@ void apply_moving_constraint(int const_profile, State<DataType> & state, std::ve
             
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             //
-            if ((istep) < 50) {
-                Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(-1.0/100,0.0,0.0);
+            if ((frame_number) < 50) {
+                Eigen::Vector3d new_q = (frame_number)*Eigen::Vector3d(-1.0/100,0.0,0.0);
                 v_q = new_q;
             }
             
@@ -281,8 +177,8 @@ void apply_moving_constraint(int const_profile, State<DataType> & state, std::ve
             
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             //
-            if ((istep) < 50) {
-                Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,-1.0/100,0.0);
+            if ((frame_number) < 50) {
+                Eigen::Vector3d new_q = (frame_number)*Eigen::Vector3d(0.0,-1.0/100,0.0);
                 v_q = new_q;
             }
             
@@ -294,8 +190,8 @@ void apply_moving_constraint(int const_profile, State<DataType> & state, std::ve
             
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             //
-            if ((istep) < 50) {
-                Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
+            if ((frame_number) < 50) {
+                Eigen::Vector3d new_q = (frame_number)*Eigen::Vector3d(0.0,0.0,-1.0/100);
                 v_q = new_q;
             }
             
@@ -320,11 +216,11 @@ void apply_moving_constraint(int const_profile, State<DataType> & state, std::ve
             
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             //
-            if ((istep) < 250) {
-                //                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
-                v_q(0) += 0.1*Xvel(istep);
-                v_q(1) += 0.1*Yvel(istep);
-                v_q(2) += 0.1*Zvel(istep);
+            if ((frame_number) < 250) {
+                //                        Eigen::Vector3d new_q = (frame_number)*Eigen::Vector3d(0.0,0.0,-1.0/100);
+                v_q(0) += 0.1*Xvel(frame_number);
+                v_q(1) += 0.1*Yvel(frame_number);
+                v_q(2) += 0.1*Zvel(frame_number);
             }
             
             
@@ -346,13 +242,13 @@ void apply_moving_constraint(int const_profile, State<DataType> & state, std::ve
         
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
-            if ((istep) < 250) {
-                if(Xvel(istep) <= 0){   v_q(0) += 0.5*std::max(Xvel(istep),-0.005);}
-                else{ v_q(0) += 0.5*std::min(Xvel(istep),0.005);}
-                if(Yvel(istep) <= 0){   v_q(1) += 0.5*std::max(Yvel(istep),-0.005);}
-                else{ v_q(1) += 0.5*std::min(Yvel(istep),0.005);}
-                if(Zvel(istep) <= 0){   v_q(2) += 0.5*std::max(Zvel(istep),-0.005);}
-                else{ v_q(2) += 0.5*std::min(Zvel(istep),0.005);}
+            if ((frame_number) < 250) {
+                if(Xvel(frame_number) <= 0){   v_q(0) += 0.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += 0.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += 0.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += 0.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += 0.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += 0.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
