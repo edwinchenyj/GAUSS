@@ -43,11 +43,6 @@ template<typename DataType, typename ShapeFunction>
 using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSCorotatedLinear>;
 
 
-/* Tetrahedral finite elements */
-template<typename DataType>
-using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSNHHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
-
-
 // subclass a hard-coded templated class from PhysicalSystemFEM
 // this means that this EigenFit only works for NeohookeanHFixedTets
 class EigenFitCoRot: public PhysicalSystemFEM<double, FEMPSNHTet>{
@@ -576,8 +571,16 @@ public:
             m_coarseUs.first = m_coarseUs.first * (normalizing_const.asDiagonal());
         }
         
-        coarseEigMassProj = m_coarseUs;
+//        coarseEigMassProj = m_coarseUs;
+        prev_coarseEigenvectors = coarseEig.first;
         coarseEig = m_coarseUs;
+        
+//        // match the mode here
+//        for (int i_mode = 0; i_mode < m_numModes; i_mode++) {
+//            double dist;
+//            dist = prev_coarseEigenvectors.col(0)
+//        }
+//
         //        coarseEigMassProj.first = (*coarseMassMatrix)*coarseEigMassProj.first;
         
         
@@ -1110,6 +1113,7 @@ public:
     std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_Us;
     std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_fineUs_restart;
     std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_coarseUs_restart;
+    Eigen::MatrixXx<double> prev_coarseEigenvectors;
     Eigen::VectorXx<double> coarseEigenvalues;
     Eigen::VectorXx<double> fineEigenvalues;
     Eigen::MatrixXx<double> coarseEigenvectors;
