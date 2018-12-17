@@ -41,10 +41,10 @@ using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunctio
 
 //
 ///* Tetrahedral finite elements */
-//template<typename DataType>
-//using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
+template<typename DataType>
+using FEMPSCoRotTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
 
-typedef PhysicalSystemFEM<double, FEMPSNHTet> FEMLinearTets;
+typedef PhysicalSystemFEM<double, FEMPSCoRotTet> FEMLinearTets;
 //typedef PhysicalSystemFEM<double, NeohookeanTet> FEMLinearTets;
 typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
