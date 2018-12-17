@@ -45,19 +45,19 @@ using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunctio
 
 /* Tetrahedral finite elements */
 template<typename DataType>
-using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSNHHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
+using FEMPSCoRotTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
 
 
 // subclass a hard-coded templated class from PhysicalSystemFEM
 // this means that this EigenFit only works for NeohookeanHFixedTets
-class EigenFitCoRot: public PhysicalSystemFEM<double, FEMPSNHTet>{
+class EigenFitCoRot: public PhysicalSystemFEM<double, FEMPSCoRotTet>{
     //class EigenFitCoRot: public PhysicalSystemFEM<double, NeohookeanHFixedTet>{
     
 public:
     // alias the hard-coded template name. Easier to read
     // the following lines read: the Physical System Implementation used here is a neo-hookean tet class
     //    using PhysicalSystemImpl = PhysicalSystemFEM<double, NeohookeanHFixedTet>;
-    using PhysicalSystemImpl = PhysicalSystemFEM<double, FEMPSNHTet>;
+    using PhysicalSystemImpl = PhysicalSystemFEM<double, FEMPSCoRotTet>;
     
     // use all the default function for now
     using PhysicalSystemImpl::getEnergy;
