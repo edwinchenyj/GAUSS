@@ -289,14 +289,8 @@ public:
                 DiagEval(i,i) = 1e-3;
             }
         }
-//        saveMarket(H, "H.dat");
         H = -Evec * DiagEval * Evec.transpose();
-//        saveMarket(H, "HFixed.dat");
 
-        //        std::cout<< H << std::endl;
-//        std::cout<< Evec.inverse() << std::endl;
-//        std::cout<< Evec*Evec.transpose() << std::endl;
-        
     }
     
     template<typename Matrix>

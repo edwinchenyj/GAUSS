@@ -137,9 +137,9 @@ void q_state_to_position(Eigen::VectorXd& q, Eigen::MatrixXd& V_pos)
         idxc++;
     }
 }
-
-template<typename DataType>
-void apply_moving_constraint(int const_profile, State<DataType> & state, std::vector<ConstraintFixedPoint<double> *> & movingConstraints, int frame_number)
+//
+//template<typename DataType>
+void apply_moving_constraint(int const_profile, State<double> & state, std::vector<ConstraintFixedPoint<double> *> & movingConstraints, int frame_number)
 {
     
     // acts like the "callback" block for moving constraint
