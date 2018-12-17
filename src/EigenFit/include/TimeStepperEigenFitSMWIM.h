@@ -34,9 +34,9 @@ namespace Gauss {
     public:
         
         template<typename Matrix>
-        TimeStepperImplEigenFitSMWIMImpl(Matrix &P, unsigned int numModes, double a = 0.0, double b = -1e-2) {
+        TimeStepperImplEigenFitSMWIMImpl(Matrix &P, unsigned int num_modes, double a = 0.0, double b = -1e-2) {
             
-            m_numModes = (numModes);
+            m_num_modes = (num_modes);
             
             m_P = P;
             m_factored = false;
@@ -53,9 +53,29 @@ namespace Gauss {
             c1 = 1e-4;
             c2 = 0.9;
             
+            // init residual
+            res = std::numeric_limits<double>::infinity();
+            
+            m_M.resize(P.rows(),P.rows());
+            m_M.reserve(P.rows()); //simple mass
+            mass_lumped.resize(P.rows());
+            mass_lumped_inv.resize(P.rows());
+            
+            (*m_massMatrix).resize(P.rows(),P.rows());
+            
+            it_outer = 0;
+            it_inner = 0;
+            // constants from Nocedal and Wright
+            step_size = 1;
+            c1 = 1e-4;
+            c2 = 0.9;
+            
+            simple_mass_flag = false;
+            mass_calculated = false;
+            mass_factorized = false;
+            
             this->a = a;
             this->b = b;
-            simple_mass_flag = false;
             
         }
         
@@ -102,7 +122,7 @@ namespace Gauss {
     protected:
         
         //num modes to correct
-        unsigned int m_numModes;
+        unsigned int m_num_modes;
         
         //        //Ratios diagonal matrix, stored as vector
         Eigen::VectorXd m_R;
@@ -150,12 +170,12 @@ namespace Gauss {
     };
 }
 
+
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
 template<typename World>
 void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler>::step(World &world, double dt, double t) {
     
     simple_mass_flag = static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->simple_mass_flag;
-    
     
     //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
     MatrixAssembler &massMatrix = m_massMatrix;
@@ -163,21 +183,18 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
     VectorAssembler &forceVector = m_forceVector;
     VectorAssembler &fExt = m_fExt;
     
-    
     if(!simple_mass_flag)
     {
-        //get mass matrix
-        ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-        ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
-        ASSEMBLEEND(massMatrix);
-        
-        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+    ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+    ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+    ASSEMBLEEND(massMatrix);
+    
+    (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
     }
     
     if(simple_mass_flag && !mass_calculated)
+        //        if(simple_mass_flag && !mass_calculated)
     {
-        
-        //get mass matrix
         ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
         ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
         ASSEMBLEEND(massMatrix);
@@ -192,7 +209,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         mass_lumped_inv = mass_lumped.cwiseInverse();
         
         
-        m_M.resize(mass_lumped.rows(),mass_lumped.rows());
+        //        m_M.resize(mass_lumped.rows(),mass_lumped.rows());
         typedef Eigen::Triplet<double> T;
         std::vector<T> tripletList;
         tripletList.reserve(mass_lumped.rows());
@@ -204,6 +221,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         
         mass_calculated = true;
     }
+    
+    
+    
     
     // init rhs
     rhs = new double[m_P.rows()];
@@ -277,7 +297,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
             //Eigendecomposition
             // if number of modes not equals to 0, use EigenFit
-            if (m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
@@ -317,7 +337,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
 #ifdef GAUSS_PARDISO
             
-            m_pardiso.symbolicFactorization(systemMatrix, m_numModes);
+            m_pardiso.symbolicFactorization(systemMatrix, m_num_modes);
             m_pardiso.numericalFactorization();
             
             m_pardiso.solve(eigen_rhs);
@@ -349,11 +369,11 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             x0 = solver.solve((eigen_rhs));
             
 #endif
-            if(!matrix_fix_flag && m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
+            if(!matrix_fix_flag && m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
             {
                 cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
             }
-            else if(m_numModes != 0)
+            else if(m_num_modes != 0)
             {
                 cout<<"Warning: stiffness fix not implemented"<<endl;
             }
@@ -385,7 +405,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
             (*forceVector) = m_P*(*forceVector);
             
-            if (m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 //            static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
@@ -411,7 +431,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             cout<<"using simple mass"<<endl;
             //Eigendecomposition
             // if number of modes not equals to 0, use EigenFit
-            if (m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 cout<<"calculated eigenfit data"<<endl;
@@ -452,7 +472,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
 #ifdef GAUSS_PARDISO
             
-            m_pardiso.symbolicFactorization(systemMatrix, m_numModes);
+            m_pardiso.symbolicFactorization(systemMatrix, m_num_modes);
             m_pardiso.numericalFactorization();
             
             m_pardiso.solve(eigen_rhs);
@@ -484,11 +504,11 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             x0 = solver.solve((eigen_rhs));
             
 #endif
-            if(!matrix_fix_flag && m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
+            if(!matrix_fix_flag && m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6)
             {
                 cout<<"Ignoring change in stiffness matrix from EigenFit"<<endl;
             }
-            else if(m_numModes != 0)
+            else if(m_num_modes != 0)
             {
                 cout<<"Warning: stiffness fix not implemented"<<endl;
             }
@@ -520,7 +540,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
             (*forceVector) = m_P*(*forceVector);
             
-            if (m_numModes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+            if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 //            static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
@@ -548,13 +568,17 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         update_step_size = (1.0/2.0 * dt * (qDot + eigen_v_old) - prev_update_step).norm();
         prev_update_step = 1.0/2.0 * dt * (qDot + eigen_v_old);
         cout<<" step size: " << update_step_size<<endl;
-    } while(res > 1e-6  && update_step_size > 1e-3);
+    } while(res > 1e-6  && update_step_size > 1e-6);
     //    } while(res > 1e-6); can't use res for corot energy
     it_outer = 0;
     q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
 }
+
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
 using TimeStepperEigenFitSMWIM = TimeStepper<DataType, TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler> >;
+
+
+
 
 
 
