@@ -163,6 +163,60 @@ public:
     }
     
     template<typename Vector>
+    int lower_triangular_solve(Vector &rhs) {
+        int phase = 33;
+        int      idum = 0;              /* Integer dummy. */
+        int error = 0;
+        int nrhs = rhs.cols();
+        
+        m_x.resize(rhs.rows(), nrhs);
+        m_integerParams[7] = 1;       /* Max numbers of iterative refinement steps. */
+        m_integerParams[26] = 1;       /* Perform lower triangular solve only. */
+        
+        
+        pardiso(m_ptr, &m_maxfct, &m_mnum, &m_matrixType, &phase, &m_n, m_a.data(), m_outerArray.data(),
+                m_innerArray.data(), &idum, &nrhs, m_integerParams, &m_displayStats, rhs.data(), m_x.data(), &error, m_doubleParams);
+        
+        /*pardiso (pt, &maxfct, &mnum, &mtype, &phase,
+         &n, a, ia, ja, &idum, &nrhs,
+         iparm, &msglvl, b, x, &error,  dparm); <--- replace dummy variables*/
+        
+        if (error != 0) {
+            printf("\nERROR during solution: %d", error);
+            return 0;
+        }
+        
+        return 1;
+    }
+    
+    template<typename Vector>
+    int upper_triangular_solve(Vector &rhs) {
+        int phase = 33;
+        int      idum = 0;              /* Integer dummy. */
+        int error = 0;
+        int nrhs = rhs.cols();
+        
+        m_x.resize(rhs.rows(), nrhs);
+        m_integerParams[7] = 1;       /* Max numbers of iterative refinement steps. */
+        m_integerParams[26] = 2;       /* Perform upper triangular solve only. */
+        
+        
+        pardiso(m_ptr, &m_maxfct, &m_mnum, &m_matrixType, &phase, &m_n, m_a.data(), m_outerArray.data(),
+                m_innerArray.data(), &idum, &nrhs, m_integerParams, &m_displayStats, rhs.data(), m_x.data(), &error, m_doubleParams);
+        
+        /*pardiso (pt, &maxfct, &mnum, &mtype, &phase,
+         &n, a, ia, ja, &idum, &nrhs,
+         iparm, &msglvl, b, x, &error,  dparm); <--- replace dummy variables*/
+        
+        if (error != 0) {
+            printf("\nERROR during solution: %d", error);
+            return 0;
+        }
+        
+        return 1;
+    }
+    
+    template<typename Vector>
     const Eigen::MatrixBase<Eigen::MatrixXd> & solve(SparseMatrix &A, Vector &b) {
         symbolicFactorization(A);
         numericalFactorization();
