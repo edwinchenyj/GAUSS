@@ -141,27 +141,14 @@ int main(int argc, char **argv) {
     double step_size = 1e-2;
     int dynamic_flag = 0;
     double a = 0;
-    double b = 1e-3;
+    double b = -1e-3;
     //        std::string ratio_manual_file = (argv[15]);
     int compute_frequency = 1; // not used anymore
     bool output_data_flag = false;
     bool simple_mass_flag = true;
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag);
-    cout<<"Simulation parameters..."<<endl;
-    cout<<"Youngs: "<<youngs<<endl;
-    cout<<"Poisson: "<<poisson<<endl;
-    cout<<"Constraint direction: "<<constraint_dir<<endl;
-    cout<<"Constraint threshold: "<<constraint_tol<<endl;
-    cout<<"Step size: "<<step_size<<endl;
-    cout<<"Number of steps:"<<numSteps<<endl;
-    cout<<"dynamic_flag: "<<dynamic_flag<<endl;
-    cout<<"Rayleigh a: "<<a<<endl;
-    cout<<"Rayleigh b: "<<b<<endl;
-    cout<<"Number of modes: "<<num_modes<<endl;
-    cout<<"Constraint profile: "<<const_profile<<endl;
-    cout<<"Initial deformation: "<<initial_def<<endl;
-    cout<< "output data flag: "<< output_data_flag<<endl;
-    cout<< "simple mass flag: "<< simple_mass_flag<<endl;
+    int mode_matching_flag = 0;
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_flag);
+    
     
     readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
     readTetgen(Vf, Ff, dataDir()+fmeshname+".node", dataDir()+fmeshname+".ele");
@@ -181,7 +168,7 @@ int main(int argc, char **argv) {
     cout<<"Using coarse mesh "<<cmeshname<<endl;
     cout<<"Using fine mesh "<<fmeshname<<endl;
     
-    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag);
+    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_flag);
     
     // TODO: set rayleigh damping. should not be here...
     test->a = a;
@@ -489,11 +476,14 @@ int main(int argc, char **argv) {
         //
         
         // output eigenvalues
-        Eigen::saveMarketVector(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"mtx"));
-        
+//        Eigen::saveMarketVector(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"mtx"));
         // output eigenvalues
-        Eigen::saveMarketVector(q, filename_number_padded("def",file_ind,"mtx"));
-        
+        Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
+
+        // output state
+        Eigen::saveMarketVectorDat(q, filename_number_padded("def",file_ind,"dat"));
+//        Eigen::saveMarketVector(q, filename_number_padded("def",file_ind,"mtx"));
+
         
         if(num_modes != 0)
         {
@@ -502,11 +492,11 @@ int main(int argc, char **argv) {
             Eigen::saveMarketDat(test->coarseEig.first,filename_number_padded("coarse_def_modes", file_ind,"dat"));
         }
         
+        // update step number;
+        test->step_number++;
+        cout<<"simulated frame: " << test->step_number<<endl;
         
     }
-    // update step number;
-    test->step_number++;
-    cout<<"simulated frame: " << test->step_number<<endl;
 }
 
 
