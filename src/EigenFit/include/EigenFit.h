@@ -119,13 +119,13 @@ public:
     // the constructor will take the two mesh parameters, one coarse one fine.
     // The coarse mesh data will be passed to the parent class constructor to constructor
     // the fine mesh data will be used to initialize the members specific to the EigenFit class
-    EigenFit(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_flag, double youngs, double poisson, int constraint_dir, double constraint_tol, unsigned int const_profile, unsigned int hausdorff_dist, unsigned int num_modes, std::string cmeshname, std::string fmeshname, bool simple_mass_flag, int mode_matching_flag = 0) : PhysicalSystemImpl(Vc,Fc)
+    EigenFit(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_flag, double youngs, double poisson, int constraint_dir, double constraint_tol, unsigned int const_profile, unsigned int hausdorff_dist, unsigned int num_modes, std::string cmeshname, std::string fmeshname, bool simple_mass_flag, double mode_matching_tol = 0) : PhysicalSystemImpl(Vc,Fc)
     {
         this->simple_mass_flag = simple_mass_flag;
         coarse_mass_calculated = false;
         fine_mass_calculated = false;
         
-        this->mode_matching_flag = mode_matching_flag;
+        this->mode_matching_tol = mode_matching_tol;
         
         step_number = 0;
         if(num_modes != 0)
@@ -247,7 +247,7 @@ public:
                 m_fineP = fineP;
                 
                 coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
-                m_coarseP = coarseP;
+                m_coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
                 Eigen::saveMarketDat(m_fineP, fconstraint_file_name+"_fineP.dat");
                 Eigen::saveMarketDat(m_coarseP, cconstraint_file_name+"_cineP.dat");
                 
@@ -286,7 +286,7 @@ public:
                 
                 
                 coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
-                m_coarseP = coarseP;
+                m_coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
                 
                 Eigen::saveMarketDat(m_fineP, fconstraint_file_name+"_fineP.dat");
                 Eigen::saveMarketDat(m_coarseP, cconstraint_file_name+"_cineP.dat");
@@ -341,7 +341,7 @@ public:
                 
                 
                 coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
-                m_coarseP = coarseP;
+                m_coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
                 
                 Eigen::saveMarketDat(m_fineP, fconstraint_file_name+"_fineP.dat");
                 Eigen::saveMarketDat(m_coarseP, cconstraint_file_name+"_cineP.dat");
@@ -396,7 +396,7 @@ public:
                 m_coarseMovingVerts = coarseMovingVerts;
                 
                 coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
-                m_coarseP = coarseP;
+                m_coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
                 
                 Eigen::saveMarketDat(m_fineP, fconstraint_file_name+"_fineP.dat");
                 Eigen::saveMarketDat(m_coarseP, cconstraint_file_name+"_cineP.dat");
@@ -475,7 +475,7 @@ public:
             //constraint Projection
             (*massMatrix) = m_fineP*(*massMatrix)*m_fineP.transpose();
             
-            if(simple_mass_flag && !fine_mass_calculated)
+            if(simple_mass_flag)
             {
                 Eigen::VectorXx<double> ones(m_fineP.rows());
                 ones.setOnes();
@@ -483,7 +483,17 @@ public:
                 fine_mass_lumped_inv.resize(m_fineP.rows());
                 fine_mass_lumped = ((*massMatrix)*ones);
                 fine_mass_lumped_inv = fine_mass_lumped.cwiseInverse();
-                
+                m_fineM.resize(fine_mass_lumped.rows(),fine_mass_lumped.rows());
+                m_fineM.setZero();
+                typedef Eigen::Triplet<double> T;
+                std::vector<T> tripletList;
+                tripletList.reserve(fine_mass_lumped.rows());
+                for(int i = 0; i < fine_mass_lumped.rows(); i++)
+                {
+                    tripletList.push_back(T(i,i,fine_mass_lumped(i)));
+                }
+                m_fineM.resize(fine_mass_lumped.rows(),fine_mass_lumped.rows());
+                m_fineM.setFromTriplets(tripletList.begin(),tripletList.end());
                 fine_mass_calculated = true;
             }
             
@@ -492,8 +502,8 @@ public:
             
             coarse_mass_lumped.resize(m_coarseP.rows());
             coarse_mass_lumped_inv.resize(m_coarseP.rows());
-            m_M.resize(coarse_mass_lumped.rows(),coarse_mass_lumped.rows());
-            
+            m_coarseM.resize(coarse_mass_lumped.rows(),coarse_mass_lumped.rows());
+            m_coarseM.setZero();
             // initialize mode matching list to match modes in order
             matched_modes_list.resize(m_num_modes);
             matched_modes_list.setZero();
@@ -529,23 +539,26 @@ public:
     }
     
     
-    ~EigenFit() {delete fine_pos0;
+    ~EigenFit() {delete fine_pos0; delete coarse_pos0; delete fine_q_transfered;
     }
     
     // calculate data, TODO: the first two parameter should be const
     template<typename MatrixAssembler>
-    bool calculateEigenFitData(const Eigen::VectorXx<double> &q, MatrixAssembler &coarseMassMatrix, MatrixAssembler &coarseStiffnessMatrix,  std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > &m_coarseUs, Eigen::MatrixXd &Y, Eigen::MatrixXd &Z){
+    bool calculateEigenFitData(const Eigen::VectorXx<double> &q, MatrixAssembler &coarseMassMatrix, MatrixAssembler &coarseStiffnessMatrix,  std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > &m_coarseUs, Eigen::MatrixXd &Y, Eigen::MatrixXd &Z)
+    {
         
         //        Eigen::saveMarketDat((*coarseStiffnessMatrix), "coarseStiffness.dat");
         //        Eigen::saveMarketDat((*coarseMassMatrix), "coarseMass.dat");
         if(simple_mass_flag)
         {
-            cout<<"using simple mass"<<endl;
+//            cout<<"using simple mass"<<endl;
             
             
             Eigen::VectorXx<double> ones((*coarseMassMatrix).rows());
             coarse_mass_lumped.resize((*coarseMassMatrix).rows());
+            coarse_mass_lumped.setZero();
             coarse_mass_lumped_inv.resize((*coarseMassMatrix).rows());
+            coarse_mass_lumped_inv.setZero();
             ones.setOnes();
             coarse_mass_lumped = ((*coarseMassMatrix)*ones);
             coarse_mass_lumped_inv = coarse_mass_lumped.cwiseInverse();
@@ -557,12 +570,12 @@ public:
             {
                 tripletList.push_back(T(i,i,coarse_mass_lumped(i)));
             }
-            m_M.resize(coarse_mass_lumped.rows(),coarse_mass_lumped.rows());
-            m_M.setFromTriplets(tripletList.begin(),tripletList.end());
+            m_coarseM.resize(coarse_mass_lumped.rows(),coarse_mass_lumped.rows());
+            m_coarseM.setFromTriplets(tripletList.begin(),tripletList.end());
             coarse_mass_calculated = true;
         }
         
-        cout<<"calculate eigenfit data"<<endl;
+//        cout<<"calculate eigenfit data"<<endl;
         if(simple_mass_flag)
         {
             
@@ -579,7 +592,7 @@ public:
             
             if(eigs.info() == Spectra::SUCCESSFUL)
             {
-                cout<<"spectra successful"<<endl;
+//                cout<<"spectra successful"<<endl;
                 m_coarseUs = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
             }
             else{
@@ -594,7 +607,7 @@ public:
         }
         else
         {
-            cout<<"use consistent mass"<<endl;
+//            cout<<"use consistent mass"<<endl;
             m_coarseUs = generalizedEigenvalueProblemNotNormalized((*coarseStiffnessMatrix), (*coarseMassMatrix), m_num_modes,0.0);
             Eigen::VectorXd normalizing_const;
             normalizing_const = (m_coarseUs.first.transpose() * (*coarseMassMatrix) * m_coarseUs.first).diagonal();
@@ -604,12 +617,12 @@ public:
         }
         
         //        coarseEigMassProj = m_coarseUs;
-//        prev_coarse_eigenvectors = coarseEig.first;
+        //        prev_coarse_eigenvectors = coarseEig.first;
         coarseEig = m_coarseUs;
         
-        if(mode_matching_flag != 0)
+        if(mode_matching_tol > 0)
         {
-            cout<<"matching modes"<<endl;
+//            cout<<"matching modes. ";
             matched_modes_list.resize(m_num_modes);
             matched_modes_list.setZero();
             for (int i = 0; i < m_num_modes; i++) {
@@ -638,22 +651,26 @@ public:
                 ones.setOnes();
                 dist_map.noalias() = ones - dist_map;
                 dist_map = dist_map.cwiseAbs(); // should have no effect
-//                cout<<dist_map<<endl;
                 
-                for (int i = 0; i < m_num_modes; i++) {
+                
+//                cout<<"dist map: "<<endl<<dist_map<<endl;
+                
+                for (int i = 0; i < m_num_modes; i++)
+                {
                     Eigen::VectorXd::Index min_ind;
-                    double min_val = dist_map.col(i).minCoeff(&min_ind);
-                    if(abs(min_val) < 1e-1) // set the matching tolerance criteria
+                    double min_val = dist_map.row(i).minCoeff(&min_ind);
+                    if(abs(min_val) < mode_matching_tol) // set the matching tolerance
                     {
                         matched_modes_list(i) = min_ind;
                         if(i == min_ind)
                         {
                             cout<<"no mode crossing. matching % = "<< 1-min_val<<endl;
+                            
                         }
                         else
-                        {
-//                            cout<<"mode crossing occurred"<<endl;
+                        {                            //                            cout<<"mode crossing occurred"<<endl;
                             cout<<"mode "<<i<<" matched to initial mode "<<min_ind<<", matching % = "<<1-min_val<<endl;
+                            
                         }
                     }
                     else
@@ -661,301 +678,253 @@ public:
                         matched_modes_list(i) = -1; // -1 if can't find any matching mode
                         cout<<"no matching mode"<<endl;
                     }
-                    
                 }
-                
             }
         }
-//        
-////      match the modes here
-//        Eigen::MatrixXd dist_list(m_num_modes,m_num_modes);
-//        Eigen::Vector2d dist_pair;
-//        //        double dist_p, dist_n;
-//        // match the mode here
-//        for (int i_mode = 0; i_mode < m_num_modes; i_mode++) {
-//            diff_coarse_eigenvectors = prev_coarse_eigenvectors.col(i_mode) - coarseEig.first.col(i_mode);
-//            dist_pair(0) = abs(diff_coarse_eigenvectors.sum());
-//            diff_coarse_eigenvectors = prev_coarse_eigenvectors.col(i_mode) + coarseEig.first.col(i_mode);
-//            dist_pair(1) = abs(diff_coarse_eigenvectors.sum());
-//            
-//            dist_list(i_mode,i_mode) = dist_pair.min();
-//            
-//            if(i_mode - 1 >=0)
-//            {
-//                diff_coarse_eigenvectors = prev_coarse_eigenvectors.col(i_mode) - coarseEig.first.col(i_mode-1);
-//                dist_pair(0) = abs(diff_coarse_eigenvectors.sum());
-//                diff_coarse_eigenvectors = prev_coarse_eigenvectors.col(i_mode) + coarseEig.first.col(i_mode-1);
-//                dist_pair(1) = abs(diff_coarse_eigenvectors.sum());
-//                
-//                dist_list(i_mode - 1,i_mode) = dist_pair.min();
-//            }
-//            
-//            if(i_mode + 1 < m_num_modes)
-//            {
-//                diff_coarse_eigenvectors = prev_coarse_eigenvectors.col(i_mode) - coarseEig.first.col(i_mode+1);
-//                dist_pair(0) = abs(diff_coarse_eigenvectors.sum());
-//                diff_coarse_eigenvectors = prev_coarse_eigenvectors.col(i_mode) + coarseEig.first.col(i_mode+1);
-//                dist_pair(1) = abs(diff_coarse_eigenvectors.sum());
-//                
-//                dist_list(i_mode + 1,i_mode) = dist_pair.min();
-//            }
-//            
-//        }
-//        
-//        Eigen::VectorXi mode_switch_flag(m_num_modes);
-//        mode_switch_flag.setZero();
-////        run through each pairs
-//        for(int i = 1; i < m_num_modes; m_num_modes++)
-//        {
-//            if(mode_switch_flag(i-1) == 0) // check the pair only if the previous pair is not switched already
-//            {
-//                if (dist_list(i,i) + dist_list(i-1,i-1) > dist_list(i,i-1) + dist_list(i-1,i)) {
-//                    mode_switch_flag(i) = 1;
-//                }
-//                else
-//                {
-//                    mode_switch_flag(i) = 0;
-//                }
-//            }
-//        }
-//        //
-        //        coarseEigMassProj.first = (*coarseMassMatrix)*coarseEigMassProj.first;
         
-        
-        std::cout<<"Dynamic switch: "<<ratio_recalculation_switch<<std::endl;
+//        std::cout<<"Dynamic switch: "<<ratio_recalculation_switch<<std::endl;
         if((!ratio_calculated))
         {
-            if( ratio_recalculation_switch == 1 || ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
+            if(ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
             {
                 
+                World<double, std::tuple<PhysicalSystemImpl *>,
+                std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
+                std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
+                // should make sure this is performed at fine_q = 0;
+                Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
+                fine_q.setZero();
                 
-                if(ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
+                AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
+                
+                //get stiffness matrix
+                ASSEMBLEMATINIT(fineStiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                ASSEMBLELIST(fineStiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+                ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+                ASSEMBLEEND(fineStiffnessMatrix);
+                
+                //constraint Projection
+                (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
+                
+                cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+                
+                if(simple_mass_flag)
                 {
+                    cout<<"using simple mass for fine mesh"<<endl;
+                    fineMinvK = (-1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
                     
-                    World<double, std::tuple<PhysicalSystemImpl *>,
-                    std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
-                    std::tuple<ConstraintFixedPoint<double> *> > &world = m_fineWorld;
-                    // should make sure this is performed at fine_q = 0;
+                    Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
                     
-                    Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
-                    fine_q.setZero();
-                    //
-                    //                    //            double pd_fine_pos[world.getNumQDOFs()]; // doesn't work for MSVS
-                    //                    Eigen::Map<Eigen::VectorXd> eigen_fine_pos0(fine_pos0,world.getNumQDOFs());
-                    //
-                    //                    Eigen::VectorXx<double> posFull;
-                    //                    posFull = this->getFinePositionFull(q);
-                    //                    //
-                    //                    fine_q = posFull - eigen_fine_pos0;
-                    //        lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
-                    AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
+                    // Construct eigen solver object, requesting the smallest three eigenvalues
+                    Spectra::GenEigsRealShiftSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<double>> eigs(&op, m_num_modes, 5*m_num_modes,0.0);
                     
-                    //get stiffness matrix
-                    ASSEMBLEMATINIT(fineStiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-                    ASSEMBLELIST(fineStiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-                    ASSEMBLELIST(fineStiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-                    ASSEMBLEEND(fineStiffnessMatrix);
+                    // Initialize and compute
+                    eigs.init();
+                    eigs.compute(1000,1e-10,Spectra::SMALLEST_MAGN);
                     
+                    if(eigs.info() == Spectra::SUCCESSFUL)
+                    {
+                        m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
+                    }
+                    else{
+                        cout<<"eigen solve failed"<<endl;
+                        exit(1);
+                    }
+                    Eigen::VectorXd normalizing_const;
+                    normalizing_const.noalias() = (m_Us.first.transpose() * m_fineM * m_Us.first).diagonal();
+                    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
                     
-                    //constraint Projection
-                    (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
+                    m_Us.first.noalias() = m_Us.first * (normalizing_const.asDiagonal());
+                }
+                else
+                {
+                    m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_num_modes, 0.00);
+                    Eigen::VectorXd normalizing_const;
+                    normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
+                    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
                     
-                    cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+                    m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                }
+                
+                fineEig = m_Us;
+                
+                if(mode_matching_tol > 0)
+                {
+                    cout<<"matching fine modes at rest state"<<endl;
+                    matched_modes_list.resize(m_num_modes);
+                    matched_modes_list.setZero();
+                    for (int i = 0; i < m_num_modes; i++) {
+                        matched_modes_list(i) = i;
+                    }
+                    cout<<"mapping initial eigenvectors"<<endl;
+                    init_coarse_eigenvectors = coarseEig.first;
                     
+                    Eigen::MatrixXd  mapped_init_fine_eigenvectors;
+                    mapped_init_fine_eigenvectors = m_fineP*(*N) * m_coarseP.transpose()*init_coarse_eigenvectors;
+                    
+                    dist_map.resize(m_num_modes,m_num_modes);
+                    dist_map.setZero();
                     if(simple_mass_flag)
                     {
-                        cout<<"using simple mass for fine mesh"<<endl;
-                        fineMinvK = (-1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
-                        
-                        Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
-                        
-                        // Construct eigen solver object, requesting the smallest three eigenvalues
-                        Spectra::GenEigsRealShiftSolver<double, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<double>> eigs(&op, m_num_modes, 5*m_num_modes,0.0);
-                        
-                        // Initialize and compute
-                        eigs.init();
-                        eigs.compute(1000,1e-10,Spectra::SMALLEST_MAGN);
-                        
-                        if(eigs.info() == Spectra::SUCCESSFUL)
-                        {
-                            m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
-                        }
-                        else{
-                            cout<<"eigen solve failed"<<endl;
-                            exit(1);
-                        }
-                        Eigen::VectorXd normalizing_const;
-                        normalizing_const.noalias() = (m_Us.first.transpose() * fine_mass_lumped.asDiagonal() * m_Us.first).diagonal();
-                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
-                        
-                        m_Us.first.noalias() = m_Us.first * (normalizing_const.asDiagonal());
+                        dist_map = mapped_init_fine_eigenvectors.transpose() * (m_fineM *fineEig.first );
                     }
                     else
                     {
-                        m_Us = generalizedEigenvalueProblemNotNormalized(((*fineStiffnessMatrix)), (*m_fineMassMatrix), m_num_modes, 0.00);
-                        Eigen::VectorXd normalizing_const;
-                        normalizing_const = (m_Us.first.transpose() * (*m_fineMassMatrix) * m_Us.first).diagonal();
-                        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
-                        
-                        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+                        dist_map = mapped_init_fine_eigenvectors.transpose() * ((*m_fineMassMatrix) *m_Us.first );
                     }
+                    dist_map = dist_map.cwiseAbs(); // flip any -1
+                    Eigen::MatrixXd ones(m_num_modes,m_num_modes);
+                    ones.setOnes();
+                    dist_map = ones - dist_map;
+                    dist_map = dist_map.cwiseAbs(); // should have no effect
+                    //                cout<<dist_map<<endl;
                     
-                    fineEig = m_Us;
-                }
-                
-                
-                if(haus || ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
-                {
-                    cout<<"Writing fine eigen deformation to file (for Hausdorff distance check and reloading in static)."<<endl;
-                    //
-                    int mode = 0;
-                    Eigen::VectorXd fine_eig_def;
-                    for (mode = 0; mode < m_num_modes; ++mode) {
-                        fine_eig_def = (m_fineP.transpose()*m_Us.first.col(mode)).transpose();
-                        int idx = 0;
-                        // getGeometry().first is V
-                        Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
-                        for(unsigned int vertexId=0;  vertexId < std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-                            
-                            // because getFinePosition is in EigenFit, not another physical system Impl, so don't need getImpl()
-                            fine_V_disp(vertexId,0) += (1*fine_eig_def(idx));
-                            idx++;
-                            fine_V_disp(vertexId,1) += (1*fine_eig_def(idx));
-                            idx++;
-                            fine_V_disp(vertexId,2) += (1*fine_eig_def(idx));
-                            idx++;
-                        }
-                        
-                        
-                        //                    Eigen::MatrixXi fine_F = surftri(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first, std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second);
-                        Eigen::MatrixXi fine_F;
-                        igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
-                        
-                        //                    igl::writeOBJ("fine_mesh_eigen_mode" + std::to_string(mode) + ".obj",std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first,fine_F);
-                        igl::writeOBJ("finemesh_eigenmode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
-                        
-                        std::string ffilename = "data/feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
-                        Eigen::saveMarket(fine_V_disp, ffilename );
-                    }
-                }
-                
-                if(haus)
-                {
-                    // reset deformation if it is not zero. need zero (rest state configuration) to calculate static ratio.
-                    cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
-                    unsigned int mode = 0;
-                    unsigned int idx = 0;
-                    Eigen::VectorXd coarse_eig_def;
-                    for (mode = 0; mode < m_num_modes; ++mode) {
-                        coarse_eig_def = (m_coarseP.transpose()*m_coarseUs.first.col(mode)).transpose();
-                        //        //
-                        idx = 0;
-                        //                    // getGeometry().first is V
-                        Eigen::MatrixXd coarse_V_disp_p = this->getImpl().getV();
-                        Eigen::MatrixXd coarse_V_disp_n = this->getImpl().getV();
-                        for(unsigned int vertexId=0;  vertexId < this->getImpl().getV().rows(); ++vertexId) {
-                            coarse_V_disp_p(vertexId,0) += (1*coarse_eig_def(idx));
-                            coarse_V_disp_n(vertexId,0) -= (1*coarse_eig_def(idx));
-                            idx++;
-                            coarse_V_disp_p(vertexId,1) += (1*coarse_eig_def(idx));
-                            coarse_V_disp_n(vertexId,1) -= (1*coarse_eig_def(idx));
-                            idx++;
-                            coarse_V_disp_p(vertexId,2) += (1*coarse_eig_def(idx));
-                            coarse_V_disp_n(vertexId,2) -= (1*coarse_eig_def(idx));
-                            idx++;
-                        }
-                        Eigen::MatrixXi coarse_F;
-                        igl::boundary_facets(this->getImpl().getF(),coarse_F);
-                        
-                        //                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
-                        igl::writeOBJ("cmesh_eigenmode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
-                        igl::writeOBJ("cmesh_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
-                        std::string cfilename = "ceigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
-                        Eigen::saveMarket(coarse_V_disp_n, cfilename);
-                        
-                        
-                        cout<<"Loading coarse eigen deformation."<<endl;
-                        igl::readOBJ("cmesh_eigenmode_p" + std::to_string(mode) + ".obj",coarse_V_disp_p, coarse_F);
-                        igl::readOBJ("cmesh_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
-                        
-                        double dist_p, dist_n, dist_scaled;
-                        Eigen::MatrixXd coarse_V_disp = this->getImpl().getV();
-                        Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
-                        Eigen::Array3d xyz_scales(coarse_V_disp.col(0).maxCoeff() - coarse_V_disp.col(0).minCoeff(), coarse_V_disp.col(1).maxCoeff() - coarse_V_disp.col(1).minCoeff(),coarse_V_disp.col(2).maxCoeff() - coarse_V_disp.col(2).minCoeff());
-                        double max_scale = xyz_scales.abs().maxCoeff();
-                        Eigen::MatrixXi fine_F;
-                        igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
-                        
-                        igl::hausdorff(fine_V_disp, fine_F, coarse_V_disp_p, coarse_F, dist_p);
-                        igl::hausdorff(fine_V_disp, fine_F, coarse_V_disp_n, coarse_F, dist_n);
-                        if(dist_p < dist_n) dist_scaled = dist_p/max_scale;
-                        else dist_scaled = dist_n/max_scale;
-                        
-                        
-                        cout<<"Eigen mode "<<mode<<endl;
-                        std::cout<<"Dist scaled: "<< dist_scaled<<std::endl;
-                        
-                        // fail on hausdorff distance check
-                        if( dist_scaled > 0.4)
+                    for (int i = 0; i < m_num_modes; i++) {
+                        Eigen::VectorXd::Index min_ind;
+                        double min_val = dist_map.row(i).minCoeff(&min_ind);
+                        if(abs(min_val) < mode_matching_tol) // set the matching tolerance criteria
                         {
-                            //                        if(haus)
-                            //                        {
-                            // if required to check hausdorff and failed, return 1
-                            return true;
-                            //                        }
+                            matched_modes_list(i) = min_ind;
+                            if(i == min_ind)
+                            {
+                                cout<<"coarse mode "<<i<<" mapped to fine mode "<<min_ind<<". matching % = "<< 1-min_val<<endl;
+                            }
+                            else
+                            {
+                                //                            cout<<"mode crossing occurred"<<endl;
+                                cout<<"coarse mode "<<i<<" matched to fine mode "<<min_ind<<", matching % = "<<1-min_val<<endl;
+                            }
                         }
-                    }
-                }
-                
-                
-                cout<<"Calculating ratio\n";
-                //                std::cout<<"m_numConstraints "<< m_numConstraints << std::endl;
-                for(int i = 0; i < m_num_modes; ++i)
-                {
-                    m_R(i) = m_Us.second(i)/m_coarseUs.second(i);
-                    
-                    if(!m_ratio_manual.isZero())
-                    {
-                        cout<<"setting ratio manually"<<endl;
-                        m_R(i) = m_ratio_manual(i);
-                    }
-                    if (m_numConstraints == 3)
-                    {
-                        // if constraint is  a point constaint
-                        m_R(0) = 1.0;
-                        m_R(1) = 1.0;
-                        m_R(2) = 1.0;
-                    }
-                    else if(m_numConstraints == 0)
-                    {
-                        //  free boundary
-                        cout<<"Free boundary, setting first 6 ratios to 1."<<endl;
-                        m_R(0) = 1.0;
-                        m_R(1) = 1.0;
-                        m_R(2) = 1.0;
-                        m_R(3) = 1.0;
-                        m_R(4) = 1.0;
-                        m_R(5) = 1.0;
+                        else
+                        {
+                            matched_modes_list(i) = -1; // -1 if can't find any matching mode
+                            cout<<"coarse mode "<<i<<" has no matched fine mode "<<".  best matching % = "<<1-min_val<<endl;
+                        }
                         
                     }
-                    //#ifdef EDWIN_DEBUG
-                    cout<<"Ratios: "<<endl;
-                    std::cout<<m_R(i)<<std::endl;
-                    //#endif
+                    
                     
                 }
-                ratio_calculated = true;
+            }
+            
+            
+            if(haus || ratio_recalculation_switch == 0 || ratio_recalculation_switch == 6)
+            {
+                cout<<"Writing fine eigen deformation to file (for Hausdorff distance check and reloading in static)."<<endl;
+                //
+                int mode = 0;
+                Eigen::VectorXd fine_eig_def;
+                for (mode = 0; mode < m_num_modes; ++mode) {
+                    fine_eig_def = (m_fineP.transpose()*m_Us.first.col(mode)).transpose();
+                    int idx = 0;
+                    // getGeometry().first is V
+                    Eigen::MatrixXd fine_V_disp = std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first;
+                    for(unsigned int vertexId=0;  vertexId < std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
+                        
+                        fine_V_disp(vertexId,0) += (1*fine_eig_def(idx));
+                        idx++;
+                        fine_V_disp(vertexId,1) += (1*fine_eig_def(idx));
+                        idx++;
+                        fine_V_disp(vertexId,2) += (1*fine_eig_def(idx));
+                        idx++;
+                    }
+                    
+                    Eigen::MatrixXi fine_F;
+                    igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
+                    
+                    igl::writeOBJ("finemesh_eigenmode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
+                    
+                    std::string ffilename = "data/feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
+                    Eigen::saveMarket(fine_V_disp, ffilename );
+                }
+                
+                
+                // reset deformation if it is not zero. need zero (rest state configuration) to calculate static ratio.
+                cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
+                
+                Eigen::VectorXd coarse_eig_def;
+                for (mode = 0; mode < m_num_modes; ++mode)
+                {
+                    coarse_eig_def = (m_coarseP.transpose()*m_coarseUs.first.col(mode)).transpose();
+                    //        //
+                    int idx = 0;
+                    //                    // getGeometry().first is V
+                    Eigen::MatrixXd coarse_V_disp_p = this->getImpl().getV();
+                    Eigen::MatrixXd coarse_V_disp_n = this->getImpl().getV();
+                    for(unsigned int vertexId=0;  vertexId < this->getImpl().getV().rows(); ++vertexId)
+                    {
+                        coarse_V_disp_p(vertexId,0) += (1*coarse_eig_def(idx));
+                        coarse_V_disp_n(vertexId,0) -= (1*coarse_eig_def(idx));
+                        idx++;
+                        coarse_V_disp_p(vertexId,1) += (1*coarse_eig_def(idx));
+                        coarse_V_disp_n(vertexId,1) -= (1*coarse_eig_def(idx));
+                        idx++;
+                        coarse_V_disp_p(vertexId,2) += (1*coarse_eig_def(idx));
+                        coarse_V_disp_n(vertexId,2) -= (1*coarse_eig_def(idx));
+                        idx++;
+                    }
+                    Eigen::MatrixXi coarse_F;
+                    igl::boundary_facets(this->getImpl().getF(),coarse_F);
+                    
+                    //                    Eigen::MatrixXi coarse_F = surftri(this->getImpl().getV(), this->getImpl().getF());
+                    igl::writeOBJ("cmesh_eigenmode_p" + std::to_string(mode) + ".obj" ,coarse_V_disp_p, coarse_F);
+                    igl::writeOBJ("cmesh_eigenmode_n" + std::to_string(mode) + ".obj",coarse_V_disp_n, coarse_F);
+                }
                 
             }
             
             
+            cout<<"Calculating ratio\n";
+            //                std::cout<<"m_numConstraints "<< m_numConstraints << std::endl;
+            m_R.setOnes();
+            
+            for(int i = 0; i < m_num_modes; ++i)
+            {
+                if(matched_modes_list(i) != -1)
+                {
+                    m_R(i) = m_Us.second(i)/m_coarseUs.second(matched_modes_list(i));
+                }
+                if(!m_ratio_manual.isZero())
+                {
+                    cout<<"setting ratio manually"<<endl;
+                    m_R(i) = m_ratio_manual(i);
+                }
+                if (m_numConstraints == 3)
+                {
+                    // if constraint is  a point constaint
+                    m_R(0) = 1.0;
+                    m_R(1) = 1.0;
+                    m_R(2) = 1.0;
+                }
+                else if(m_numConstraints == 0)
+                {
+                    //  free boundary
+                    cout<<"Free boundary, setting first 6 ratios to 1."<<endl;
+                    m_R(0) = 1.0;
+                    m_R(1) = 1.0;
+                    m_R(2) = 1.0;
+                    m_R(3) = 1.0;
+                    m_R(4) = 1.0;
+                    m_R(5) = 1.0;
+                    
+                }
+                //#ifdef EDWIN_DEBUG
+                cout<<"Ratios: "<<endl;
+                std::cout<<m_R(i)<<std::endl;
+                //#endif
+                
+            }
+            ratio_calculated = true;
         }
         
-//        cout<<"using ratios: "<<endl;
-//        cout<<m_R<<endl;
+        
+        
+        
+                cout<<"using ratios: "<<endl;
+                cout<<m_R<<endl;
         Eigen::VectorXd m_R_current(m_R.rows());
         m_R_current = m_R;
-        if(mode_matching_flag == 1)
+        if(mode_matching_tol >0   )
         {
             m_R_current.setOnes();
             for (int i = 0; i < m_num_modes; i++) {
@@ -969,19 +938,20 @@ public:
                 }
             }
             cout<<"after mode matching: "<<endl;
-//            cout<<m_R_current<<endl;
+            //            cout<<m_R_current<<endl;
         }
-        else if(mode_matching_flag == 2)
-        {
-            m_R_current = dist_map.transpose()*m_R;
-            cout<<"after mode composition: "<<endl;
-            
-        }
+        //        mode composition not implemented
+        //        else if(mode_matching_tol == 2)
+        //        {
+        //            m_R_current = dist_map.transpose()*m_R;
+        //            cout<<"after mode composition: "<<endl;
+        //
+        //        }
         cout<<m_R_current<<endl;
         if(simple_mass_flag)
         {
-            Y = (m_M)*m_coarseUs.first*((m_R_current-m_I).asDiagonal());
-            Z =  (m_coarseUs.second.asDiagonal()*m_coarseUs.first.transpose())*(m_M);
+            Y = (m_coarseM)*m_coarseUs.first*((m_R_current-m_I).asDiagonal());
+            Z =  (m_coarseUs.second.asDiagonal()*m_coarseUs.first.transpose())*(m_coarseM);
         }
         else
         {
@@ -1117,6 +1087,7 @@ public:
     Eigen::MatrixXd V_reset;
     Eigen::MatrixXd m_Vf_current;
     Eigen::MatrixXd m_Vc_current;
+    Eigen::MatrixXd m_Vc;
     Eigen::MatrixXi m_surfFf;
     Eigen::MatrixXi m_surfFc;
     Eigen::VectorXd m_R;
@@ -1129,15 +1100,17 @@ public:
     Eigen::VectorXx<double> coarse_mass_lumped;
     Eigen::VectorXx<double> coarse_mass_lumped_inv;
     Eigen::VectorXx<double> fine_mass_lumped;
+    
     Eigen::VectorXx<double> fine_mass_lumped_inv;
-    Eigen::SparseMatrix<double,Eigen::RowMajor> m_M;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> m_coarseM;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> m_fineM;
     
     Eigen::SparseMatrix<double,Eigen::RowMajor> coarseMinvK;
     Eigen::SparseMatrix<double,Eigen::RowMajor> fineMinvK;
     
     Eigen::VectorXi matched_modes_list;
     
-    int mode_matching_flag;
+    double mode_matching_tol;
     Eigen::MatrixXd dist_map;
 protected:
     

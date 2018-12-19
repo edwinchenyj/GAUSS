@@ -146,8 +146,8 @@ int main(int argc, char **argv) {
     int compute_frequency = 1; // not used anymore
     bool output_data_flag = false;
     bool simple_mass_flag = true;
-    int mode_matching_flag = 0;
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_flag);
+    double mode_matching_tol = 0;
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol);
     
     
     readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
     cout<<"Using coarse mesh "<<cmeshname<<endl;
     cout<<"Using fine mesh "<<fmeshname<<endl;
     
-    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_flag);
+    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol);
     
     // TODO: set rayleigh damping. should not be here...
     test->a = a;
@@ -327,15 +327,15 @@ int main(int argc, char **argv) {
     }
     
     // initialize the state (position and velocity)
-    Eigen::VectorXd q = mapStateEigen(world);
-    
+    auto q = mapStateEigen(world);
+    q.setZero();
     // if static, should calculate the ratios here (before loading the deformation)
     // or if DAC (dynamic_flag == 6), calculate the first ratio
     if(dynamic_flag == 6 || (dynamic_flag == 0 && num_modes != 0))
     {
-        auto q_pos = mapStateEigen<0>(world);
+        auto q = mapStateEigen<0>(world);
         //            cout<<"setting random perturbation to vertices"<<endl;
-        q_pos.setZero();
+        q.setZero();
         
         //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
         AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
@@ -363,9 +363,9 @@ int main(int argc, char **argv) {
         Eigen::MatrixXd Y;
         Eigen::MatrixXd Z;
         cout<<"calculating static ratio"<<endl;
-        test->calculateEigenFitData(q_pos,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+        test->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
         cout<<"static ratio calculated"<<endl;
-        q_pos.setZero();
+        q.setZero();
     }
     if(dynamic_flag == 6)
     {
@@ -389,6 +389,7 @@ int main(int argc, char **argv) {
             
         }
     }
+    
     cout<<"Setting initial deformation..."<<endl;
     if (initial_def == "0") {
         // if specified no initial deformation
@@ -410,7 +411,7 @@ int main(int argc, char **argv) {
             
             unsigned int idxc = 0;
             
-            q_state_to_position(q, Vtemp);
+            q_state_to_position(tempv, Vtemp);
             
             igl::writeOBJ("loadedpos.obj",Vtemp,surfF);
         }
@@ -463,7 +464,7 @@ int main(int argc, char **argv) {
         
         
         // rest pos for the coarse mesh getGeometry().first is V
-        q = mapStateEigen(world);
+        Eigen::VectorXd q = mapStateEigen(world);
         idxc = 0;
         Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
         // output mesh position with only surface mesh
