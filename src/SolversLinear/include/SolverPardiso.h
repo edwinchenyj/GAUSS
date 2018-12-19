@@ -171,7 +171,7 @@ public:
         
         m_x.resize(rhs.rows(), nrhs);
         m_integerParams[7] = 1;       /* Max numbers of iterative refinement steps. */
-        m_integerParams[26] = 1;       /* Perform lower triangular solve only. */
+        m_integerParams[25] = 1;       /* Perform lower triangular solve only. */
         
         
         pardiso(m_ptr, &m_maxfct, &m_mnum, &m_matrixType, &phase, &m_n, m_a.data(), m_outerArray.data(),
@@ -198,7 +198,7 @@ public:
         
         m_x.resize(rhs.rows(), nrhs);
         m_integerParams[7] = 1;       /* Max numbers of iterative refinement steps. */
-        m_integerParams[26] = 2;       /* Perform upper triangular solve only. */
+        m_integerParams[25] = 2;       /* Perform upper triangular solve only. */
         
         
         pardiso(m_ptr, &m_maxfct, &m_mnum, &m_matrixType, &phase, &m_n, m_a.data(), m_outerArray.data(),

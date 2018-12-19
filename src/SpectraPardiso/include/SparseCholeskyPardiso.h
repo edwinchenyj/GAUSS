@@ -12,6 +12,7 @@
 #include <Eigen/SparseCholesky>
 #include <stdexcept>
 #include <Util/CompInfo.h>
+//#include <SolverPardiso.h>
 
 namespace Spectra {
 
@@ -34,8 +35,8 @@ private:
     typedef Eigen::SparseMatrix<Scalar, Flags, StorageIndex> SparseMatrix;
 
     const int m_n;
-    Eigen::SimplicialLLT<SparseMatrix, Uplo> m_decomp;
-    int m_info;  // status of the decomposition
+    mutable SolverPardiso<Eigen::SparseMatrix<double,Eigen::RowMajor> > m_solver;
+//    int m_info;  // status of the decomposition
 
 public:
     ///
@@ -44,16 +45,16 @@ public:
     /// \param mat_ An **Eigen** sparse matrix object, whose type is
     /// `Eigen::SparseMatrix<Scalar, ...>`.
     ///
-    SparseCholeskyPardiso(const SparseMatrix& mat_) :
+    SparseCholeskyPardiso(Eigen::SparseMatrix<double,Eigen::RowMajor> &mat_) :
         m_n(mat_.rows())
     {
         if(mat_.rows() != mat_.cols())
             throw std::invalid_argument("SparseCholesky: matrix must be square");
 
-        m_decomp.compute(mat_);
-        m_info = (m_decomp.info() == Eigen::Success) ?
-                 SUCCESSFUL :
-                 NUMERICAL_ISSUE;
+        if(!m_solver.symbolicFactorization(mat_)) std::cout<<"error: pardiso symbolic factorization fail in spectra."<<std::endl;
+        
+        if(!m_solver.numericalFactorization()) std::cout<<"error: pardiso numerical factorization fail in spectra."<<std::endl;
+        
     }
 
     ///
@@ -69,7 +70,7 @@ public:
     /// Returns the status of the computation.
     /// The full list of enumeration values can be found in \ref Enumerations.
     ///
-    int info() const { return m_info; }
+//    int info() const { return m_info; }
 
     ///
     /// Performs the lower triangular solving operation \f$y=L^{-1}x\f$.
@@ -78,12 +79,12 @@ public:
     /// \param y_out Pointer to the \f$y\f$ vector.
     ///
     // y_out = inv(L) * x_in
-    void lower_triangular_solve(const Scalar* x_in, Scalar* y_out) const
+    void lower_triangular_solve(Scalar* x_in, Scalar* y_out) const
     {
-        MapConstVec x(x_in,  m_n);
+        MapVec x(x_in,  m_n);
         MapVec      y(y_out, m_n);
-        y.noalias() = m_decomp.permutationP() * x;
-        m_decomp.matrixL().solveInPlace(y);
+        m_solver.lower_triangular_solve(x);
+        y.noalias() = m_solver.getX();
     }
 
     ///
@@ -93,12 +94,12 @@ public:
     /// \param y_out Pointer to the \f$y\f$ vector.
     ///
     // y_out = inv(L') * x_in
-    void upper_triangular_solve(const Scalar* x_in, Scalar* y_out) const
+    void upper_triangular_solve(Scalar* x_in, Scalar* y_out) const
     {
-        MapConstVec x(x_in,  m_n);
+        MapVec x(x_in,  m_n);
         MapVec      y(y_out, m_n);
-        y.noalias() = m_decomp.matrixU().solve(x);
-        y = m_decomp.permutationPinv() * y;
+        m_solver.upper_triangular_solve(x);
+        y.noalias() = m_solver.getX();
     }
 };
 
