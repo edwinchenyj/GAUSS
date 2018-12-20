@@ -490,6 +490,7 @@ int main(int argc, char **argv) {
 //        Eigen::saveMarketVector(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"mtx"));
         // output eigenvalues
         Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
+        Eigen::saveMarketVectorDat(test->fineEig.second,filename_number_padded("feigenvalues",file_ind,"dat"))
 
         // output state
 //        Eigen::saveMarketVectorDat(q, filename_number_padded("def",file_ind,"dat"));

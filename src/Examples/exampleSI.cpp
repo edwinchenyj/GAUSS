@@ -11,8 +11,6 @@
 #include <TimeStepperSI.h>
 #include <TimeStepperBE.h>
 #include <ExponentialIMEX.h>
-#include <TimeStepperEigenFitSMWIM.h>
-#include <EigenFit.h>
 #include <fstream>
 #include <igl/boundary_facets.h>
 
@@ -22,6 +20,9 @@
 #include <Eigen/Core>
 #include <Eigen/IterativeLinearSolvers>
 #include <unsupported/Eigen/IterativeSolvers>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <resultsUtilities.h>
 
 using namespace Gauss;
 using namespace FEM;

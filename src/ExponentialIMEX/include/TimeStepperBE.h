@@ -20,7 +20,6 @@
 #include <UtilitiesMATLAB.h>
 #include <Eigen/SparseCholesky>
 #include <SolverPardiso.h>
-#include <EigenFit.h>
 #include <limits>
 
 
