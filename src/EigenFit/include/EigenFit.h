@@ -694,7 +694,7 @@ public:
                 // should make sure this is performed at fine_q = 0;
                 Eigen::Map<Eigen::VectorXd> fine_q = mapStateEigen<0>(m_fineWorld);
                 fine_q.setZero();
-                
+                fine_q = (*N) * q;
                 AssemblerEigenSparseMatrix<double> &fineStiffnessMatrix = m_fineStiffnessMatrix;
                 
                 //get stiffness matrix
@@ -882,7 +882,7 @@ public:
             {
                 if(matched_modes_list(i) != -1)
                 {
-                    m_R(i) = m_Us.second(i)/m_coarseUs.second(matched_modes_list(i));
+                    m_R(i) = m_Us.second(matched_modes_list(i))/m_coarseUs.second(i);
                 }
                 if(!m_ratio_manual.isZero())
                 {
@@ -921,7 +921,7 @@ public:
         
         
                 cout<<"using ratios: "<<endl;
-                cout<<m_R<<endl;
+//                cout<<m_R<<endl;
         Eigen::VectorXd m_R_current(m_R.rows());
         m_R_current = m_R;
         if(mode_matching_tol >0   )
