@@ -571,10 +571,10 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
 } while(res > 1e-6 );
 #endif
 #ifdef COROT
-} while(res > 1e-4 && update_step_size > 1e-5 );
+} while(res > 1e-4 && update_step_size > 1e-4 );
 #endif
 #ifdef ARAP
-} while(res > 1e-4 && update_step_size > 1e-5);
+} while(res > 1e-4 && update_step_size > 1e-4);
 #endif
     //    } while(res > 1e-6); can't use res for corot energy
     it_outer = 0;

@@ -336,7 +336,17 @@ int main(int argc, char **argv) {
         auto q = mapStateEigen<0>(world);
         //            cout<<"setting random perturbation to vertices"<<endl;
         q.setZero();
-        
+#ifdef COROT
+//        q.setRandom();
+////        cout<<"use wiggle "<<argv[argc-1]<<endl;
+//        q *= 1e-4;
+#endif
+#ifdef ARAP
+//        q.setRandom();
+//        //        cout<<"use wiggle "<<argv[argc-1]<<endl;
+//        q *= 1e-5;
+#endif
+
         //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
         AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
         AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> stiffnessMatrix;
@@ -482,7 +492,7 @@ int main(int argc, char **argv) {
         Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
 
         // output state
-        Eigen::saveMarketVectorDat(q, filename_number_padded("def",file_ind,"dat"));
+//        Eigen::saveMarketVectorDat(q, filename_number_padded("def",file_ind,"dat"));
 //        Eigen::saveMarketVector(q, filename_number_padded("def",file_ind,"mtx"));
 
         
