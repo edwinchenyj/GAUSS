@@ -89,7 +89,10 @@ namespace Gauss {
         
         
         Eigen::SparseMatrix<DataType> inv_mass;
+        Eigen::SparseMatrix<DataType> MinvK;
         Eigen::VectorXx<DataType> mass_lumped;
+        Eigen::VectorXx<DataType> mass_lumped_inv;
+        
         bool inv_mass_calculated, mass_calculated;
         double inv_mass_norm;
         
@@ -185,12 +188,26 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
         Eigen::VectorXx<DataType> ones(m_P.rows());
         ones.setOnes();
         mass_lumped = ((*massMatrix)*ones);
+        mass_lumped_inv = mass_lumped.cwiseInverse();
         
+        typedef Eigen::Triplet<double> T;
+        std::vector<T> tripletList;
+        tripletList.reserve((*massMatrix).rows());
+        inv_mass.resize((*massMatrix).rows(),(*massMatrix).rows());
+        MinvK.resize((*massMatrix).rows(),(*massMatrix).rows());
+        inv_mass.reserve((*massMatrix).rows());
+        
+        for(int i = 0; i < (*massMatrix).rows(); i++)
+        {
+            tripletList.push_back(T(i,i,mass_lumped_inv(i)));
+        }
+        inv_mass.setFromTriplets(tripletList.begin(),tripletList.end());
+        inv_mass_calculated = true;
         mass_calculated = true;
     }
     
     (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
-    
+    MinvK = inv_mass*(*stiffnessMatrix);
     (*forceVector) = m_P*(*forceVector);
     
     
@@ -256,13 +273,13 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
 
 //
     Eigen::VectorXx<DataType> du(2*N);
-    du.head(N) = m_P * qDot;
-    du.tail(N) = mass_lumped.asDiagonal().inverse()*(*forceVector);
+    du.head(N).noalias() = m_P * qDot;
+    du.tail(N).noalias() = inv_mass*(*forceVector);
 //    Eigen::saveMarketVector(du,"duc.dat");
 //
     Eigen::VectorXx<DataType> state_free(2*N);
-    state_free.head(N) = m_P * q;
-    state_free.tail(N) = m_P * qDot;
+    state_free.head(N).noalias() = m_P * q;
+    state_free.tail(N).noalias() = m_P * qDot;
     Eigen::VectorXx<DataType> g(2*N);
     Eigen::VectorXx<DataType> g2(2*N);
     //
@@ -274,9 +291,18 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
 //    Eigen::SparseMatrix<DataType> J(2*m_P.rows(),2*m_P.rows());
 //    J.setFromTriplets(tripletList.begin(), tripletList.end());
     //
-    g.head(N) = du.head(N) - m_P * qDot;
-    g.tail(N) = du.tail(N) - mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * q
-    - (-a) * m_P * qDot + b*mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * qDot;
+//    g.head(N) = du.head(N) - m_P * qDot;
+//  efficient version
+    g.head(N) = du.head(N);
+    g.head(N).noalias() -= m_P * qDot;
+    
+//    g.tail(N) = du.tail(N) - mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * q
+//    - (-a) * m_P * qDot + b*mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * qDot;
+//  efficient version
+    g.tail(N) = du.tail(N);
+    g.tail(N).noalias() -=  MinvK * m_P * q;
+    g.tail(N).noalias() -= (-a) * m_P * qDot;
+    g.tail(N).noalias() += b*MinvK * m_P * qDot;
 //    g = du - J * state_free;
 //    cout<<"g - g2: "<<(g-g2).norm()<<endl;
     
@@ -315,7 +341,7 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
     ones.setOnes();
     double anorm = ones.maxCoeff();
 //    cout<<"anorm: "<<anorm<<endl;
-    double temp = ((mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix)).cwiseAbs()*ones +  (mass_lumped.asDiagonal().inverse()*b*(*stiffnessMatrix)).cwiseAbs()*ones + a * ones).maxCoeff();// +(a*mass_lumped.asDiagonal()+ ;
+    double temp = (MinvK.cwiseAbs()*ones +  (b*(MinvK)).cwiseAbs()*ones + a * ones).maxCoeff();// +(a*mass_lumped.asDiagonal()+ ;
 //    cout<<"temp: "<< temp<<endl;
     anorm = std::max(anorm, temp);
 //    cout<<"anorm: "<<anorm<<endl;
@@ -377,11 +403,15 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
 //                saveMarketVector(V.col(j),"Vj.dat");
 //                saveMarketVector(V.col(j).segment(N,N),"VjN.dat");
                 
-                p.head(N) = (V.col(j).segment(N,N)) + (V.col(j)(2*N)) * eta*(g.head(N));
-                p.segment(N,N) = mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * V.col(j).head(N);
-                p.segment(N,N) += (V.col(j)(2*N)) * eta*g.tail(N);
-                p.segment(N,N) += (-a)* (V.col(j).segment(N,N));
-                p.segment(N,N) += (-b*mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix)) * (V.col(j).segment(N,N));
+//                p.head(N) = (V.col(j).segment(N,N)) + (V.col(j)(2*N)) * eta*(g.head(N));
+//                efficient version
+                p.head(N) = (V.col(j).segment(N,N));
+                p.head(N).noalias() += (V.col(j)(2*N)) * eta*(g.head(N));
+//                p.segment(N,N).noalias() = mass_lumped_inv.asDiagonal()*((*stiffnessMatrix) * V.col(j).head(N));
+                p.segment(N,N).noalias() = MinvK * V.col(j).head(N);
+                p.segment(N,N).noalias() += (V.col(j)(2*N)) * eta*g.tail(N);
+                p.segment(N,N).noalias() += (-a)* (V.col(j).segment(N,N));
+                p.segment(N,N).noalias() += (-b)*(MinvK * (V.col(j).segment(N,N)));
                 p(2*N) = 0;
 //                p = J_tilde*V.col(j);
                 //            cout<<"p: "<<p<<endl;
@@ -395,7 +425,7 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
 //                    cout<<"j: "<<j<<endl;
                     H(i,j) = V.col(i).transpose()*p;
 //                    cout<<"H(i,j): "<< H(i,j)<<endl;
-                    p = p-H(i,j)*V.col(i);
+                    p.noalias() -= H(i,j)*V.col(i);
 //                    saveMarketVector(p,"pc.dat");
                     
                 }
@@ -426,7 +456,7 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
 //                saveMarket(H,"Hc.dat");
 //                double avnorm2;
                 avnorm = (V.col(m).segment(N,N) + (V.col(m)(2*N)) * eta*g.head(N)).squaredNorm();
-                avnorm += (mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * V.col(m).head(N) + (V.col(m)(2*N)) * eta*(g.tail(N)) + (-a * V.col(m).segment(N,N) - mass_lumped.asDiagonal().inverse()*b*(*stiffnessMatrix) *  V.col(m).segment(N,N))).squaredNorm();
+                avnorm += (MinvK * V.col(m).head(N) + (V.col(m)(2*N)) * eta*(g.tail(N)) + (-a * V.col(m).segment(N,N) - b*(MinvK) *  V.col(m).segment(N,N))).squaredNorm();
                 avnorm = sqrt(avnorm);
 //                avnorm = (J_tilde*V.col(m)).norm();
 //                cout<<"avnorm: "<<avnorm<<endl;
@@ -444,7 +474,7 @@ void TimeStepperImplEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(Wo
 //                            sp = H.topLeftCorner(mx,mx);
 //                            Eigen::saveMarket(H.topLeftCorner(mx,mx),"Hc.dat");
 //                Eigen::saveMarket(sgn*t_step*H.topLeftCorner(mx,mx),"expA.dat");
-                F = (sgn*t_step*H.topLeftCorner(mx,mx)).exp();
+                F.noalias() = (sgn*t_step*H.topLeftCorner(mx,mx)).exp();
 //                Eigen::saveMarket(F,"Fc.dat");
                 
                 if (k1 == 0)

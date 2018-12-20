@@ -16,8 +16,10 @@ add_executable(ExampleNeohookeanTet exampleNeohookeanTet.cpp)
 add_executable(ExampleEigenFit exampleEigenFit.cpp)
 target_compile_options(ExampleEigenFit PUBLIC -DNH)
 
+
 add_executable(ExampleEigenFitCoRot exampleEigenFit.cpp)
 target_compile_options(ExampleEigenFitCoRot PUBLIC -DCOROT)
+
 
 add_executable(ExampleEigenFitLinear exampleEigenFit.cpp)
 target_compile_options(ExampleEigenFitLinear PUBLIC -DLINEAR)
@@ -27,6 +29,18 @@ target_compile_options(ExampleEigenFitNH PUBLIC -DNH)
 
 add_executable(ExampleEigenFitARAP exampleEigenFit.cpp)
 target_compile_options(ExampleEigenFitARAP PUBLIC -DARAP)
+
+add_executable(ExampleEigenFitEXP exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFitEXP PUBLIC -DNH)
+target_compile_options(ExampleEigenFitEXP PUBLIC -DEXP)
+
+add_executable(ExampleEigenFitCoRotEXP exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFitCoRotEXP PUBLIC -DCOROT)
+
+add_executable(ExampleEigenFitARAPEXP exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DARAP)
+target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DEXP)
+
 
 add_executable(ExampleExponentialIMEX exampleExponentialIMEX.cpp)
 add_executable(ExampleERE exampleERE.cpp)
@@ -79,6 +93,10 @@ target_link_libraries(ExampleEigenFitCoRot Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleEigenFitARAP Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleEigenFitNH Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleEigenFitLinear Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleEigenFitEXP Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleEigenFitCoRotEXP Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleEigenFitARAPEXP Core Base FEM UI ${GAUSS_LIBS})
+
 
 target_link_libraries(ExampleExponentialIMEX Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleERE Core Base FEM UI ${GAUSS_LIBS})
