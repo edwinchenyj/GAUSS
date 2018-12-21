@@ -331,7 +331,7 @@ int main(int argc, char **argv) {
     q.setZero();
     // if static, should calculate the ratios here (before loading the deformation)
     // or if DAC (dynamic_flag == 6), calculate the first ratio
-    if(dynamic_flag == 6 || (dynamic_flag == 0 && num_modes != 0))
+    if( num_modes != 0)
     {
         auto q = mapStateEigen<0>(world);
         //            cout<<"setting random perturbation to vertices"<<endl;
@@ -490,7 +490,7 @@ int main(int argc, char **argv) {
 //        Eigen::saveMarketVector(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"mtx"));
         // output eigenvalues
         Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
-        Eigen::saveMarketVectorDat(test->fineEig.second,filename_number_padded("feigenvalues",file_ind,"dat"))
+        Eigen::saveMarketVectorDat(test->fineEig.second,filename_number_padded("feigenvalues",file_ind,"dat"));
 
         // output state
 //        Eigen::saveMarketVectorDat(q, filename_number_padded("def",file_ind,"dat"));
