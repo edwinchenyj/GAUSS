@@ -394,12 +394,12 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             //update state
             q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
             
-//            cout<<" calculate the residual."<<endl;  //brute force for now. ugly
-            //get stiffness matrix
-            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-            ASSEMBLEEND(stiffnessMatrix);
+            //            warning: using stiffness from the beginning of the step for rayleigh damping, so no recalculation needed
+//            //get stiffness matrix
+//            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+//            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+//            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+//            ASSEMBLEEND(stiffnessMatrix);
             
             //Need to filter internal forces seperately for this applicat
             ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
@@ -409,8 +409,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
             ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
             ASSEMBLEEND(fExt);
-            
-            (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
             
             (*forceVector) = m_P*(*forceVector);
             
@@ -422,11 +420,11 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                 (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
                 
                 // add damping
-                (*forceVector) = (*forceVector) -  (a * (*m_massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
             }
             else
             {
-                (*forceVector) = (*forceVector) -  (a * (*m_massMatrix) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
             }
             // add external force
             (*forceVector) = (*forceVector) + m_P*(*fExt);
@@ -526,12 +524,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             //update state
             q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
             
-            //get stiffness matrix
-            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-            ASSEMBLEEND(stiffnessMatrix);
-            
             //Need to filter internal forces seperately for this applicat
             ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
             ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
@@ -541,7 +533,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
             ASSEMBLEEND(fExt);
             
-            (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
             
             (*forceVector) = m_P*(*forceVector);
             
@@ -591,12 +582,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             //update state
             q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
             
-            //get stiffness matrix
-            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-            ASSEMBLEEND(stiffnessMatrix);
-            
             //Need to filter internal forces seperately for this applicat
             ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
             ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
@@ -606,11 +591,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
             ASSEMBLEEND(fExt);
             
-            (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
-            
             (*forceVector) = m_P*(*forceVector);
             
-            // Warning: mass term removed in rayleigh damping
+            // Warning: mass term removed in rayleigh damping, and use K from begining of the step
             if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
                 //    Correct Forces
