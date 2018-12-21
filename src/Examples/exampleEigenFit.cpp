@@ -146,8 +146,10 @@ int main(int argc, char **argv) {
     int compute_frequency = 1; // not used anymore
     bool output_data_flag = false;
     bool simple_mass_flag = true;
-    double mode_matching_tol = 0;
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol);
+    double mode_matching_tol = -1;
+    bool init_mode_matching_flag = false;
+    
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, init_mode_matching_flag);
     
     
     readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
@@ -169,10 +171,13 @@ int main(int argc, char **argv) {
     cout<<"Using fine mesh "<<fmeshname<<endl;
     
     EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol);
-    
+
+    //  TODO: clean up here...   additional parameter goes here..
     // TODO: set rayleigh damping. should not be here...
     test->a = a;
     test->b = b;
+    test->init_mode_matching_flag = init_mode_matching_flag;
+    
     
     world.addSystem(test);
     
@@ -440,11 +445,15 @@ int main(int argc, char **argv) {
     //        Eigen::MatrixXd coarse_eig_def;
     //        Eigen::VectorXd fine_eig_def;
     
-    struct stat buf;
+//    struct stat buf;
     unsigned int idxc;
     
     for(istep=0; istep<numSteps ; ++istep)
     {
+        // update step number;
+        test->step_number++;
+        cout<<"simulating frame #" << test->step_number<<endl;
+
         stepper.step(world);
         
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);
@@ -463,13 +472,7 @@ int main(int argc, char **argv) {
         ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
         ofile.close();
         
-        // check if the file already exist
-        std::string filename = filename_number_padded("surfpos", file_ind,"obj");
-        while (stat(filename.c_str(), &buf) != -1)
-        {
-            file_ind++;
-            filename = filename_number_padded("surfpos", file_ind,"obj");
-        }
+        
         
         
         
@@ -481,7 +484,8 @@ int main(int argc, char **argv) {
         
         q_state_to_position(q,V_disp);
         
-        
+//        std::string filename = filename_number_padded("surfpos", file_ind,"obj");
+
         // output mesh position with only surface mesh
         igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
         //
@@ -489,8 +493,7 @@ int main(int argc, char **argv) {
         // output eigenvalues
 //        Eigen::saveMarketVector(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"mtx"));
         // output eigenvalues
-        Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
-        Eigen::saveMarketVectorDat(test->fineEig.second,filename_number_padded("feigenvalues",file_ind,"dat"));
+        
 
         // output state
 //        Eigen::saveMarketVectorDat(q, filename_number_padded("def",file_ind,"dat"));
@@ -502,11 +505,18 @@ int main(int argc, char **argv) {
             Eigen::saveMarketVectorDat(test->m_R, filename_number_padded("m_R",file_ind , "dat"));
             
             Eigen::saveMarketDat(test->coarseEig.first,filename_number_padded("coarse_def_modes", file_ind,"dat"));
+            
+            Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
+            Eigen::saveMarketVectorDat(test->fineEig.second,filename_number_padded("feigenvalues",file_ind,"dat"));
+            
+            Eigen::saveMarketDat(test->dist_map, filename_number_padded("dist_map",file_ind,"dat"));
+            Eigen::saveMarketVectorDat(test->matched_modes_list, filename_number_padded("matched_modes_list",file_ind,"dat"));
+            Eigen::saveMarketVectorDat(test->init_matched_modes_list,"init_matched_modes_list.dat");
+            
         }
         
-        // update step number;
-        test->step_number++;
-        cout<<"simulated frame: " << test->step_number<<endl;
+        file_ind++;
+        
         
     }
 }
