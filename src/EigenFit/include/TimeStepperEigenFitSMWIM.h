@@ -46,12 +46,7 @@ namespace Gauss {
             // init residual
             res = std::numeric_limits<double>::infinity();
             
-            it_outer = 0;
-            it_inner = 0;
-            // constants from Nocedal and Wright
-            step_size = 1;
-            c1 = 1e-4;
-            c2 = 0.9;
+            
             
             m_M.resize(P.rows(),P.rows());
             m_M.reserve(P.rows()); //simple mass
@@ -561,7 +556,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         
         
         int inner_it = 0;
-        
+        step_size = 1;
         // armijo condition
         while (res > res_old - c1 * step_size * res * 2)
         {
