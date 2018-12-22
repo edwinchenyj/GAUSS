@@ -19,6 +19,7 @@
 #include <fstream>
 #include <igl/boundary_facets.h>
 #include <igl/volume.h>
+#include <time.h>
 
 using namespace Gauss;
 using namespace FEM;
@@ -103,11 +104,6 @@ void preStepCallback(MyWorld &world) {
 }
 
 int main(int argc, char **argv) {
-    
-    
-    
-    std::cout<<"Test Neohookean FEM EigenFit with implicit midpoint solver\n";
-    
     //Setup Physics
     MyWorld world;
     
@@ -115,7 +111,7 @@ int main(int argc, char **argv) {
     
     Eigen::MatrixXd Vf;
     Eigen::MatrixXi Ff;
-    
+    clock_t t; // time used for clock
     
     //    define the file separator base on system
     const char kPathSeparator =
@@ -338,19 +334,10 @@ int main(int argc, char **argv) {
     // or if DAC (dynamic_flag == 6), calculate the first ratio
     if( num_modes != 0)
     {
+        t = clock();
         auto q = mapStateEigen<0>(world);
         //            cout<<"setting random perturbation to vertices"<<endl;
         q.setZero();
-#ifdef COROT
-//        q.setRandom();
-////        cout<<"use wiggle "<<argv[argc-1]<<endl;
-//        q *= 1e-4;
-#endif
-#ifdef ARAP
-//        q.setRandom();
-//        //        cout<<"use wiggle "<<argv[argc-1]<<endl;
-//        q *= 1e-5;
-#endif
 
         //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
         AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
@@ -380,8 +367,16 @@ int main(int argc, char **argv) {
         cout<<"calculating static ratio"<<endl;
         test->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
         cout<<"static ratio calculated"<<endl;
-        q.setZero();
+        
+        t = clock() -t;
+        std::ofstream pre_calc_time_file;
+        pre_calc_time_file.open ("pre_calc_time.txt");
+        pre_calc_time_file<<t;
+        pre_calc_time_file.close();
+        
+    
     }
+    
     if(dynamic_flag == 6)
     {
         double DAC_scalar = test->m_R(0);
@@ -447,15 +442,65 @@ int main(int argc, char **argv) {
     
 //    struct stat buf;
     unsigned int idxc;
-    
+    clock_t dt;
+    clock_t total_t = 0.0;
     for(istep=0; istep<numSteps ; ++istep)
     {
         // update step number;
         test->step_number++;
         cout<<"simulating frame #" << test->step_number<<endl;
-
+        t = clock();
         stepper.step(world);
-        
+        dt = clock() - t;
+        total_t += dt;
+        if(!stepper.step_success)
+        {
+            cout<<"Error: stepper fail at frame "<< step_number <<" with parameters: "<<endl;
+            cout<<"Using coarse mesh: "<<cmeshname<<endl;
+            cout<<"Using fine mesh: "<<fmeshname<<endl;
+            cout<<"Using Youngs: "<<youngs<<endl;
+            cout<<"Using constraint tolerance: "<<const_tol<<endl;
+            cout<<"Using constriant profile: "<<const_profile<<endl;
+            cout<<"Using initial deformation: "<<initial_def<<endl;
+            cout<<"Using number of steps: "<< num_steps<<endl;
+            cout<<"Using haus: "<<haus<<endl;
+            cout<<"Using number of modes: "<<num_modes<<endl;
+            cout<<"Using constraint direction: "<<const_dir<<endl;
+            cout<<"Using step size: "<<step_size<<endl;
+            cout<<"Using dynamic_flag: "<<dynamic_flag<<endl;
+            cout<<"Using a: "<<a<<endl;
+            cout<<"Using b: "<<b<<endl;
+            cout<<"Using output data flag: "<<output_data_flag<<endl;
+            cout<<"Using simple mass flag: "<<simple_mass_flag<<endl;
+            cout<<"Using mode matching tol: "<<mode_matching_tol<<endl;
+            cout<<"Using init mode matching flag: "<<init_mode_matching_flag<<endl;
+            
+            std::ofstream myfile;
+            myfile.open ("error_log.txt");
+            
+            myfile<<"Error: stepper fail at frame "<< step_number <<" with parameters: "<<endl;
+            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
+            myfile<<"Using fine mesh: "<<fmeshname<<endl;
+            myfile<<"Using Youngs: "<<youngs<<endl;
+            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
+            myfile<<"Using constriant profile: "<<const_profile<<endl;
+            myfile<<"Using initial deformation: "<<initial_def<<endl;
+            myfile<<"Using number of steps: "<< num_steps<<endl;
+            myfile<<"Using haus: "<<haus<<endl;
+            myfile<<"Using number of modes: "<<num_modes<<endl;
+            myfile<<"Using constraint direction: "<<const_dir<<endl;
+            myfile<<"Using step size: "<<step_size<<endl;
+            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
+            myfile<<"Using a: "<<a<<endl;
+            myfile<<"Using b: "<<b<<endl;
+            myfile<<"Using output data flag: "<<output_data_flag<<endl;
+            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
+            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
+            myfile<<"Using init mode matching flag: "<<init_mode_matching_flag<<endl;
+            myfile.close();
+            
+            return 1;
+        }
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);
         // acts like the "callback" block for moving constraint
         
@@ -517,8 +562,12 @@ int main(int argc, char **argv) {
         
         file_ind++;
         
-        
     }
+//    output the total time spent in the stepper
+    std::ofstream total_stepper_time;
+    total_stepper_time.open ("total_stepper_time.txt");
+    total_stepper_time<<total_t<<endl;
+    total_stepper_time.close();
 }
 
 

@@ -625,7 +625,7 @@ public:
         //        coarseEigMassProj = m_coarseUs;
         //        prev_coarse_eigenvectors = coarseEig.first;
         coarseEig = m_coarseUs;
-        
+        Eigen::saveMarketVectorDat(coarseEig.second, "coarsemesh_rest_eigenvalues.dat")
         if(mode_matching_tol > 0)
         {
             //            cout<<"matching modes. ";
@@ -753,7 +753,7 @@ public:
             }
             
             fineEig = m_Us;
-            
+            Eigen::saveMarketVectorDat(fineEig.second, "finemesh_rest_eigenvalues.dat")
             if(init_mode_matching_flag)
             {
                 cout<<"matching fine modes at rest state"<<endl;
@@ -831,6 +831,7 @@ public:
                 igl::boundary_facets(std::get<0>(m_fineWorld.getSystemList().getStorage())[0]->getGeometry().second,fine_F);
                 
                 igl::writeOBJ("finemesh_eigenmode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
+                
                 
                 std::string ffilename = "data/feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
                 Eigen::saveMarket(fine_V_disp, ffilename );
