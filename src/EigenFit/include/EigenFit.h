@@ -625,7 +625,7 @@ public:
         //        coarseEigMassProj = m_coarseUs;
         //        prev_coarse_eigenvectors = coarseEig.first;
         coarseEig = m_coarseUs;
-        Eigen::saveMarketVectorDat(coarseEig.second, "coarsemesh_rest_eigenvalues.dat")
+
         if(mode_matching_tol > 0)
         {
             //            cout<<"matching modes. ";
@@ -753,7 +753,8 @@ public:
             }
             
             fineEig = m_Us;
-            Eigen::saveMarketVectorDat(fineEig.second, "finemesh_rest_eigenvalues.dat")
+            Eigen::saveMarketVectorDat(fineEig.second, "finemesh_rest_eigenvalues.dat");
+            Eigen::saveMarketVectorDat(coarseEig.second, "coarsemesh_rest_eigenvalues.dat");
             if(init_mode_matching_flag)
             {
                 cout<<"matching fine modes at rest state"<<endl;

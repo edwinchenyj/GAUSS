@@ -120,7 +120,7 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
         }
         else if(field.compare("init_mode_matching_flag") == 0)
         {
-            simple_mass_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            init_mode_matching_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using init mode matching flag: "<<init_mode_matching_flag<<endl;
         }
         else
