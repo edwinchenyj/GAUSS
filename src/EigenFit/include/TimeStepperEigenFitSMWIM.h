@@ -266,12 +266,12 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         it_outer = it_outer + 1;
         if (it_outer > 20) {
             std::cout<< "warning: quasi-newton more than 20 iterations." << std::endl;
-        }
-        if (it_outer > 40) {
-            std::cout<< "error: quasi-newton more than 20 iterations." << std::endl;
+            q = eigen_q_old;
+            qDot = eigen_v_old;
             step_success = false;
             return;
         }
+        
         
         eigen_q_temp = eigen_q_old + 1.0/4.0 * dt * (eigen_v_old + qDot);
         
@@ -555,61 +555,61 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         }
         
         
-        int inner_it = 0;
-        step_size = 1;
-        // armijo condition
-        while (res > res_old - c1 * step_size * res * 2)
-        {
-            cout<<"Armijo cond. failed, start backtracking, ";
-            res_old = res;
-            inner_it = inner_it + 1;
-            if (inner_it == 40)
-            {
-                cout<<"error: line search more than 40 iterations."<<endl;
-                step_success = false;
-                return;
-            }
-            // backtracking line search
-            step_size = 0.9 * step_size;
-            
-            eigen_v_temp = qDot;
-            eigen_v_temp = eigen_v_temp + Dv*step_size;
-            //update state
-            q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
-            
-            //Need to filter internal forces seperately for this applicat
-            ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
-            ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
-            ASSEMBLEEND(forceVector);
-            
-            ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
-            ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
-            ASSEMBLEEND(fExt);
-            
-            (*forceVector) = m_P*(*forceVector);
-            
-            // Warning: mass term removed in rayleigh damping, and use K from begining of the step
-            if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
-                
-                //    Correct Forces
-                (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
-                
-                // add damping
-                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
-            }
-            else
-            {
-                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
-            }
-            // add external force
-            (*forceVector) = (*forceVector) + m_P*(*fExt);
-            
-            m_pardiso_mass.solve(*forceVector);
-            res  = 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_pardiso_mass.getX()).squaredNorm();
-            std::cout << "res: " << res << ", ";
-            
-        }
-        cout<< "step size: " << step_size <<endl;
+//        int inner_it = 0;
+//        step_size = 1;
+//        // armijo condition
+//        while (res > res_old - c1 * step_size * res * 2)
+//        {
+//            cout<<"Armijo cond. failed, start backtracking, ";
+//            res_old = res;
+//            inner_it = inner_it + 1;
+//            if (inner_it == 40)
+//            {
+//                cout<<"error: line search more than 40 iterations."<<endl;
+//                step_success = false;
+//                return;
+//            }
+//            // backtracking line search
+//            step_size = 0.9 * step_size;
+//
+//            eigen_v_temp = qDot;
+//            eigen_v_temp = eigen_v_temp + Dv*step_size;
+//            //update state
+//            q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
+//
+//            //Need to filter internal forces seperately for this applicat
+//            ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
+//            ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
+//            ASSEMBLEEND(forceVector);
+//
+//            ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
+//            ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
+//            ASSEMBLEEND(fExt);
+//
+//            (*forceVector) = m_P*(*forceVector);
+//
+//            // Warning: mass term removed in rayleigh damping, and use K from begining of the step
+//            if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
+//
+//                //    Correct Forces
+//                (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
+//
+//                // add damping
+//                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+//            }
+//            else
+//            {
+//                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+//            }
+//            // add external force
+//            (*forceVector) = (*forceVector) + m_P*(*fExt);
+//
+//            m_pardiso_mass.solve(*forceVector);
+//            res  = 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_pardiso_mass.getX()).squaredNorm();
+//            std::cout << "res: " << res << ", ";
+//
+//        }
+//        cout<< "step size: " << step_size <<endl;
         
         qDot = eigen_v_temp;
         q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
