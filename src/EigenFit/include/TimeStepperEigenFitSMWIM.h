@@ -121,6 +121,9 @@ namespace Gauss {
         
         Eigen::VectorXd Dv;
         
+        bool step_success;
+        
+        
     protected:
         
         //num modes to correct
@@ -158,8 +161,6 @@ namespace Gauss {
         // residual
         double res, res_old, step_size, c1, c2;
         
-        bool step_success;
-        
         //        Eigen::VectorXd res;
         
 #ifdef GAUSS_PARDISO
@@ -173,6 +174,8 @@ namespace Gauss {
     private:
     };
 }
+
+
 
 
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>

@@ -32,6 +32,8 @@ namespace Gauss {
         inline DataType getTime() const { return m_t; }
         inline void setDt(DataType dt) { m_dt = dt; }
         inline auto & getLagrangeMultipliers() { return m_impl.getLagrangeMultipliers(); }
+        inline const auto & getImpl() const { return m_impl; }
+        inline auto & getImpl() { return m_impl; }
         
     protected:
         

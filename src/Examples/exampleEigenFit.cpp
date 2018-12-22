@@ -127,13 +127,13 @@ int main(int argc, char **argv) {
     //    parameters
     double youngs = 2e6;
     double poisson = 0.45;
-    double constraint_tol = 1e-2;
+    double const_tol = 1e-2;
     int const_profile = 1;
     std::string initial_def = "0";
-    int numSteps = 10;
-    bool hausdorff = false;
+    int num_steps = 10;
+    bool haus = false;
     int num_modes = 5;
-    int constraint_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
+    int const_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
     double step_size = 1e-2;
     int dynamic_flag = 0;
     double a = 0;
@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
     double mode_matching_tol = -1;
     bool init_mode_matching_flag = false;
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, constraint_tol, const_profile, initial_def, numSteps, hausdorff, num_modes, constraint_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, init_mode_matching_flag);
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, init_mode_matching_flag);
     
     
     readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
     cout<<"Using coarse mesh "<<cmeshname<<endl;
     cout<<"Using fine mesh "<<fmeshname<<endl;
     
-    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,constraint_dir,constraint_tol, const_profile,hausdorff,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol);
+    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,const_dir,const_tol, const_profile,haus,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol);
 
     //  TODO: clean up here...   additional parameter goes here..
     // TODO: set rayleigh damping. should not be here...
@@ -208,16 +208,16 @@ int main(int argc, char **argv) {
     {
         cout<<"Building fix constraint projection matrix"<<endl;
         //    default constraint
-        fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+        fixDisplacementMin(world, test,const_dir,const_tol);
         world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
         
         Eigen::VectorXi indices;
         // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
         if(!Eigen::loadMarketVector(indices,constraint_file_name))
         {
             cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, constraint_dir,constraint_tol);
+            indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
         
@@ -242,12 +242,12 @@ int main(int argc, char **argv) {
         
         Eigen::VectorXi indices;
         // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
         cout<<"Loading moving vertices and setting projection matrix..."<<endl;
         if(!Eigen::loadMarketVector(indices,constraint_file_name))
         {
             cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, constraint_dir,constraint_tol);
+            indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
         P = fixedPointProjectionMatrix(indices, *test,world);
@@ -257,7 +257,7 @@ int main(int argc, char **argv) {
             world.addConstraint(movingConstraints[ii]);
         }
         
-        fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+        fixDisplacementMin(world, test,const_dir,const_tol);
         
         
         
@@ -282,25 +282,25 @@ int main(int argc, char **argv) {
         
         Eigen::VectorXi indices;
         // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
         cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
         cout<<"Loading moving vertices and setting projection matrix..."<<endl;
         if(!Eigen::loadMarketVector(indices,constraint_file_name))
         {
             cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, constraint_dir,constraint_tol);
+            indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
         
         P = fixedPointProjectionMatrix(indices, *test,world);
         
-        //            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
+        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
         
         for(unsigned int ii=0; ii<indices.rows(); ++ii) {
             movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
             world.addConstraint(movingConstraints[ii]);
         }
-        fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+        fixDisplacementMin(world, test,const_dir,const_tol);
         
         
     }
@@ -419,7 +419,6 @@ int main(int argc, char **argv) {
             std::cout<<"original state size "<<q.rows()<<"\nloaded state size "<<tempv.rows()<<endl;;
             q = tempv;
             
-            unsigned int idxc = 0;
             
             q_state_to_position(tempv, Vtemp);
             
@@ -444,7 +443,7 @@ int main(int argc, char **argv) {
     unsigned int idxc;
     clock_t dt;
     clock_t total_t = 0.0;
-    for(istep=0; istep<numSteps ; ++istep)
+    for(istep=0; istep<num_steps ; ++istep)
     {
         // update step number;
         test->step_number++;
@@ -453,9 +452,9 @@ int main(int argc, char **argv) {
         stepper.step(world);
         dt = clock() - t;
         total_t += dt;
-        if(!stepper.step_success)
+        if(!stepper.getImpl().step_success)
         {
-            cout<<"Error: stepper fail at frame "<< step_number <<" with parameters: "<<endl;
+            cout<<"Error: stepper fail at frame "<< test->step_number <<" with parameters: "<<endl;
             cout<<"Using coarse mesh: "<<cmeshname<<endl;
             cout<<"Using fine mesh: "<<fmeshname<<endl;
             cout<<"Using Youngs: "<<youngs<<endl;
@@ -478,7 +477,7 @@ int main(int argc, char **argv) {
             std::ofstream myfile;
             myfile.open ("error_log.txt");
             
-            myfile<<"Error: stepper fail at frame "<< step_number <<" with parameters: "<<endl;
+            myfile<<"Error: stepper fail at frame "<< test->step_number <<" with parameters: "<<endl;
             myfile<<"Using coarse mesh: "<<cmeshname<<endl;
             myfile<<"Using fine mesh: "<<fmeshname<<endl;
             myfile<<"Using Youngs: "<<youngs<<endl;
