@@ -609,7 +609,7 @@ public:
             normalizing_const.noalias() = (m_coarseUs.first.transpose() * coarse_mass_lumped.asDiagonal() * m_coarseUs.first).diagonal();
             normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
             
-            m_coarseUs.first.noalias() = m_coarseUs.first * (normalizing_const.asDiagonal());
+            m_coarseUs.first = m_coarseUs.first * (normalizing_const.asDiagonal());
         }
         else
         {
@@ -656,7 +656,7 @@ public:
                 dist_map = dist_map.cwiseAbs(); // flip any -1
                 Eigen::MatrixXd ones(m_num_modes,m_num_modes);
                 ones.setOnes();
-                dist_map.noalias() = ones - dist_map;
+                dist_map = ones - dist_map;
                 dist_map = dist_map.cwiseAbs(); // should have no effect
                 
                 cout<<"dist map: "<<endl<<dist_map<<endl;
@@ -668,18 +668,34 @@ public:
                     if(abs(min_val) < mode_matching_tol) // set the matching tolerance
                     {
                         matched_modes_list(i) = min_ind;
+                        
+                        cout<<"init matched: "<<init_matched_modes_list<<endl;
                         if(i == min_ind)
                         {
                             cout<<"no mode crossing. matching % = "<< 1-min_val<<endl;
+                            if(init_matched_modes_list(min_ind) != -1)
+                            {
                             cout<<"will apply ratio: "<<m_R(min_ind)<<endl;
                             cout<<"or: "<<fineEig.second(init_matched_modes_list(min_ind))<<"/"<<init_coarse_eigenvalues(min_ind)<<endl;
+                            }
+                            else
+                            {
+                                cout<<"initial mode "<<min_ind<<" matches to nothing."<<endl;
+                            }
+                            
                         }
                         else
                         {                            //                            cout<<"mode crossing occurred"<<endl;
                             cout<<"mode "<<i<<" matched to initial mode "<<min_ind<<", matching % = "<<1-min_val<<endl;
+                            if(init_matched_modes_list(min_ind) != -1)
+                            {
                             cout<<"need to apply ratio: "<<m_R(min_ind)<<endl;
                             cout<<"or: "<<fineEig.second(init_matched_modes_list(min_ind))<<"/"<<init_coarse_eigenvalues(min_ind)<<endl;
-                            
+                            }
+                            else
+                            {
+                                cout<<"initial mode "<<min_ind<<" matches to nothing."<<endl;
+                            }
                         }
                     }
                     else
@@ -740,7 +756,7 @@ public:
                 normalizing_const.noalias() = (m_Us.first.transpose() * m_fineM * m_Us.first).diagonal();
                 normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
                 
-                m_Us.first.noalias() = m_Us.first * (normalizing_const.asDiagonal());
+                m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
             }
             else
             {

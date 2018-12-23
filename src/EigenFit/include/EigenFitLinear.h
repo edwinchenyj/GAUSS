@@ -25,7 +25,7 @@
 #include <igl/hausdorff.h>
 #include <fstream>
 #include <SolverPardiso.h>
-#include <SparseRegularInversePardiso.h>
+//#include <SparseRegularInversePardiso.h>
 #include <igl/boundary_facets.h>
 
 using namespace Gauss;

@@ -147,6 +147,30 @@ int main(int argc, char **argv) {
     
     parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag);
     
+    std::ofstream simfile;
+    simfile.open ("sim_log.txt");
+    
+    simfile<<"Simulation with parameters: "<<endl;
+    simfile<<"Using coarse mesh: "<<cmeshname<<endl;
+    simfile<<"Using fine mesh: "<<fmeshname<<endl;
+    simfile<<"Using Youngs: "<<youngs<<endl;
+    simfile<<"Using constraint tolerance: "<<const_tol<<endl;
+    simfile<<"Using constriant profile: "<<const_profile<<endl;
+    simfile<<"Using initial deformation: "<<initial_def<<endl;
+    simfile<<"Using number of steps: "<< num_steps<<endl;
+    simfile<<"Using haus: "<<haus<<endl;
+    simfile<<"Using number of modes: "<<num_modes<<endl;
+    simfile<<"Using constraint direction: "<<const_dir<<endl;
+    simfile<<"Using step size: "<<step_size<<endl;
+    simfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
+    simfile<<"Using a: "<<a<<endl;
+    simfile<<"Using b: "<<b<<endl;
+    simfile<<"Using output data flag: "<<output_data_flag<<endl;
+    simfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
+    simfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
+    simfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
+    simfile.close();
+    
     
     readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
     readTetgen(Vf, Ff, dataDir()+fmeshname+".node", dataDir()+fmeshname+".ele");
