@@ -126,7 +126,7 @@ public:
         fine_mass_calculated = false;
         
         this->mode_matching_tol = mode_matching_tol;
-        
+        calculate_matching_data_flag = 1;
         step_number = 0;
         if(num_modes != 0)
         {
@@ -626,7 +626,7 @@ public:
         //        prev_coarse_eigenvectors = coarseEig.first;
         coarseEig = m_coarseUs;
 
-        if(mode_matching_tol > 0)
+        if(calculate_matching_data_flag != 0)
         {
             //            cout<<"matching modes. ";
             matched_modes_list.resize(m_num_modes);
@@ -755,7 +755,7 @@ public:
             fineEig = m_Us;
             Eigen::saveMarketVectorDat(fineEig.second, "finemesh_rest_eigenvalues.dat");
             Eigen::saveMarketVectorDat(coarseEig.second, "coarsemesh_rest_eigenvalues.dat");
-            if(init_mode_matching_flag)
+            if(calculate_matching_data_flag != 0)
             {
                 cout<<"matching fine modes at rest state"<<endl;
                 init_matched_modes_list.resize(m_num_modes);
@@ -879,9 +879,20 @@ public:
             
             for(int i = 0; i < m_num_modes; ++i)
             {
-                if(init_matched_modes_list(i) != -1)
+                if(calculate_matching_data_flag == 2)
                 {
-                    m_R(i) = m_Us.second(init_matched_modes_list(i))/m_coarseUs.second(i);
+                    if(init_matched_modes_list(i) != -1)
+                    {
+                        m_R(i) = m_Us.second(init_matched_modes_list(i))/m_coarseUs.second(i);
+                    }
+                    else{
+                        m_R(i) = 1;
+                        
+                    }
+                }
+                else
+                {
+                    m_R(i) = m_Us.second(i)/m_coarseUs.second(i);
                 }
                 if(!m_ratio_manual.isZero())
                 {
@@ -923,7 +934,7 @@ public:
         //                cout<<m_R<<endl;
         Eigen::VectorXd m_R_current(m_R.rows());
         m_R_current = m_R;
-        if(mode_matching_tol >0   )
+        if(calculate_matching_data_flag == 2  )
         {
             m_R_current.setOnes();
             for (int i = 0; i < m_num_modes; i++) {
@@ -1114,6 +1125,8 @@ public:
     bool init_mode_matching_flag;
     double mode_matching_tol;
     Eigen::MatrixXd dist_map;
+    
+    int calculate_matching_data_flag;
 protected:
     
     World<double, std::tuple<PhysicalSystemImpl *>,

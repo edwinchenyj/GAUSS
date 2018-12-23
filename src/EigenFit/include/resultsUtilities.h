@@ -26,7 +26,7 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
                  std::string &fmeshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
                  int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
-                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, bool & init_mode_matching_flag)
+                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -118,10 +118,10 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
             mode_matching_tol = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using mode matching tol: "<<mode_matching_tol<<endl;
         }
-        else if(field.compare("init_mode_matching_flag") == 0)
+        else if(field.compare("calculate_matching_data_flag") == 0)
         {
-            init_mode_matching_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using init mode matching flag: "<<init_mode_matching_flag<<endl;
+            calculate_matching_data_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
         }
         else
         {
@@ -262,6 +262,82 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
             }
         }
     }
+}
+
+void parse_input(int argc, char **argv, std::string &meshname, double &youngs, double &const_tol,
+                 int &const_profile, std::string &initial_def, int &num_steps,
+                 int &num_modes, int &const_dir, double &step_size,
+                 double &a, double &b)
+{
+    for (int i = 1; i < argc; i++) {
+        std::string arg(argv[i]);
+        arg.erase(remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
+        std::size_t eq_found = arg.find_first_of("=");
+        std::string field(arg.substr(1,eq_found-1));
+        
+        if (field.compare("meshname") == 0) {
+            meshname =arg.substr(eq_found+1,arg.length()-eq_found-1);
+            cout<<"Using mesh: "<<meshname<<endl;
+            
+        }
+        else if(field.compare("youngs") == 0)
+        {
+            youngs = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using Youngs: "<<youngs<<endl;
+        }
+        else if(field.compare("const_tol") == 0)
+        {
+            const_tol =stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using constraint tolerance: "<<const_tol<<endl;
+        }
+        else if(field.compare("const_profile") == 0)
+        {
+            const_profile =stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using constriant profile: "<<const_profile<<endl;
+        }
+        else if(field.compare("initial_def") == 0)
+        {
+            initial_def = arg.substr(eq_found+1,arg.length()-eq_found-1);
+            cout<<"Using initial deformation: "<<initial_def<<endl;
+        }
+        else if(field.compare("num_steps") == 0)
+        {
+            num_steps = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using number of steps: "<< num_steps<<endl;
+        }
+        else if(field.compare("num_modes") == 0)
+        {
+            num_modes = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using number of modes: "<<num_modes<<endl;
+        }
+        else if(field.compare("const_dir") == 0)
+        {
+            const_dir = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using constraint direction: "<<const_dir<<endl;
+        }
+        else if(field.compare("step_size") == 0)
+        {
+            step_size = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using step size: "<<step_size<<endl;
+        }
+        else if(field.compare("a") == 0)
+        {
+            a = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using a: "<<a<<endl;
+        }
+        else if(field.compare("b") == 0)
+        {
+            b = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using b: "<<b<<endl;
+        }
+        else
+        {
+            cout<<"Warning: Unknown field "<< field<<" with unused value " << arg.substr(eq_found+1,arg.length()-eq_found-1)<<endl;
+        }
+        
+    }
+    
+    
 }
 
 #endif /* resultsUtilities_h */
