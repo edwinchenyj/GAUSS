@@ -246,6 +246,31 @@ bool saveMarket(const SparseMatrixType& mat, const std::string& filename, int sy
   return true;
 }
 
+    template<typename SparseMatrixType>
+    bool saveMarketDat(const SparseMatrixType& mat, const std::string& filename, int sym = 0)
+    {
+        typedef typename SparseMatrixType::Scalar Scalar;
+        std::ofstream out(filename.c_str(),std::ios::out);
+        if(!out)
+            return false;
+        
+        out.flags(std::ios_base::scientific);
+        out.precision(64);
+        std::string header;
+        internal::putMarketHeader<Scalar>(header, sym);
+        out << header << std::endl;
+        out << "%%" << mat.rows() << " " << mat.cols() << " " << mat.nonZeros() << "\n";
+        int count = 0;
+        for(int j=0; j<mat.outerSize(); ++j)
+            for(typename SparseMatrixType::InnerIterator it(mat,j); it; ++it)
+            {
+                ++ count;
+                internal::PutMatrixElt(it.value(), it.row()+1, it.col()+1, out);
+                // out << it.row()+1 << " " << it.col()+1 << " " << it.value() << "\n";
+            }
+        out.close();
+        return true;
+    }
 template<typename VectorType>
 bool saveMarketVector (const VectorType& vec, const std::string& filename)
 {
@@ -268,33 +293,6 @@ bool saveMarketVector (const VectorType& vec, const std::string& filename)
   return true; 
 }
 
-    
-    template<typename SparseMatrixType>
-    bool saveMarketDat(const SparseMatrixType& mat, const std::string& filename, int sym = 0)
-    {
-        typedef typename SparseMatrixType::Scalar Scalar;
-        std::ofstream out(filename.c_str(),std::ios::out);
-        if(!out)
-            return false;
-        
-        out.flags(std::ios_base::scientific);
-        out.precision(64);
-        std::string header;
-        internal::putMarketHeader<Scalar>(header, sym);
-        out << header << std::endl;
-        out << "%%"<< mat.rows() << " " << mat.cols() << " " << mat.nonZeros() << "\n";
-        int count = 0;
-        for(int j=0; j<mat.outerSize(); ++j)
-            for(typename SparseMatrixType::InnerIterator it(mat,j); it; ++it)
-            {
-                ++ count;
-                internal::PutMatrixElt(it.value(), it.row()+1, it.col()+1, out);
-                // out << it.row()+1 << " " << it.col()+1 << " " << it.value() << "\n";
-            }
-        out.close();
-        return true;
-    }
-    
     template<typename VectorType>
     bool saveMarketVectorDat (const VectorType& vec, const std::string& filename)
     {
@@ -309,7 +307,7 @@ bool saveMarketVector (const VectorType& vec, const std::string& filename)
             out << "%%MatrixMarket matrix array complex general\n";
         else
             out << "%%MatrixMarket matrix array real general\n";
-        out << "%%"<<vec.size() << " "<< 1 << "\n";
+        out << "%%" <<vec.size() << " "<< 1 << "\n";
         for (int i=0; i < vec.size(); i++){
             internal::putVectorElt(vec(i), out);
         }
@@ -317,6 +315,7 @@ bool saveMarketVector (const VectorType& vec, const std::string& filename)
         return true;
     }
 
+    
 } // end namespace Eigen
 
 #endif // EIGEN_SPARSE_MARKET_IO_H
