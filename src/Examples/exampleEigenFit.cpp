@@ -142,10 +142,10 @@ int main(int argc, char **argv) {
     int compute_frequency = 1; // not used anymore
     bool output_data_flag = false;
     bool simple_mass_flag = true;
-    double mode_matching_tol = -1;
-    bool init_mode_matching_flag = false;
+    double mode_matching_tol = 0.4;
+    int calculate_matching_data_flag = 1;
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, init_mode_matching_flag);
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag);
     
     
     readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
     // TODO: set rayleigh damping. should not be here...
     test->a = a;
     test->b = b;
-    test->init_mode_matching_flag = init_mode_matching_flag;
+    test->calculate_matching_data_flag = calculate_matching_data_flag;
     
     
     world.addSystem(test);
@@ -472,7 +472,7 @@ int main(int argc, char **argv) {
             cout<<"Using output data flag: "<<output_data_flag<<endl;
             cout<<"Using simple mass flag: "<<simple_mass_flag<<endl;
             cout<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-            cout<<"Using init mode matching flag: "<<init_mode_matching_flag<<endl;
+            cout<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
             
             std::ofstream myfile;
             myfile.open ("error_log.txt");
@@ -495,7 +495,7 @@ int main(int argc, char **argv) {
             myfile<<"Using output data flag: "<<output_data_flag<<endl;
             myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
             myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-            myfile<<"Using init mode matching flag: "<<init_mode_matching_flag<<endl;
+            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
             myfile.close();
             
             return 1;
