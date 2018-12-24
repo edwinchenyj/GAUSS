@@ -806,7 +806,7 @@ public:
                 for (int i = 0; i < m_num_modes; i++) {
                     Eigen::VectorXd::Index min_ind;
                     double min_val = dist_map.col(i).minCoeff(&min_ind);
-                    if(abs(min_val) < 0.5) // set the matching tolerance criteria. initially accept 0.5
+                    if(abs(min_val) < 0.2) // set the matching tolerance criteria. accept 0.2
                     {
                         init_matched_modes_list(i) = min_ind;
                         
