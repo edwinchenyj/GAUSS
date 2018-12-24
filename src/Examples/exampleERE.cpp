@@ -7,7 +7,10 @@
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
 #include <TimeStepperERE.h>
-#include <TimeStepperSIIMEX.h>
+#include <TimeStepperSI.h>
+#include <TimeStepperIM.h>
+#include <TimeStepperBE.h>
+#include <TimeStepperSIERE.h>
 #include <ExponentialIMEX.h>
 #include <fstream>
 #include <igl/boundary_facets.h>
@@ -32,9 +35,19 @@ typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 
-typedef TimeStepperERE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperERE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepperERE;
 
-typedef Scene<MyWorld, MyTimeStepper> MyScene;
+
+typedef TimeStepperIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepperIM;
+
+
+typedef TimeStepperSIERE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepperSIERE;
+
+
+typedef TimeStepperSI<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepperSI;
+
+
+typedef TimeStepperBE<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepperBE;
 
 Eigen::MatrixXd V;
 Eigen::MatrixXi F;
@@ -54,6 +67,7 @@ int main(int argc, char **argv) {
     MyWorld world;
     
     arg_list = argv;
+    clock_t t; // time used for clock
     
     //    define the file separator base on system
     const char kPathSeparator =
@@ -74,14 +88,14 @@ int main(int argc, char **argv) {
     double youngs = 2e6;
     double poisson = 0.45;
     int const_profile = 0;
-    double constraint_tol = 1e-2;
+    double const_tol = 1e-2;
     std::string initial_def = "0";
-    int numSteps = 10;
+    int num_steps = 10;
     double step_size = 1e-2;
-    int constraint_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
+    int const_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
     double a = 0.0;
     double b = -0.0001;
-    
+    std::string integrator = "SIERE";
     //    parameters
     if(argc > 1)
         meshname = argv[1];
@@ -90,15 +104,15 @@ int main(int argc, char **argv) {
     if(argc > 3)
         const_profile = atoi(argv[3]);
     if(argc > 4)
-        constraint_tol = atof(argv[4]);
+        const_tol = atof(argv[4]);
     if(argc > 5)
         initial_def = (argv[5]);
     if(argc > 6)
-        numSteps = atoi(argv[6]);
+        num_steps = atoi(argv[6]);
     if(argc > 7)
         step_size = atof(argv[7]);
     if(argc > 8)
-        constraint_dir = atoi(argv[8]); // constraint direction. 0 for x, 1 for y, 2 for z
+        const_dir = atoi(argv[8]); // constraint direction. 0 for x, 1 for y, 2 for z
     if(argc > 9)
         a = atof(argv[9]);
     if(argc > 10)
@@ -150,16 +164,16 @@ int main(int argc, char **argv) {
     {
         cout<<"Building fix constraint projection matrix"<<endl;
         //    default constraint
-        fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+        fixDisplacementMin(world, test,const_dir,const_tol);
         world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
         
         Eigen::VectorXi indices;
         // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
         if(!Eigen::loadMarketVector(indices,constraint_file_name))
         {
             cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, constraint_dir,constraint_tol);
+            indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
         
@@ -184,12 +198,12 @@ int main(int argc, char **argv) {
         
         Eigen::VectorXi indices;
         // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
         cout<<"Loading moving vertices and setting projection matrix..."<<endl;
         if(!Eigen::loadMarketVector(indices,constraint_file_name))
         {
             cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, constraint_dir,constraint_tol);
+            indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
         P = fixedPointProjectionMatrix(indices, *test,world);
@@ -199,7 +213,7 @@ int main(int argc, char **argv) {
             world.addConstraint(movingConstraints[ii]);
         }
         
-        fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+        fixDisplacementMin(world, test,const_dir,const_tol);
         
     }
     else if (const_profile == 4 || const_profile == 5 || const_profile == 6 || const_profile == 7 || const_profile == 8)
@@ -221,25 +235,25 @@ int main(int argc, char **argv) {
         
         Eigen::VectorXi indices;
         // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
         cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
         cout<<"Loading moving vertices and setting projection matrix..."<<endl;
         if(!Eigen::loadMarketVector(indices,constraint_file_name))
         {
             cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, constraint_dir,constraint_tol);
+            indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
         
         P = fixedPointProjectionMatrix(indices, *test,world);
         
-        //            movingVerts = minVertices(test, constraint_dir, constraint_tol);//indices for moving parts
+        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
         
         for(unsigned int ii=0; ii<indices.rows(); ++ii) {
             movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
             world.addConstraint(movingConstraints[ii]);
         }
-        fixDisplacementMin(world, test,constraint_dir,constraint_tol);
+        fixDisplacementMin(world, test,const_dir,const_tol);
         
         
     }
@@ -307,10 +321,14 @@ int main(int argc, char **argv) {
     unsigned int file_ind = 0;
     struct stat buf;
     unsigned int idxc;
-
-        for(istep=0; istep<numSteps ; ++istep)
+    clock_t dt;
+    clock_t total_t = 0.0;
+        for(istep=0; istep<num_steps ; ++istep)
         {
+            t = clock();
             stepper.step(world);
+            dt = clock() - t;
+            total_t += dt;
             // acts like the "callback" block for moving constraint
             if (const_profile == 2)
             {
@@ -469,13 +487,11 @@ int main(int argc, char **argv) {
             igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
             //
         }
-    //Display
-//    QGuiApplication app(argc, argv);
-//
-//    MyScene *scene = new MyScene(&world, &stepper, preStepCallback);
-//    GAUSSVIEW(scene);
-//
-//    return app.exec();
+
+    std::ofstream total_stepper_time;
+    total_stepper_time.open ("total_stepper_time.txt");
+    total_stepper_time<<total_t<<endl;
+    total_stepper_time.close();
     
     
 }
