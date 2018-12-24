@@ -61,26 +61,13 @@ void phi(Eigen::MatrixXd &A, Eigen::MatrixXd &output)
     for (int j = 0; j < D.rows(); j++) {
         if(norm(D(j,j)) > 1e-10)
         {
-//            cout<<D(j,j)<<endl;
-//            double realpart = real(D(j,j));
-//            cout<<realpart<<endl;
-//            D(j.j).real(realpart-1);
-//            cout<<D(j,j)<<endl;
             std::complex<double> tempc;
-//            tempc.real(exp(D(j,j)).real());
-//            D_new(j,j).real(tempc.real()-1);
-//            cout<<D_new(j,j)<<endl;
             tempc.real(exp(D(j,j)).real() - 1);
             tempc.imag(exp(D(j,j)).imag());
                        tempc = tempc/D(j,j);
-//            cout<<tempc<<endl;
             D_new(j,j).real(tempc.real());
             D_new(j,j).imag(tempc.imag());
-//            cout<<D_new(j,j)<<endl;
-////            std::complex<double> z3 = exp(1i * M_PI);
-//            cout<<es.eigenvalues()[j]<<endl;
-////            std::complex<double> z = (es.eigenvalues()[j]);
-////            D(j,j) = (exp(z) )/es.eigenvalues()[j];
+            
         }
         else
         {
@@ -91,25 +78,9 @@ void phi(Eigen::MatrixXd &A, Eigen::MatrixXd &output)
     }
 //
     Eigen::MatrixXcd U;
-//    U.resize(A.rows(),A.rows());
     U = es.eigenvectors();
-//    Eigen::saveMarketDat(U,"eigenvectors.dat");
-//    Eigen::saveMarketDat(U.inverse(),"eigenvectors_inv.dat");
-//    Eigen::saveMarketDat(D,"eigenvalues.dat");
-//    Eigen::saveMarketDat(A,"mat.dat");
     output = ((U) * (D_new) * (U.inverse())).real();
-//    Eigen::saveMarketDat(D_new,"Dnew.dat");
-//    Eigen::saveMarketDat(output,"output.dat");
 
-    //    cout<<"U:"<<endl;
-//    cout<<U<<endl;
-//    cout<<"U inv:"<<endl;
-//    cout<<U.inverse()<<endl;
-//    cout<<"D:"<<endl;
-//    cout<<(D) <<endl;
-//    cout<<"output:"<<endl;
-//    cout<<output<<endl;
-}
 //TODO Solver Interface
 namespace Gauss {
     
@@ -141,10 +112,6 @@ namespace Gauss {
                 }
             m_P2.setFromTriplets(tripletList.begin(), tripletList.end());
 
-//            Eigen::saveMarketDat(m_P,"m_P.dat");
-//            Eigen::saveMarketDat(m_P2,"m_P2.dat");
-            
-            
             
             m_factored = false;
             // refactor for every solve
@@ -283,20 +250,11 @@ namespace Gauss {
         double inv_mass_norm;
         
         MatrixAssembler m_massMatrix;
-//        MatrixAssembler m_massMatrix2;
-//        MatrixAssembler m_massMatrix3;
         MatrixAssembler m_stiffnessMatrix;
         MatrixAssembler m_J;
         VectorAssembler m_forceVector;
         
         VectorAssembler m_fExt;
-        
-        //        // for calculating the residual. ugly
-        //        MatrixAssembler m_massMatrixNew;
-        //        MatrixAssembler m_stiffnessMatrixNew;
-        //        VectorAssembler m_forceVectorNew;
-        //        VectorAssembler m_fExtNew;
-        
         
         Eigen::SparseMatrix<DataType> m_P;
         Eigen::SparseMatrix<DataType> m_P2; // 2 blocks of projection for second order system
@@ -311,13 +269,11 @@ namespace Gauss {
         int it_outer, it_inner;
         // residual
         double res, res_old, step_size, c1, c2;
-        
-        //        Eigen::VectorXd res;
+
         
 #ifdef GAUSS_PARDISO
         
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_mass;
-        //        SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_res;
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso;
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_y;
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_sol2;
@@ -331,10 +287,6 @@ namespace Gauss {
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
 template<typename World>
 void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step(World &world, double dt, double t) {
-    
-    // TODO: should not be here... set the rayleigh damping parameter
-    //    a = (std::get<0>(world.getSystemList().getStorage())[0])->a;
-    //    b = (std::get<0>(world.getSystemList().getStorage())[0])->b;
     
     MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
     MatrixAssembler &massMatrix = m_massMatrix;
@@ -390,9 +342,6 @@ void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step
     (*forceVector) = (*forceVector) + m_P*(*fExt);
     
     
-//    MatrixReplacement LHS;
-//    LHS.attachMyMatrix(*stiffnessMatrix);
-//    LHS.attachMyMatrix(mass_lumped.asDiagonal().inverse()*(-(*stiffnessMatrix)),mass_lumped,a,b,dt);
     
     if(!mass_calculated)
     {
@@ -415,63 +364,31 @@ void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step
         
         mass_calculated = true;
     }
-//    m_Us = generalizedEigenvalueProblemNotNormalized((*stiffnessMatrix), m_M, m_numModes, 0.00);
-//    cout<<m_Us.second<<endl;
     MinvK = (1)*mass_lumped_inv.asDiagonal()*(*stiffnessMatrix);
     
-//    Eigen::SparseMatrix<DataType,> MinvK = -A;
-    
-    //Spectra::SparseSymMassShiftSolve<DataType> Aop(K, M);
-    //Aop.set_shift(shift);
     Spectra::SparseGenRealShiftSolvePardiso<DataType> op(MinvK);
     
     // Construct eigen solver object, requesting the smallest three eigenvalues
     Spectra::GenEigsRealShiftSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<DataType>> eigs(&op, m_numModes, 5*m_numModes,0.0);
     
-    
-    //Spectra::GenEigsShiftSolver<double, Spectra::LARGEST_MAGN,  Spectra::SparseSymMassShiftSolve<DataType> > eigs(&Aop, numVecs, 5*numVecs, shift);
-    
     // Initialize and compute
     eigs.init();
     eigs.compute();
     
-//    Spectra::SparseGenMatProd<double> op(MinvK);
-//
-//    // Construct eigen solver object, requesting the largest three eigenvalues
-//    Spectra::GenEigsRealShiftSolver< double, Spectra::LARGEST_MAGN, Spectra::SparseGenMatProd<double> > eigs(&op, 3, 6,0.0);
-//
-//    // Initialize and compute
-//    eigs.init();
-//    int nconv = eigs.compute();
-//    Eigen::VectorXcd evalues;
     if(eigs.info() == Spectra::SUCCESSFUL)
     {
-//        evalues = eigs.eigenvalues();
-//    eigenvalueProblemNotNormalized(MinvK, m_numModes, 0.00);
-//    cout<<m_Us2.second<<endl;
-//        cout<<eigs.eigenvalues()<<endl;
         m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
     }
     else{
         cout<<"eigen solve failed"<<endl;
         exit(1);
     }
-//    cout<<m_Us2.second;
-//    Eigen::saveMarketDat(m_M,"mass.dat");
-//    Eigen::saveMarketDat(m_Us.first,"not_normalized.dat");
-    
+  
     normalizing_const.noalias() = (m_Us.first.transpose() * mass_lumped.asDiagonal() * m_Us.first).diagonal();
     normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
     
     m_Us.first.noalias() = m_Us.first * (normalizing_const.asDiagonal());
     
-//    normalizing_const.noalias() = (m_Us2.first.transpose() * mass_lumped.asDiagonal() * m_Us2.first).diagonal();
-//    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
-//
-//    m_Us2.first.noalias() = m_Us2.first * (normalizing_const.asDiagonal());
-    //
-//        Eigen::saveMarketDat(m_Us.first,"normalized.dat");
-//        Eigen::saveMarketDat(m_Us2.first,"normalized2.dat");
     Eigen::SparseMatrix<double,Eigen::RowMajor> J;
     J.resize((*stiffnessMatrix).rows()*2,(*stiffnessMatrix).rows()*2);
     //get stiffness matrix for J
@@ -489,74 +406,45 @@ void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step
     }
     (J).setFromTriplets(tripletList.begin(), tripletList.end());
 
+#ifndef NDEBUG
+    cout<<"debug mode, printing matrix."<<endl;
+    Eigen::saveMarketDat(J,"J.dat");
+#endif
+    
     (J) = mass_lumped_inv2.asDiagonal() * (J) * rayleigh_b_scaling.asDiagonal();
     J += J21;
 
-    
-//
-//    q = m_P.transpose() * X.head(N);
-//    qDot =  m_P.transpose() *( X.segment(N,N));
-    
     
     U1.block(0,0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first;
     V1.block(m_Us.first.rows(),0,m_Us.first.rows(),m_Us.first.cols()) << mass_lumped.asDiagonal() * m_Us.first;
 //    U2.block(m_Us.first.rows(),0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first * (m_Us.first.transpose() * (*stiffnessMatrix)) * m_Us.first;
     U2.block(m_Us.first.rows(),0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first * (m_Us.second.asDiagonal());
-//    cout<<"mult: "<<endl;
-//    cout<<((m_Us.first.transpose() * (*stiffnessMatrix)) * m_Us.first).diagonal()<<endl;
-//    cout<<"ev: "<<endl;
-//    cout<<m_Us.second<<endl;
     V2.block(0,0,m_Us.first.rows(),m_Us.first.cols()) << mass_lumped.asDiagonal() * m_Us.first;
     
-//    Eigen::saveMarketDat(U1,"U1.dat");
-//    Eigen::saveMarketDat(U2,"U2.dat");
-//    Eigen::saveMarketDat(V1,"V1.dat");
-//    Eigen::saveMarketDat(V2,"V2.dat");
-//    //
     
     dt_J_G_reduced.setZero();
     dt_J_G_reduced.block(0,m_Us.first.cols(),m_Us.first.cols(),m_Us.first.cols()).setIdentity();
-//    dt_J_G_reduced.block(m_Us.first.cols(),0,m_Us.first.cols(),m_Us.first.cols()) << (m_Us.first.transpose() * (*stiffnessMatrix)) * m_Us.first;
     for (int ind = 0; ind < m_Us.first.cols() ; ind++) {
         dt_J_G_reduced(m_Us.first.cols() + ind ,0 + ind ) = m_Us.second(ind);
     }
-//    dt_J_G_reduced.block(m_Us.first.cols(),0,m_Us.first.cols(),m_Us.first.cols()) << (m_Us.second.asDiagonal());
     dt_J_G_reduced *= dt;
-//    Eigen::saveMarketDat(dt_J_G_reduced,"dt_J_G_reduced.dat");
-//
-//
-//    Eigen::saveMarketVectorDat(q,"q.dat");
-//    Eigen::saveMarketVectorDat(qDot,"qDot.dat");
-//    Eigen::saveMarketVectorDat((*forceVector),"force.dat");
-//
 
     vG.noalias() = m_Us.first * (m_Us.first.transpose() * mass_lumped.asDiagonal() * (m_P * qDot));
     
     vH = -vG;
     vH.noalias() += m_P*qDot;
     
-//    Eigen::saveMarketVectorDat(vG,"vG.dat");
-//    Eigen::saveMarketVectorDat(vH,"vH.dat");
-    
     fG.noalias() = (mass_lumped.asDiagonal() * m_Us.first ) * (m_Us.first.transpose() * (*forceVector));
     fH = (*forceVector) - fG;
     
-//    Eigen::saveMarketVectorDat(fG,"fG.dat");
-//    Eigen::saveMarketVectorDat(fH,"fH.dat");
-
     
     A.setIdentity();
     A -= dt * (J);
-    
-//    Eigen::saveMarketDat(A,"A.dat");
-
     
 #ifdef GAUSS_PARDISO
     
     m_pardiso.symbolicFactorization(A);
     m_pardiso.numericalFactorization();
-//    m_pardiso.solve(*forceVector);
-    
 
     Eigen::VectorXx<double> rhs1;
     rhs1.resize(m_P.rows()*2);
@@ -568,95 +456,63 @@ void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step
     rhs1.head(m_P.rows()) = (-dt) * vH;
     rhs1.tail(m_P.rows()).noalias() = (-dt) * mass_lumped_inv.asDiagonal() * fH;
     
-//    Eigen::saveMarketVectorDat(rhs1,"rhs1c.dat");
-
-    
     Eigen::VectorXx<double> reduced_vec;
     reduced_vec.resize(dt_J_G_reduced.cols());
     reduced_vec.head(dt_J_G_reduced.cols()/2).noalias() = m_Us.first.transpose() * (mass_lumped.asDiagonal() * (m_P * qDot));
     reduced_vec.tail(dt_J_G_reduced.cols()/2).noalias() = (m_Us.first.transpose() * (*forceVector));
-//    Eigen::saveMarketVectorDat(reduced_vec,"reduced_vec.dat");
-    
+
     Eigen::MatrixXx<double> block_diag_eigv;
     
     block_diag_eigv.resize(m_Us.first.rows()*2,m_Us.first.cols()*2);
     block_diag_eigv.setZero();
     block_diag_eigv.block(0,0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first;
     block_diag_eigv.block(m_Us.first.rows(),m_Us.first.cols(),m_Us.first.rows(),m_Us.first.cols()) << m_Us.first;
-//    Eigen::saveMarketDat(block_diag_eigv,"block_diag_eigv.dat");
     
     Eigen::MatrixXx<double> phi_reduced;
     phi_reduced.resize(m_Us.first.cols()*2,m_Us.first.cols()*2);
     phi_reduced.setZero();
     
     phi((dt_J_G_reduced), phi_reduced);
-//    Eigen::saveMarketDat(phi_reduced,"phi_red.dat");
 
     rhs2.noalias() = (-dt) * block_diag_eigv * phi_reduced * reduced_vec;
-//    Eigen::saveMarketVectorDat(rhs2,"rhs2c.dat");
-//    Eigen::saveMarketVectorDat(block_diag_eigv * phi_reduced * reduced_vec * (dt) * (-1),"rhs2c.dat");
     
     rhs = rhs1 + rhs2;
-//    Eigen::saveMarketVectorDat(rhs,"rhsc.dat");
-
-//    m_pardiso.solve(rhs);
-//    cout<<rhs.rows()<<endl;
-//    cout<<U1.rows()<<endl;
     
     Eigen::VectorXd x0;
     m_pardiso.solve(rhs);
     x0 = m_pardiso.getX();
-//    Eigen::saveMarketVectorDat(x0,"x0c.dat");
-
     
     U1 *= dt;
     Eigen::MatrixXd x1;
     m_pardiso.solve(U1);
     x1 = m_pardiso.getX();
 
-//    Eigen::saveMarketDat(x1,"x1c.dat");
-
     U2 *= dt;
     Eigen::MatrixXd x2;
     m_pardiso.solve(U2);
     x2 = m_pardiso.getX();
     
-//    Eigen::saveMarketDat(x2,"x2c.dat");
-
-
     Eigen::MatrixXd Is;
     Is.resize(U1.cols(),U1.cols());
     Is.setIdentity();
     
-    
-    
     Eigen::MatrixXd yLHS = Is + V1.transpose()*x1;
-//    Eigen::LDLT<Eigen::MatrixXd> yLHS(Is + V1.transpose()*x1);
     Eigen::VectorXd y0;
-//    Eigen::VectorXd yRHS1 = V1.transpose()*x0;
-//    m_pardiso_y.solve(yRHS1);
     y0 = x0;
     y0.noalias() -= x1 * yLHS.ldlt().solve(V1.transpose()*x0);
-//    Eigen::saveMarketVectorDat(y0,"y0c.dat");
-
-//
+    
     Eigen::VectorXd y1;
     y1.resize(x2.rows());
     Eigen::MatrixXd yRHS2 = V1.transpose()*x2;
-//    m_pardiso_y.solve(yRHS2);
+    
     x2.noalias() -= x1 * (yLHS.ldlt().solve(yRHS2));
-//    Eigen::saveMarketDat(x2,"y1c.dat");
-//    y1 = x2 - x1 * (yLHS.ldlt().solve(yRHS2));
-//
+
     Eigen::MatrixXd sol2LHS = Is + V2.transpose()*x2;
-//    m_pardiso_sol2.symbolicFactorization(sol2LHS);
-//    m_pardiso_sol2.numericalFactorization();
+
     Eigen::VectorXd sol2;
     Eigen::MatrixXd sol2RHS = V2.transpose()*y0;
-//    m_pardiso_sol2.solve(sol2RHS);
+
     y0.noalias() -= x2 * (sol2LHS).ldlt().solve(sol2RHS);
-//    Eigen::saveMarketDat(y0,"sol2.dat");
-//    sol2 = y0 - y1 * (Is + V2.transpose()*y1).ldlt().solve(V2.transpose()*y0);
     
     auto state = mapStateEigen(world);
     
@@ -665,16 +521,6 @@ void TimeStepperImplSIIMEXImpl<DataType, MatrixAssembler, VectorAssembler>::step
 #else
 #endif
 
-//    U2 *= dt;
-//    cout<<m_pardiso.getX().rows()<<endl;
-//    cout<<m_pardiso.getX().cols()<<endl;
-
-    //
-//    rhs2.head(m_P.rows()) = (-dt) * vH;
-//    rhs2.tail(m_P.rows()) = (-dt) * mass_lumped_inv.asDiagonal() * fH;
-//    Eigen::MatrixXx<double> zeros_block;
-//    zeros_block.resize(m_Us.first.rows(),m_Us.first.cols());
-    
 }
 
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>

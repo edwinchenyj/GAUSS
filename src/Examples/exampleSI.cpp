@@ -7,7 +7,7 @@
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
 #include <TimeStepperERE.h>
-#include <TimeStepperSIIMEX.h>
+//#include <TimeStepperSIIMEX.h>
 #include <TimeStepperSI.h>
 #include <TimeStepperBE.h>
 #include <ExponentialIMEX.h>
