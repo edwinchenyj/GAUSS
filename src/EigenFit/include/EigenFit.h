@@ -127,6 +127,10 @@ public:
         
         this->mode_matching_tol = mode_matching_tol;
         calculate_matching_data_flag = 1;
+        init_eigenvalue_criteria = false;
+        
+        eigenfit_data = 0; // code for nothing happens
+        
         step_number = 0;
         if(num_modes != 0)
         {
@@ -464,7 +468,7 @@ public:
             // assemble mass matrix in the constructor because it won't change
             
             //lambda can't capture member variable, so create a local one for lambda in ASSEMBLELIST
-            cout<<"Pre-calculate mass matrix for the fine mesh."<<endl;
+//            cout<<"Pre-calculate mass matrix for the fine mesh."<<endl;
             AssemblerEigenSparseMatrix<double> &massMatrix = m_fineMassMatrix;
             
             //get mass matrix
@@ -550,7 +554,7 @@ public:
     
     // calculate data, TODO: the first two parameter should be const
     template<typename MatrixAssembler>
-    bool calculateEigenFitData(const Eigen::VectorXx<double> &q, MatrixAssembler &coarseMassMatrix, MatrixAssembler &coarseStiffnessMatrix,  std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > &m_coarseUs, Eigen::MatrixXd &Y, Eigen::MatrixXd &Z)
+    int calculateEigenFitData(const Eigen::VectorXx<double> &q, MatrixAssembler &coarseMassMatrix, MatrixAssembler &coarseStiffnessMatrix,  std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > &m_coarseUs, Eigen::MatrixXd &Y, Eigen::MatrixXd &Z)
     {
         
         //        Eigen::saveMarketDat((*coarseStiffnessMatrix), "coarseStiffness.dat");
@@ -625,7 +629,7 @@ public:
         //        coarseEigMassProj = m_coarseUs;
         //        prev_coarse_eigenvectors = coarseEig.first;
         coarseEig = m_coarseUs;
-
+        
         if(calculate_matching_data_flag != 0)
         {
             //            cout<<"matching modes. ";
@@ -636,7 +640,7 @@ public:
             }
             if(step_number == 0)
             {
-                cout<<"storing initial eigenvectors"<<endl;
+//                cout<<"storing initial eigenvectors"<<endl;
                 init_coarse_eigenvectors = coarseEig.first;
                 init_coarse_eigenvalues = coarseEig.second;
                 
@@ -669,39 +673,48 @@ public:
                     {
                         matched_modes_list(i) = min_ind;
                         
-                        cout<<"init matched: "<<init_matched_modes_list<<endl;
-                        if(i == min_ind)
+                        if(init_eigenvalue_criteria && coarseEig.second(i)/init_coarse_eigenvalues(min_ind) > 2)
                         {
-                            cout<<"no mode crossing. matching % = "<< 1-min_val<<endl;
-                            if(init_matched_modes_list(min_ind) != -1)
-                            {
-                            cout<<"will apply ratio: "<<m_R(min_ind)<<endl;
-                            cout<<"or: "<<fineEig.second(init_matched_modes_list(min_ind))<<"/"<<init_coarse_eigenvalues(min_ind)<<endl;
-                            }
-                            else
-                            {
-                                cout<<"initial mode "<<min_ind<<" matches to nothing."<<endl;
-                            }
-                            
+                            cout<<"warning: eigenvalue "<<i<<" changed too much. Eigenfit will have diffculty at large nonlinearity."<<endl;
+                            eigenfit_data = 3; // code when init eigenvalue criteria failed
                         }
-                        else
-                        {                            //                            cout<<"mode crossing occurred"<<endl;
-                            cout<<"mode "<<i<<" matched to initial mode "<<min_ind<<", matching % = "<<1-min_val<<endl;
-                            if(init_matched_modes_list(min_ind) != -1)
+                        else{
+                            //                        cout<<"init matched: "<<init_matched_modes_list<<endl;
+                            if(i == min_ind)
                             {
-                            cout<<"need to apply ratio: "<<m_R(min_ind)<<endl;
-                            cout<<"or: "<<fineEig.second(init_matched_modes_list(min_ind))<<"/"<<init_coarse_eigenvalues(min_ind)<<endl;
+                                //                            cout<<"no mode crossing. matching % = "<< 1-min_val<<endl;
+                                if(init_matched_modes_list(min_ind) != -1)
+                                {
+                                    //                            cout<<"will apply ratio: "<<m_R(min_ind)<<endl;
+                                    //                            cout<<"or: "<<fineEig.second(init_matched_modes_list(min_ind))<<"/"<<init_coarse_eigenvalues(min_ind)<<endl;
+                                }
+                                else
+                                {
+                                    //                                cout<<"initial mode "<<min_ind<<" matches to nothing."<<endl;
+                                }
+                                
                             }
                             else
-                            {
-                                cout<<"initial mode "<<min_ind<<" matches to nothing."<<endl;
+                            {                            //                            cout<<"mode crossing occurred"<<endl;
+                                //                            cout<<"mode "<<i<<" matched to initial mode "<<min_ind<<", matching % = "<<1-min_val<<endl;
+                                if(init_matched_modes_list(min_ind) != -1)
+                                {
+                                    //                            cout<<"need to apply ratio: "<<m_R(min_ind)<<endl;
+                                    //                            cout<<"or: "<<fineEig.second(init_matched_modes_list(min_ind))<<"/"<<init_coarse_eigenvalues(min_ind)<<endl;
+                                }
+                                else
+                                {
+                                    //                                cout<<"initial mode "<<min_ind<<" matches to nothing."<<endl;
+                                }
                             }
                         }
                     }
                     else
                     {
                         matched_modes_list(i) = -1; // -1 if can't find any matching mode
-                        cout<<"no matching mode"<<endl;
+                        //                        cout<<"no matching mode"<<endl;
+                        eigenfit_data = 2; // code for unmatching eigenmodes
+                        
                     }
                 }
             }
@@ -728,11 +741,11 @@ public:
             //constraint Projection
             (*fineStiffnessMatrix) = m_fineP*(*fineStiffnessMatrix)*m_fineP.transpose();
             
-            cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
+            //            cout<<"Performing eigendecomposition on the embedded fine mesh"<<endl;
             
             if(simple_mass_flag)
             {
-                cout<<"using simple mass for fine mesh"<<endl;
+                //                cout<<"using simple mass for fine mesh"<<endl;
                 fineMinvK = (-1)*fine_mass_lumped_inv.asDiagonal()*(*fineStiffnessMatrix);
                 
                 Spectra::SparseGenRealShiftSolvePardiso<double> op(fineMinvK);
@@ -773,17 +786,17 @@ public:
             Eigen::saveMarketVectorDat(coarseEig.second, "coarsemesh_rest_eigenvalues.dat");
             if(calculate_matching_data_flag != 0)
             {
-                cout<<"matching fine modes at rest state"<<endl;
+                //                cout<<"matching fine modes at rest state"<<endl;
                 init_matched_modes_list.resize(m_num_modes);
                 init_matched_modes_list.setZero();
                 for (int i = 0; i < m_num_modes; i++) {
                     init_matched_modes_list(i) = i;
                 }
-                cout<<"mapping initial eigenvectors"<<endl;
+                //                cout<<"mapping initial eigenvectors"<<endl;
                 init_coarse_eigenvectors = coarseEig.first;
                 Eigen::MatrixXd  mapped_init_fine_eigenvectors;
                 mapped_init_fine_eigenvectors = m_fineP*(*N) * m_coarseP.transpose()*init_coarse_eigenvectors;
-                cout<<"mapped"<<endl;
+                //                cout<<"mapped"<<endl;
                 
                 dist_map.resize(m_num_modes,m_num_modes);
                 dist_map.setZero();
@@ -800,24 +813,25 @@ public:
                 ones.setOnes();
                 dist_map = ones - dist_map;
                 dist_map = dist_map.cwiseAbs(); // should have no effect
-                cout<<"dist map: "<<endl;
-                cout<<dist_map<<endl;
+                //                cout<<"dist map: "<<endl;
+                //                cout<<dist_map<<endl;
                 
                 for (int i = 0; i < m_num_modes; i++) {
                     Eigen::VectorXd::Index min_ind;
                     double min_val = dist_map.col(i).minCoeff(&min_ind);
-                    if(abs(min_val) < 0.2) // set the matching tolerance criteria. accept 0.2
+                    if(abs(min_val) < init_mode_matching_tol) // set the matching tolerance criteria
                     {
                         init_matched_modes_list(i) = min_ind;
                         
-                        cout<<"coarse mode "<<i<<" mapped to fine mode "<<min_ind<<". matching % = "<< 1-min_val<<endl;
-                        cout<<"coarse eigenvalue "<<coarseEig.second(i)<<" matched to fine eigenvalue "<<fineEig.second(min_ind)<<endl;
+                        //                        cout<<"coarse mode "<<i<<" mapped to fine mode "<<min_ind<<". matching % = "<< 1-min_val<<endl;
+                        //                        cout<<"coarse eigenvalue "<<coarseEig.second(i)<<" matched to fine eigenvalue "<<fineEig.second(min_ind)<<endl;
                         
                     }
                     else
                     {
                         init_matched_modes_list(i) = -1; // -1 if can't find any matching mode
-                        cout<<"coarse mode "<<i<<" has no matched fine mode "<<".  best matching % = "<<1-min_val<<endl;
+                        //                        cout<<"coarse mode "<<i<<" has no matched fine mode "<<".  best matching % = "<<1-min_val<<endl;
+                        eigenfit_data = 1;// code for missing initial mode matching (2 meshes too different)
                     }
                     
                 }
@@ -825,7 +839,7 @@ public:
                 
             }
             
-            cout<<"Writing fine eigen deformation to file (for Hausdorff distance check and reloading in static)."<<endl;
+            //            cout<<"Writing fine eigen deformation to file (for Hausdorff distance check and reloading in static)."<<endl;
             //
             int mode = 0;
             Eigen::VectorXd fine_eig_def;
@@ -850,13 +864,13 @@ public:
                 igl::writeOBJ("finemesh_eigenmode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
                 
                 
-                std::string ffilename = "data/feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
+                std::string ffilename = "feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
                 Eigen::saveMarket(fine_V_disp, ffilename );
             }
             
             
             // reset deformation if it is not zero. need zero (rest state configuration) to calculate static ratio.
-            cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
+//            cout<<"writing coarse eigen deformation into files (for Hausdorff distance check)."<<endl;
             
             Eigen::VectorXd coarse_eig_def;
             for (mode = 0; mode < m_num_modes; ++mode)
@@ -934,10 +948,9 @@ public:
                     m_R(5) = 1.0;
                     
                 }
-                //#ifdef EDWIN_DEBUG
-                cout<<"Ratios: "<<endl;
-                std::cout<<m_R(i)<<std::endl;
-                //#endif
+                
+                //                cout<<"Ratios: "<<endl;
+                //                std::cout<<m_R(i)<<std::endl;
                 
             }
             ratio_calculated = true;
@@ -946,9 +959,9 @@ public:
         
         
         
-        cout<<"using ratios: "<<endl;
+        //        cout<<"using ratios: "<<endl;
         //                cout<<m_R<<endl;
-        Eigen::VectorXd m_R_current(m_R.rows());
+        //        Eigen::VectorXd m_R_current(m_R.rows());
         m_R_current = m_R;
         if(calculate_matching_data_flag == 2  )
         {
@@ -963,7 +976,7 @@ public:
                     m_R_current(i) = 1; // if no matched mode, use ratio = 1;
                 }
             }
-            cout<<"after mode matching: "<<endl;
+            //            cout<<"after mode matching: "<<endl;
             //            cout<<m_R_current<<endl;
         }
         //        mode composition not implemented
@@ -973,7 +986,7 @@ public:
         //            cout<<"after mode composition: "<<endl;
         //
         //        }
-        cout<<m_R_current<<endl;
+        //        cout<<m_R_current<<endl;
         if(simple_mass_flag)
         {
             Y = (m_coarseM)*m_coarseUs.first*((m_R_current-m_I).asDiagonal());
@@ -1118,6 +1131,7 @@ public:
     Eigen::MatrixXi m_surfFf;
     Eigen::MatrixXi m_surfFc;
     Eigen::VectorXd m_R;
+    Eigen::VectorXd m_R_current;
     int ratio_recalculation_switch;
     Eigen::MatrixXx<double> m_Vf;
     
@@ -1137,12 +1151,18 @@ public:
     
     Eigen::VectorXi matched_modes_list;
     Eigen::VectorXi init_matched_modes_list;
+    Eigen::VectorXd init_eigenvalues_list;
     
-    bool init_mode_matching_flag;
+//    bool init_mode_matching_flag;
     double mode_matching_tol;
     Eigen::MatrixXd dist_map;
     
     int calculate_matching_data_flag;
+    
+    bool init_eigenvalue_criteria;
+    double init_mode_matching_tol;
+    
+    int eigenfit_data;
 protected:
     
     World<double, std::tuple<PhysicalSystemImpl *>,
