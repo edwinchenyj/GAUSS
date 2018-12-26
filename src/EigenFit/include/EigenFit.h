@@ -686,7 +686,10 @@ public:
                         
                         if(init_eigenvalue_criteria && coarseEig.second(i)/init_coarse_eigenvalues(min_ind) > init_eigenvalue_criteria_factor)
                         {
-                            cout<<"warning: eigenvalue "<<i<<" changed too much. To "<< coarseEig.second(i) <<" from "<< init_coarse_eigenvalues(min_ind)<<". Eigenfit will have diffculty at large nonlinearity."<<endl;
+                            cout<<"warning: eigenvalue "<<i<<" changed too much from init eigenvalue "<<min_ind<<". To "<< coarseEig.second(i) <<" from "<< init_coarse_eigenvalues(min_ind)<<". Eigenfit will have diffculty at large nonlinearity."<<endl;
+                            Eigen::saveMarketDat(dist_map, ("err_dist_map.dat"));
+                            Eigen::saveMarketVectorDat(matched_modes_list, ("err_matched_modes_list.dat"));
+                            
                             eigenfit_data = 3; // code when init eigenvalue criteria failed
                         }
                         else{
