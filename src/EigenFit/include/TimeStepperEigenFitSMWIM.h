@@ -307,7 +307,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             // if number of modes not equals to 0, use EigenFit
             if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
-                static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                if (it_outer == 1) { //since the correction is small (not stiff), use explicit integration
+                    static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                }
                 
                 //    Correct Forces
                 (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
@@ -441,7 +443,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             // if number of modes not equals to 0, use EigenFit
             if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
                 
-                static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                if (it_outer == 1) { //since the correction is small (not stiff), use explicit integration
+                    static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                }
 //                cout<<"eigenfit data calculated "<<endl;
                 //    Correct Forces
                 (*forceVector) = (*forceVector) + Y*(m_coarseUs.first.transpose()*(*forceVector));
