@@ -416,7 +416,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
 //                            static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
                 //    Correct Forces
-                (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
+                (*forceVector) = (*forceVector) + Y*(m_coarseUs.first.transpose()*(*forceVector));
                 
                 // add damping
 //                (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
@@ -444,7 +444,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                 static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
 //                cout<<"eigenfit data calculated "<<endl;
                 //    Correct Forces
-                (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
+                (*forceVector) = (*forceVector) + Y*(m_coarseUs.first.transpose()*(*forceVector));
 //                cout<<"force corrected"<<endl;
                 // add damping
 //                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
@@ -542,7 +542,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
 //                static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
                 
                 //    Correct Forces
-                (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
+                (*forceVector) = (*forceVector) + Y*(m_coarseUs.first.transpose()*(*forceVector));
                 
                 // add damping
 //                (*forceVector) = (*forceVector) -  (a * (m_M) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);

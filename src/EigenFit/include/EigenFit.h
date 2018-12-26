@@ -164,7 +164,18 @@ public:
             //element[i] is a n-vector that stores the index of the element containing the ith vertex in the embedded mesh
             // *N is the upsample operator
             // (*N).transpose is downsample operator
-            getShapeFunctionMatrix(N,m_elements,Vf, (*this).getImpl());
+            std::string N_file_name = "data/" + cmeshname + "_to_" + fmeshname+".mtx";
+            if(!Eigen::loadMarket(*N,N_file_name))
+            {
+                cout<<N_file_name<<endl;
+                cout<<"File does not exist, creating new file..."<<endl;
+                getShapeFunctionMatrix(N,m_elements,Vf, (*this).getImpl());
+                Eigen::saveMarket(*N,N_file_name);
+            }
+//            getShapeFunctionMatrix(N,m_elements,Vf, (*this).getImpl());
+//            Eigen::loadMarket(*N,N_file_name);
+//            Eigen::saveMarket(*N,N_file_name);
+            
             
             // set the flag
             haus = hausdorff_dist;
@@ -197,7 +208,7 @@ public:
             Eigen::SparseMatrix<double> fineP;
             Eigen::SparseMatrix<double> coarseP;
             
-            cout<<"Setting fine mesh constraints..."<<endl;
+//            cout<<"Setting fine mesh constraints..."<<endl;
             if (const_profile == 0) {
                 // hard-coded constraint projection
                 cout<<"No constraints"<<endl;
@@ -559,7 +570,7 @@ public:
         
         //        Eigen::saveMarketDat((*coarseStiffnessMatrix), "coarseStiffness.dat");
         //        Eigen::saveMarketDat((*coarseMassMatrix), "coarseMass.dat");
-        if(simple_mass_flag)
+        if(simple_mass_flag && !coarse_mass_calculated)
         {
             //            cout<<"using simple mass"<<endl;
             
@@ -663,7 +674,7 @@ public:
                 dist_map = ones - dist_map;
                 dist_map = dist_map.cwiseAbs(); // should have no effect
                 
-                cout<<"dist map: "<<endl<<dist_map<<endl;
+//                cout<<"dist map: "<<endl<<dist_map<<endl;
                 
                 for (int i = 0; i < m_num_modes; i++)
                 {
@@ -839,6 +850,10 @@ public:
                 
             }
             
+            Eigen::saveMarketVectorDat(init_matched_modes_list,"init_matched_modes_list.dat");
+            Eigen::saveMarketVectorDat(dist_map,"init_dist_map.dat");
+        Eigen::saveMarketVectorDat(fineEig.second,"init_fineeigenvalues.dat");
+            
             //            cout<<"Writing fine eigen deformation to file (for Hausdorff distance check and reloading in static)."<<endl;
             //
             int mode = 0;
@@ -864,8 +879,8 @@ public:
                 igl::writeOBJ("finemesh_eigenmode" + std::to_string(mode) + ".obj",fine_V_disp,fine_F);
                 
                 
-                std::string ffilename = "feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
-                Eigen::saveMarket(fine_V_disp, ffilename );
+//                std::string ffilename = "feigendef"+ std::to_string(mode) + "_"+ std::to_string(youngs) + "_" + std::to_string(poisson) + "_" + std::to_string(const_profile) + "_" + std::to_string(m_constraint_dir) + "_" + std::to_string(m_constraint_tol) + ".mtx";
+//                Eigen::saveMarket(fine_V_disp, ffilename );
             }
             
             

@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
     double mode_matching_tol = 0.4;
     int calculate_matching_data_flag = 1;
     double init_mode_matching_tol = 0.4;
-    bool init_eigenvalue_criteria=false;
+    bool init_eigenvalue_criteria= false;
     
     parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria);
     
@@ -648,12 +648,11 @@ int main(int argc, char **argv) {
         
         if(num_modes != 0)
         {
-            Eigen::saveMarketVectorDat(test->m_R, filename_number_padded("m_R",file_ind , "dat"));
             
-            Eigen::saveMarketDat(test->coarseEig.first,filename_number_padded("coarse_def_modes", file_ind,"dat"));
+//            Eigen::saveMarketDat(test->coarseEig.first,filename_number_padded("coarse_def_modes", file_ind,"dat"));
             
             Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
-            Eigen::saveMarketVectorDat(test->fineEig.second,filename_number_padded("feigenvalues",file_ind,"dat"));
+            
             
             Eigen::saveMarketDat(test->dist_map, filename_number_padded("dist_map",file_ind,"dat"));
             Eigen::saveMarketVectorDat(test->matched_modes_list, filename_number_padded("matched_modes_list",file_ind,"dat"));
