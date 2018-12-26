@@ -139,13 +139,14 @@ int main(int argc, char **argv) {
     double a = 0;
     double b = -1e-3;
     //        std::string ratio_manual_file = (argv[15]);
-    int compute_frequency = 1; // not used anymore
     bool output_data_flag = false;
     bool simple_mass_flag = true;
     double mode_matching_tol = 0.4;
     int calculate_matching_data_flag = 1;
+    double init_mode_matching_tol = 0.4;
+    bool init_eigenvalue_criteria=false;
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag);
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria);
     
     std::ofstream simfile;
     simfile.open ("sim_log.txt");
@@ -169,6 +170,8 @@ int main(int argc, char **argv) {
     simfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
     simfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
     simfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
+    simfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
+    simfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
     simfile.close();
     
     
@@ -197,6 +200,8 @@ int main(int argc, char **argv) {
     test->a = a;
     test->b = b;
     test->calculate_matching_data_flag = calculate_matching_data_flag;
+    test->init_mode_matching_tol = init_mode_matching_tol;
+    test->init_eigenvalue_criteria = init_eigenvalue_criteria;
     
     
     world.addSystem(test);
@@ -497,6 +502,8 @@ int main(int argc, char **argv) {
             cout<<"Using simple mass flag: "<<simple_mass_flag<<endl;
             cout<<"Using mode matching tol: "<<mode_matching_tol<<endl;
             cout<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
+            cout<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
+            cout<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
             
             std::ofstream myfile;
             myfile.open ("error_log.txt");
@@ -520,10 +527,81 @@ int main(int argc, char **argv) {
             myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
             myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
             myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
+            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
+            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
+            
             myfile.close();
             
             return 1;
         }
+        
+        if (test->eigenfit_data == 1) {
+            cout<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
+            
+            std::ofstream myfile;
+            myfile.open ("error_log.txt");
+            myfile.open ("error_log.txt");
+            
+            myfile<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
+            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
+            myfile<<"Using fine mesh: "<<fmeshname<<endl;
+            myfile<<"Using Youngs: "<<youngs<<endl;
+            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
+            myfile<<"Using constriant profile: "<<const_profile<<endl;
+            myfile<<"Using initial deformation: "<<initial_def<<endl;
+            myfile<<"Using number of steps: "<< num_steps<<endl;
+            myfile<<"Using haus: "<<haus<<endl;
+            myfile<<"Using number of modes: "<<num_modes<<endl;
+            myfile<<"Using constraint direction: "<<const_dir<<endl;
+            myfile<<"Using step size: "<<step_size<<endl;
+            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
+            myfile<<"Using a: "<<a<<endl;
+            myfile<<"Using b: "<<b<<endl;
+            myfile<<"Using output data flag: "<<output_data_flag<<endl;
+            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
+            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
+            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
+            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
+            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
+            
+            myfile.close();
+            
+            return 1;
+        }
+        else if (test->eigenfit_data == 3)
+        {
+            
+            std::ofstream myfile;
+            myfile.open ("error_log.txt");
+            cout<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
+            myfile.open ("error_log.txt");
+            
+            myfile<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
+            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
+            myfile<<"Using fine mesh: "<<fmeshname<<endl;
+            myfile<<"Using Youngs: "<<youngs<<endl;
+            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
+            myfile<<"Using constriant profile: "<<const_profile<<endl;
+            myfile<<"Using initial deformation: "<<initial_def<<endl;
+            myfile<<"Using number of steps: "<< num_steps<<endl;
+            myfile<<"Using haus: "<<haus<<endl;
+            myfile<<"Using number of modes: "<<num_modes<<endl;
+            myfile<<"Using constraint direction: "<<const_dir<<endl;
+            myfile<<"Using step size: "<<step_size<<endl;
+            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
+            myfile<<"Using a: "<<a<<endl;
+            myfile<<"Using b: "<<b<<endl;
+            myfile<<"Using output data flag: "<<output_data_flag<<endl;
+            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
+            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
+            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
+            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
+            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
+            
+            myfile.close();
+            return 1;
+        }
+        
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);
         // acts like the "callback" block for moving constraint
         
@@ -580,6 +658,7 @@ int main(int argc, char **argv) {
             Eigen::saveMarketDat(test->dist_map, filename_number_padded("dist_map",file_ind,"dat"));
             Eigen::saveMarketVectorDat(test->matched_modes_list, filename_number_padded("matched_modes_list",file_ind,"dat"));
             Eigen::saveMarketVectorDat(test->init_matched_modes_list,"init_matched_modes_list.dat");
+            Eigen::saveMarketVectorDat(test->m_R_current,"m_R_current");
             
         }
         
