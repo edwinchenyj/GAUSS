@@ -686,7 +686,7 @@ public:
                         
                         if(init_eigenvalue_criteria && coarseEig.second(i)/init_coarse_eigenvalues(min_ind) > init_eigenvalue_criteria_factor)
                         {
-                            cout<<"warning: eigenvalue "<<i<<" changed too much. Eigenfit will have diffculty at large nonlinearity."<<endl;
+                            cout<<"warning: eigenvalue "<<i<<" changed too much. To "<< coarseEig.second(i) <<" from "<< init_coarse_eigenvalues(min_ind)<<". Eigenfit will have diffculty at large nonlinearity."<<endl;
                             eigenfit_data = 3; // code when init eigenvalue criteria failed
                         }
                         else{
