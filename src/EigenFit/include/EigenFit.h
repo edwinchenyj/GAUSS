@@ -128,7 +128,7 @@ public:
         this->mode_matching_tol = mode_matching_tol;
         calculate_matching_data_flag = 1;
         init_eigenvalue_criteria = false;
-        
+        init_eigenvalue_criteria_factor = 4;
         eigenfit_data = 0; // code for nothing happens
         
         step_number = 0;
@@ -684,7 +684,7 @@ public:
                     {
                         matched_modes_list(i) = min_ind;
                         
-                        if(init_eigenvalue_criteria && coarseEig.second(i)/init_coarse_eigenvalues(min_ind) > 2)
+                        if(init_eigenvalue_criteria && coarseEig.second(i)/init_coarse_eigenvalues(min_ind) > init_eigenvalue_criteria_factor)
                         {
                             cout<<"warning: eigenvalue "<<i<<" changed too much. Eigenfit will have diffculty at large nonlinearity."<<endl;
                             eigenfit_data = 3; // code when init eigenvalue criteria failed
@@ -1175,6 +1175,7 @@ public:
     int calculate_matching_data_flag;
     
     bool init_eigenvalue_criteria;
+    int init_eigenvalue_criteria_factor;
     double init_mode_matching_tol;
     
     int eigenfit_data;

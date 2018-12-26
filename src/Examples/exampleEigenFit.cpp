@@ -145,8 +145,9 @@ int main(int argc, char **argv) {
     int calculate_matching_data_flag = 1;
     double init_mode_matching_tol = 0.4;
     bool init_eigenvalue_criteria= false;
+    int init_eigenvalue_criteria_factor = 4;
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria);
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor);
     
     std::ofstream simfile;
     simfile.open ("sim_log.txt");
@@ -172,6 +173,7 @@ int main(int argc, char **argv) {
     simfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
     simfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
     simfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
+    simfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
     simfile.close();
     
     
@@ -202,7 +204,8 @@ int main(int argc, char **argv) {
     test->calculate_matching_data_flag = calculate_matching_data_flag;
     test->init_mode_matching_tol = init_mode_matching_tol;
     test->init_eigenvalue_criteria = init_eigenvalue_criteria;
-    
+    test->init_eigenvalue_criteria_factor = init_eigenvalue_criteria_factor;
+
     
     world.addSystem(test);
     
@@ -504,7 +507,8 @@ int main(int argc, char **argv) {
             cout<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
             cout<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             cout<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            
+            cout<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
+
             std::ofstream myfile;
             myfile.open ("error_log.txt");
             
@@ -529,7 +533,8 @@ int main(int argc, char **argv) {
             myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
             myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            
+            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
+
             myfile.close();
             
             return 1;
@@ -539,7 +544,6 @@ int main(int argc, char **argv) {
             cout<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
             
             std::ofstream myfile;
-            myfile.open ("error_log.txt");
             myfile.open ("error_log.txt");
             
             myfile<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
@@ -563,7 +567,8 @@ int main(int argc, char **argv) {
             myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
             myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            
+            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
+
             myfile.close();
             
             return 1;
@@ -574,8 +579,6 @@ int main(int argc, char **argv) {
             std::ofstream myfile;
             myfile.open ("error_log.txt");
             cout<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
-            myfile.open ("error_log.txt");
-            
             myfile<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
             myfile<<"Using coarse mesh: "<<cmeshname<<endl;
             myfile<<"Using fine mesh: "<<fmeshname<<endl;
@@ -597,7 +600,8 @@ int main(int argc, char **argv) {
             myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
             myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            
+            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
+
             myfile.close();
             return 1;
         }
