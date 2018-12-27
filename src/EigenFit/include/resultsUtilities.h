@@ -26,7 +26,7 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
                  std::string &fmeshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
                  int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
-                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor)
+                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -137,6 +137,10 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
         {
             init_eigenvalue_criteria_factor = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
+        }
+        else if(field.compare("integrator") == 0) {
+            integrator =arg.substr(eq_found+1,arg.length()-eq_found-1);
+            cout<<"Using integrator: "<<integrator<<endl;
         }
         else
         {

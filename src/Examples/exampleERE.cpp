@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     using std::endl;
     
     //    default example meshes
-    std::string meshname = "/meshesTetWild/brick/brick_surf/brick_surf_5";
+    std::string meshname = "/meshesTetWild/brick_surf/brick_surf_5";
     
     
     //    default parameters
@@ -316,7 +316,7 @@ int main(int argc, char **argv) {
     }
     
     
-    MyTimeStepper stepper(step_size,P, a, b);
+    MyTimeStepperERE stepper(step_size,P, a, b);
     
     unsigned int file_ind = 0;
     struct stat buf;

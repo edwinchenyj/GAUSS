@@ -146,8 +146,9 @@ int main(int argc, char **argv) {
     double init_mode_matching_tol = 0.4;
     bool init_eigenvalue_criteria= false;
     int init_eigenvalue_criteria_factor = 4;
+    std::string integrator = "IM";
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor);
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator);
     
     std::ofstream simfile;
     simfile.open ("sim_log.txt");
@@ -174,6 +175,8 @@ int main(int argc, char **argv) {
     simfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
     simfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
     simfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
+    simfile<<"Using integrator: "<< integrator<<endl;
+    
     simfile.close();
     
     
@@ -462,7 +465,7 @@ int main(int argc, char **argv) {
         }
     }
     
-    MyTimeStepper stepper(step_size,P,num_modes,a,b);
+    MyTimeStepper stepper(step_size,P,num_modes,a,b, integrator);
     
     // rayleigh damping. should not be here but this will do for now
     //         the number of steps to take
@@ -474,7 +477,8 @@ int main(int argc, char **argv) {
 //    struct stat buf;
     unsigned int idxc;
     clock_t dt;
-    clock_t total_t = 0.0;
+    clock_t total_t = 0;
+    double actual_t = 0.0;
     for(istep=0; istep<num_steps ; ++istep)
     {
         // update step number;
@@ -484,6 +488,7 @@ int main(int argc, char **argv) {
         stepper.step(world);
         dt = clock() - t;
         total_t += dt;
+        actual_t = ((double)total_t)/CLOCKS_PER_SEC;
         if(!stepper.getImpl().step_success)
         {
             cout<<"Error: stepper fail at frame "<< test->step_number <<" with parameters: "<<endl;
@@ -508,7 +513,7 @@ int main(int argc, char **argv) {
             cout<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             cout<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
             cout<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-
+            cout<<"Using integrator: "<< integrator<<endl;
             std::ofstream myfile;
             myfile.open ("error_log.txt");
             
@@ -534,7 +539,7 @@ int main(int argc, char **argv) {
             myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
             myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-
+            myfile<<"Using integrator: "<< integrator<<endl;
             myfile.close();
             
             return 1;
@@ -568,7 +573,8 @@ int main(int argc, char **argv) {
             myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
             myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-
+            myfile<<"Using integrator: "<< integrator<<endl;
+            
             myfile.close();
             
             return 1;
@@ -601,7 +607,8 @@ int main(int argc, char **argv) {
             myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
             myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
             myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-
+            myfile<<"Using integrator: "<< integrator<<endl;
+            
             myfile.close();
             return 1;
         }
@@ -672,6 +679,7 @@ int main(int argc, char **argv) {
     std::ofstream total_stepper_time;
     total_stepper_time.open ("total_stepper_time.txt");
     total_stepper_time<<total_t<<endl;
+    total_stepper_time<<actual_t<<endl;
     total_stepper_time.close();
 }
 
