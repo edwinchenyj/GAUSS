@@ -84,6 +84,7 @@ namespace Gauss {
             islinear = false;
 #ifdef LINEAR
             islinear = true;
+            stiffness.resize(P.rows(),P.rows());
 #endif
             
         }
@@ -129,6 +130,7 @@ namespace Gauss {
         Eigen::SparseMatrix<DataType> inv_mass;
         Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK;
         Eigen::SparseMatrix<double,Eigen::RowMajor> m_M;
+        Eigen::SparseMatrix<double,Eigen::RowMajor> stiffness;
         
         double update_step_size;
         Eigen::VectorXd update_step;
@@ -311,12 +313,21 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             // set the state
             q = eigen_q_temp;
             
+            if(!islinear || !stiffness_calculated)
+            {
             //get stiffness matrix
             ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
             ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
             ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
             ASSEMBLEEND(stiffnessMatrix);
+                stiffness_calculated = true;
+                stiffness = (*stiffnessMatrix);
+            }
             
+            if(islinear)
+            {
+                (*stiffnessMatrix) = stiffness;
+            }
             //Need to filter internal forces seperately for this applicat
             ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
             ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
@@ -732,12 +743,21 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
         ASSEMBLEEND(massMatrix);
         
-        //get stiffness matrix
-        ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-        ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-        ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-        ASSEMBLEEND(stiffnessMatrix);
+        if(!islinear || !stiffness_calculated)
+        {
+            //get stiffness matrix
+            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+            ASSEMBLEEND(stiffnessMatrix);
+            stiffness_calculated = true;
+            stiffness = (*stiffnessMatrix);
+        }
         
+        if(islinear)
+        {
+            (*stiffnessMatrix) = stiffness;
+        }
         
         
         //Need to filter internal forces seperately for this applicat
@@ -791,37 +811,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         {
                 (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * (qDot);
         }
-        
-        
         // add external force
         (*forceVector) = (*forceVector) + m_P*(*fExt);
-        //
-        //    //solve mass (Need interface for solvers but for now just use Eigen LLt)
-        //    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > solver_mass;
-        //
-        //    if(m_refactor || !m_factored) {
-        //        solver_mass.compute(*massMatrix);
-        //    }
-        //
-        //    if(solver_mass.info()!=Eigen::Success) {
-        //        // decomposition failed
-        //        assert(1 == 0);
-        //        std::cout<<"Decomposition Failed \n";
-        //        exit(1);
-        //    }
-        //
-        //    if(solver_mass.info()!=Eigen::Success) {
-        //        // solving failed
-        //        assert(1 == 0);
-        //        std::cout<<"Solve Failed \n";
-        //        exit(1);
-        //    }
-        //
-        //    Eigen::saveMarket(*stiffnessMatrix,"stiffness.dat");
-        //    Eigen::saveMarket(*massMatrix,"mass.dat");
-        //    Eigen::saveMarket(m_P,"m_P.dat");
-        //    Eigen::saveMarketVector(q,"q.dat");
-        //    Eigen::saveMarketVector(qDot,"v.dat");
+        
         int N = m_P.rows();
         
         Eigen::VectorXx<DataType> du(2*N);
@@ -970,13 +962,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             if(k1 != 0)
             {
                 H(m+1,m) = 1.0;
-                //                Eigen::VectorXx<DataType> temp_vec;
-                //                avnorm = (A*V.col(m)).norm();
-                //                saveMarket(V,"Vc.dat");
-                //                saveMarketVector(V.col(m),"Vm.dat");
-                //                saveMarketVector(V.col(m).segment(N,N),"VmN.dat");
-                //                saveMarket(H,"Hc.dat");
-                //                double avnorm2;
                 avnorm = (V.col(m).segment(N,N) + (V.col(m)(2*N)) * eta*g.head(N)).squaredNorm();
                 avnorm += (MinvK * V.col(m).head(N) + (V.col(m)(2*N)) * eta*(g.tail(N)) + (-a * V.col(m).segment(N,N) - b*(MinvK) *  V.col(m).segment(N,N))).squaredNorm();
                 avnorm = sqrt(avnorm);
