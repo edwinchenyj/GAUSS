@@ -87,6 +87,7 @@ namespace Gauss {
             stiffness.resize(P.rows(),P.rows());
 #endif
             
+            eigenfit_damping = true;
         }
         
         TimeStepperImplEigenFitSMWIMImpl(const TimeStepperImplEigenFitSMWIMImpl &toCopy) {
@@ -144,6 +145,7 @@ namespace Gauss {
         
         bool islinear;
         bool stiffness_calculated;
+        bool eigenfit_damping;
     protected:
         
         //num modes to correct
@@ -357,12 +359,25 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                     
                     // add damping
                     //                    (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
-                    // implicit
-                    if (integrator.compare("IM") == 0) {
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
+                    
+                    if(eigenfit_damping)
+                    {
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
+                        }
+                        else {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot) + b * (Y*(Z * (m_P *qDot)));
+                        }
                     }
-                    else {
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot) + b * (Y*(Z * (m_P *qDot)));
+                    else{
+                        // add damping
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                        }
+                        else
+                        {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot);
+                        }
                     }
                     
                 }
@@ -485,12 +500,24 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                     
                     // add damping
                     //                (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
-                    if (integrator.compare("IM") == 0) {
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
+                    if(eigenfit_damping)
+                    {
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
+                        }
+                        else {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot) + b * (Y*(Z * (m_P *qDot)));
+                        }
                     }
                     else{
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P  * (qDot) + b * (Y*(Z * (m_P * qDot)));
-                        
+                        // add damping
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                        }
+                        else
+                        {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot);
+                        }
                     }
                 }
                 else
@@ -528,13 +555,24 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                     // add damping
                     //                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
                     //                cout<<"damping force added"<<endl;
-                    if (integrator.compare("IM") == 0) {
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
-                    }
-                    else
+                    if(eigenfit_damping)
                     {
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *( qDot) + b * (Y*(Z * (m_P * qDot)));
-                        
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
+                        }
+                        else {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot) + b * (Y*(Z * (m_P *qDot)));
+                        }
+                    }
+                    else{
+                        // add damping
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                        }
+                        else
+                        {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot);
+                        }
                     }
                     
                 }
@@ -653,12 +691,24 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                     
                     // add damping
                     //                (*forceVector) = (*forceVector) -  (a * (m_M) + b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
-                    if (integrator.compare("IM") == 0) {
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
+                    if(eigenfit_damping)
+                    {
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot) + b * (Y*(Z * (m_P *( 1.0 / 2.0 *(eigen_v_old + qDot)))));
+                        }
+                        else {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot) + b * (Y*(Z * (m_P *qDot)));
+                        }
                     }
                     else{
-                        (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P * ( qDot) + b * (Y*(Z * (m_P * qDot)));
-                        
+                        // add damping
+                        if (integrator.compare("IM") == 0) {
+                            (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                        }
+                        else
+                        {
+                            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot);
+                        }
                     }
                 }
                 else
@@ -803,7 +853,14 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
 //          //    Correct Forces
             (*forceVector) = (*forceVector) + Y*(m_coarseUs.first.transpose()*(*forceVector));
             
+            if(eigenfit_damping)
+            {
                 (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *( qDot) + b * (Y*(Z * (m_P * qDot)));
+            }
+            else
+            {
+                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * (qDot);
+            }
             
             
         }
