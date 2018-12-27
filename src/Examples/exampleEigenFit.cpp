@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
     std::string fmeshname = "/meshesTetWild/brick_surf/brick_surf_4";
     
     //    parameters
-    double youngs = 2e6;
+    double youngs = 2e5;
     double poisson = 0.45;
     double const_tol = 1e-2;
     int const_profile = 1;
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
     double step_size = 1e-2;
     int dynamic_flag = 0;
     double a = 0;
-    double b = -1e-3;
+    double b = -1e-2;
     //        std::string ratio_manual_file = (argv[15]);
     bool output_data_flag = false;
     bool simple_mass_flag = true;

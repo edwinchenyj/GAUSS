@@ -126,6 +126,7 @@ namespace Gauss {
         Eigen::VectorXx<double> mass_lumped;
         Eigen::VectorXx<double> mass_lumped_inv;
         
+        Eigen::SparseMatrix<DataType> inv_mass;
         Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK;
         Eigen::SparseMatrix<double,Eigen::RowMajor> m_M;
         
@@ -201,6 +202,9 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
     
     simple_mass_flag = static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->simple_mass_flag;
     
+    
+    if (integrator.compare("IM")==0 || integrator.compare("BE")==0 || integrator.compare("SI")==0)
+    {
     //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
     MatrixAssembler &massMatrix = m_massMatrix;
     MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
@@ -243,8 +247,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
     }
     
     
-    if (integrator.compare("IM")==0 || integrator.compare("BE")==0 || integrator.compare("SI")==0)
-    {
         // init rhs
         rhs = new double[m_P.rows()];
         Eigen::Map<Eigen::VectorXd> eigen_rhs(rhs,m_P.rows());
@@ -715,48 +717,28 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
     else if(integrator.compare("ERE") == 0)
     {
         
-        // init rhs
-        rhs = new double[m_P.rows()];
-        Eigen::Map<Eigen::VectorXd> eigen_rhs(rhs,m_P.rows());
-        eigen_rhs.setZero();
-        // velocity from previous step (for calculating residual)
-        v_old = new double[world.getNumQDotDOFs()];
-        Eigen::Map<Eigen::VectorXd> eigen_v_old(v_old,world.getNumQDotDOFs());
-        eigen_v_old.setZero();
-        
-        // velocity from previous step (for calculating residual)
-        v_temp = new double[world.getNumQDotDOFs()];
-        Eigen::Map<Eigen::VectorXd> eigen_v_temp(v_temp,world.getNumQDotDOFs());
-        eigen_v_temp.setZero();
-        
-        q_old = new double[world.getNumQDotDOFs()];
-        Eigen::Map<Eigen::VectorXd> eigen_q_old(q_old,world.getNumQDotDOFs());
-        eigen_q_old.setZero();
-        
-        q_temp = new double[world.getNumQDotDOFs()];
-        Eigen::Map<Eigen::VectorXd> eigen_q_temp(q_temp,world.getNumQDotDOFs());
-        eigen_q_temp.setZero();
-        
         //Grab the state
         Eigen::Map<Eigen::VectorXd> q = mapStateEigen<0>(world);
         Eigen::Map<Eigen::VectorXd> qDot = mapStateEigen<1>(world);
         
-        // this is the velocity and q from the end of the last time step
-        for (int ind = 0; ind < qDot.rows(); ind++) {
-            eigen_v_old(ind) = qDot(ind);
-            eigen_q_old(ind) = q(ind);
-            eigen_v_temp(ind) = qDot(ind);
-        }
+        MatrixAssembler &massMatrix = m_massMatrix;
         
+        MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
+        VectorAssembler &forceVector = m_forceVector;
+        VectorAssembler &fExt = m_fExt;
         
-        // set the state
-        q = eigen_q_temp;
+        //get mass matrix
+        ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+        ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+        ASSEMBLEEND(massMatrix);
         
         //get stiffness matrix
         ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
         ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
         ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
         ASSEMBLEEND(stiffnessMatrix);
+        
+        
         
         //Need to filter internal forces seperately for this applicat
         ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
@@ -768,43 +750,95 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         ASSEMBLEEND(fExt);
         
         //constraint Projection
-        (*forceVector) = m_P*(*forceVector);
-        
+        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+
+        if (!mass_calculated) {
+            
+            Eigen::VectorXx<DataType> ones(m_P.rows());
+            ones.setOnes();
+            mass_lumped = ((*massMatrix)*ones);
+            mass_lumped_inv = mass_lumped.cwiseInverse();
+            
+            typedef Eigen::Triplet<double> T;
+            std::vector<T> tripletList;
+            tripletList.reserve((*massMatrix).rows());
+            inv_mass.resize((*massMatrix).rows(),(*massMatrix).rows());
+            MinvK.resize((*massMatrix).rows(),(*massMatrix).rows());
+            inv_mass.reserve((*massMatrix).rows());
+            
+            for(int i = 0; i < (*massMatrix).rows(); i++)
+            {
+                tripletList.push_back(T(i,i,mass_lumped_inv(i)));
+            }
+            inv_mass.setFromTriplets(tripletList.begin(),tripletList.end());
+            mass_calculated = true;
+        }
         
         (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
-        MinvK = mass_lumped_inv*(*stiffnessMatrix);
+        MinvK = inv_mass*(*stiffnessMatrix);
+        (*forceVector) = m_P*(*forceVector);
         
         if (m_num_modes != 0 && static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->ratio_recalculation_switch != 6) {
-            
                 static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->calculateEigenFitData(q,m_massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+//          //    Correct Forces
+            (*forceVector) = (*forceVector) + Y*(m_coarseUs.first.transpose()*(*forceVector));
             
-            //    Correct Forces
-            (*forceVector) = (*forceVector) + Y*m_coarseUs.first.transpose()*(*forceVector);
+                (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *( qDot) + b * (Y*(Z * (m_P * qDot)));
             
-            // add damping
-            (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot) + b * (Y*(Z * (m_P *qDot)));
             
         }
         else
         {
-            // add damping
-                (*forceVector) = (*forceVector) -  (b*(*stiffnessMatrix)) * m_P *(qDot);
-            
+                (*forceVector) = (*forceVector) -  ( b*(*stiffnessMatrix)) * m_P * (qDot);
         }
+        
+        
         // add external force
         (*forceVector) = (*forceVector) + m_P*(*fExt);
-        
+        //
+        //    //solve mass (Need interface for solvers but for now just use Eigen LLt)
+        //    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > solver_mass;
+        //
+        //    if(m_refactor || !m_factored) {
+        //        solver_mass.compute(*massMatrix);
+        //    }
+        //
+        //    if(solver_mass.info()!=Eigen::Success) {
+        //        // decomposition failed
+        //        assert(1 == 0);
+        //        std::cout<<"Decomposition Failed \n";
+        //        exit(1);
+        //    }
+        //
+        //    if(solver_mass.info()!=Eigen::Success) {
+        //        // solving failed
+        //        assert(1 == 0);
+        //        std::cout<<"Solve Failed \n";
+        //        exit(1);
+        //    }
+        //
+        //    Eigen::saveMarket(*stiffnessMatrix,"stiffness.dat");
+        //    Eigen::saveMarket(*massMatrix,"mass.dat");
+        //    Eigen::saveMarket(m_P,"m_P.dat");
+        //    Eigen::saveMarketVector(q,"q.dat");
+        //    Eigen::saveMarketVector(qDot,"v.dat");
         int N = m_P.rows();
+        
         Eigen::VectorXx<DataType> du(2*N);
         du.head(N).noalias() = m_P * qDot;
-        du.tail(N).noalias() = mass_lumped_inv*(*forceVector);
+        du.tail(N).noalias() = inv_mass*(*forceVector);
+        //    Eigen::saveMarketVector(du,"duc.dat");
+        //
         Eigen::VectorXx<DataType> state_free(2*N);
         state_free.head(N).noalias() = m_P * q;
         state_free.tail(N).noalias() = m_P * qDot;
         Eigen::VectorXx<DataType> g(2*N);
         Eigen::VectorXx<DataType> g2(2*N);
+        //
+        //    Eigen::saveMarketVector(state_free,"state_free.dat");
+        //
         double eta = 1;
-        //  efficient version
+        //
         g.head(N) = du.head(N);
         g.head(N).noalias() -= m_P * qDot;
         //  efficient version
@@ -812,13 +846,15 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         g.tail(N).noalias() -=  MinvK * m_P * q;
         g.tail(N).noalias() -= (-a) * m_P * qDot;
         g.tail(N).noalias() += b*MinvK * m_P * qDot;
+       
         Eigen::VectorXx<DataType> u_tilde(2*N+1);
         u_tilde.head(2*N) = state_free;
         u_tilde(2*N) = 1.0/eta;
+        //    Eigen::saveMarketVector(u_tilde,"u_tildec.dat");
+        //
         Eigen::VectorXx<DataType> X(2*N+1);
         X.setZero();
-
-        // matrix exponential
+        
         double tol = 1e-7;
         int m = 30;
         int n = u_tilde.rows();
@@ -826,8 +862,13 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
         Eigen::VectorXx<DataType> ones(N);
         ones.setOnes();
         double anorm = ones.maxCoeff();
-        double temp = (MinvK.cwiseAbs()*ones +  (b*(MinvK)).cwiseAbs()*ones + a * ones).maxCoeff();
+        //    cout<<"anorm: "<<anorm<<endl;
+        double temp = (MinvK.cwiseAbs()*ones +  (b*(MinvK)).cwiseAbs()*ones + a * ones).maxCoeff();// +(a*mass_lumped.asDiagonal()+ ;
+        //    cout<<"temp: "<< temp<<endl;
         anorm = std::max(anorm, temp);
+        //    cout<<"anorm: "<<anorm<<endl;
+        //        double anorm = (A.cwiseAbs()*ones).maxCoeff(); // infinity norm
+        
         // some initialization
         int mxrej = 10;
         double btol  = 1.0e-7;
@@ -873,25 +914,47 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             H.setZero(m+2,m+2);
             
             V.col(0) = (1.0/beta)*w;
+            //            saveMarketVector(V.col(0),"V0.dat");
             for(int j = 0; j < m; j++)
             {
+                //            cout<<"j: "<<j<<endl;
                 Eigen::VectorXx<DataType> p(2*N+1);
                 Eigen::VectorXx<DataType> p2(2*N+1);
+                //                p = A*V.col(j);
+                //                saveMarket(V,"Vc.dat");
+                //                saveMarketVector(V.col(j),"Vj.dat");
+                //                saveMarketVector(V.col(j).segment(N,N),"VjN.dat");
+                
+                //                p.head(N) = (V.col(j).segment(N,N)) + (V.col(j)(2*N)) * eta*(g.head(N));
                 //                efficient version
                 p.head(N) = (V.col(j).segment(N,N));
                 p.head(N).noalias() += (V.col(j)(2*N)) * eta*(g.head(N));
+                //                p.segment(N,N).noalias() = mass_lumped_inv.asDiagonal()*((*stiffnessMatrix) * V.col(j).head(N));
                 p.segment(N,N).noalias() = MinvK * V.col(j).head(N);
                 p.segment(N,N).noalias() += (V.col(j)(2*N)) * eta*g.tail(N);
                 p.segment(N,N).noalias() += (-a)* (V.col(j).segment(N,N));
                 p.segment(N,N).noalias() += (-b)*(MinvK * (V.col(j).segment(N,N)));
                 p(2*N) = 0;
+                //                p = J_tilde*V.col(j);
+                //            cout<<"p: "<<p<<endl;
+                //                Eigen::saveMarket(V,"Vc.dat");
+                //                saveMarketVector(p,"pc.dat");
+                //                saveMarketVector(p2,"p2c.dat");
+                //                cout<<"p - p2: "<<(p-p2).norm()<<endl;
                 for(int  i = 0; i <= j; i++ )
                 {
+                    //                    cout<<"i: "<<i<<endl;
+                    //                    cout<<"j: "<<j<<endl;
                     H(i,j) = V.col(i).transpose()*p;
+                    //                    cout<<"H(i,j): "<< H(i,j)<<endl;
                     p.noalias() -= H(i,j)*V.col(i);
+                    //                    saveMarketVector(p,"pc.dat");
                     
                 }
                 s = p.norm();
+                //            cout<<"p: "<<p<<endl;
+                //            cout<<"p norm: "<<p.norm()<<endl;
+                //                            cout<<"s: "<<s<<endl;
                 if(s < btol)
                 {
                     k1 = 0;
@@ -899,21 +962,42 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                     t_step = t_out-t_now;
                     break;
                 }
+                //                cout<<"j: "<<j<<endl;
                 H(j+1,j) = s;
                 V.col(j+1) = (1.0/s)*p;
+                //                saveMarketVector(V.col(j+1),"Vj1.dat");
             }
             if(k1 != 0)
             {
                 H(m+1,m) = 1.0;
+                //                Eigen::VectorXx<DataType> temp_vec;
+                //                avnorm = (A*V.col(m)).norm();
+                //                saveMarket(V,"Vc.dat");
+                //                saveMarketVector(V.col(m),"Vm.dat");
+                //                saveMarketVector(V.col(m).segment(N,N),"VmN.dat");
+                //                saveMarket(H,"Hc.dat");
+                //                double avnorm2;
                 avnorm = (V.col(m).segment(N,N) + (V.col(m)(2*N)) * eta*g.head(N)).squaredNorm();
                 avnorm += (MinvK * V.col(m).head(N) + (V.col(m)(2*N)) * eta*(g.tail(N)) + (-a * V.col(m).segment(N,N) - b*(MinvK) *  V.col(m).segment(N,N))).squaredNorm();
                 avnorm = sqrt(avnorm);
+                //                avnorm = (J_tilde*V.col(m)).norm();
+                //                cout<<"avnorm: "<<avnorm<<endl;
+                //                cout<<"avnorm - avnorm2: "<<avnorm -avnorm2<<endl;
             }
             int ireject = 0;
             while (ireject <= mxrej)
             {
                 int mx = mb + k1;
+                //
+                //                            cout<<"t_step: "<<t_step<<endl;
+                //                            cout<<"mx: "<<mx<<endl;
+                //                            cout<<"H: "<<H<<endl;
+                //                            Eigen::MatrixXx<DataType> sp(mx,mx);
+                //                            sp = H.topLeftCorner(mx,mx);
+                //                            Eigen::saveMarket(H.topLeftCorner(mx,mx),"Hc.dat");
+                //                Eigen::saveMarket(sgn*t_step*H.topLeftCorner(mx,mx),"expA.dat");
                 F.noalias() = (sgn*t_step*H.topLeftCorner(mx,mx)).exp();
+                //                Eigen::saveMarket(F,"Fc.dat");
                 
                 if (k1 == 0)
                 {
@@ -924,6 +1008,8 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                 {
                     double phi1 = abs( beta*F(m,0) );
                     double phi2 = abs( beta*F(m+1,0) * avnorm );
+                    //                    cout<<"phi1: "<<phi1<<endl;
+                    //                    cout<<"phi2: "<<phi2<<endl;
                     
                     if(phi1 > 10*phi2){
                         
@@ -976,9 +1062,13 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                     X = w;
                     double err = s_error;
                     hump = hump / normv;
+                    //    }
+                    //    Eigen::saveMarketVector(X,"X.dat");
+                    
+                    //
                     q = m_P.transpose() * X.head(N);
                     qDot =  m_P.transpose() *( X.segment(N,N));
-
+                    
     }
 }
 
