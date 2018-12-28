@@ -300,7 +300,7 @@ int main(int argc, char **argv) {
         
         
     }
-    else if (const_profile == 4 || const_profile == 5 || const_profile == 6 || const_profile == 7 || const_profile == 8)
+    else if (const_profile < 15)
     {
         //            zero gravity
         cout<<"Setting zero gravity..."<<endl;
