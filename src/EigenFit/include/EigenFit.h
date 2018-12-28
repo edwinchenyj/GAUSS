@@ -728,6 +728,18 @@ public:
                         matched_modes_list(i) = -1; // -1 if can't find any matching mode
                         //                        cout<<"no matching mode"<<endl;
                         eigenfit_data = 2; // code for unmatching eigenmodes
+                        int n1count = 0;
+                        for (int list_i = 0; list_i < matched_modes_list.rows(); list_i++) {
+                            if (matched_modes_list(list_i) == -1) {
+                                n1count++;
+                                
+                            }
+                        }
+                        if(n1count > m_num_modes/2.0)
+                        {
+                            cout<<"Eigenmodes changed too much"<<endl;
+                            eigenfit_data =4;
+                        }
                         
                     }
                 }
