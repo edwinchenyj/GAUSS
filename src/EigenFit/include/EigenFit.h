@@ -366,7 +366,7 @@ public:
                 
                 
             }
-            else if (const_profile == 4 || const_profile == 5 || const_profile == 6 || const_profile == 7 || const_profile == 8)
+            else if (const_profile < 15)
             {
                 
                 cout<<"Setting constraint on the fine mesh and constructing fine mesh projection matrix"<<endl;
