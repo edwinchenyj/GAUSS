@@ -616,6 +616,39 @@ int main(int argc, char **argv) {
             myfile.close();
             return 1;
         }
+        else if (test->eigenfit_data == 4)
+        {
+            
+            std::ofstream myfile;
+            myfile.open ("error_log.txt");
+            cout<<"Eigenvectors change too much, Eigenfit won't work."<<endl;
+            myfile<<"Eigenvectors change too much, Eigenfit won't work."<<endl;
+            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
+            myfile<<"Using fine mesh: "<<fmeshname<<endl;
+            myfile<<"Using Youngs: "<<youngs<<endl;
+            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
+            myfile<<"Using constriant profile: "<<const_profile<<endl;
+            myfile<<"Using initial deformation: "<<initial_def<<endl;
+            myfile<<"Using number of steps: "<< num_steps<<endl;
+            myfile<<"Using haus: "<<haus<<endl;
+            myfile<<"Using number of modes: "<<num_modes<<endl;
+            myfile<<"Using constraint direction: "<<const_dir<<endl;
+            myfile<<"Using step size: "<<step_size<<endl;
+            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
+            myfile<<"Using a: "<<a<<endl;
+            myfile<<"Using b: "<<b<<endl;
+            myfile<<"Using output data flag: "<<output_data_flag<<endl;
+            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
+            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
+            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
+            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
+            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
+            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
+            myfile<<"Using integrator: "<< integrator<<endl;
+            myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
+            myfile.close();
+            return 1;
+        }
         
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);
         // acts like the "callback" block for moving constraint
