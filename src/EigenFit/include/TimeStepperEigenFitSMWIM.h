@@ -86,7 +86,7 @@ namespace Gauss {
             islinear = true;
             stiffness.resize(P.rows(),P.rows());
 #endif
-            
+            mass.resize(P.rows(),P.rows());
             eigenfit_damping = true;
         }
         
@@ -132,6 +132,7 @@ namespace Gauss {
         Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK;
         Eigen::SparseMatrix<double,Eigen::RowMajor> m_M;
         Eigen::SparseMatrix<double,Eigen::RowMajor> stiffness;
+        Eigen::SparseMatrix<double,Eigen::RowMajor> mass;
         
         double update_step_size;
         Eigen::VectorXd update_step;
@@ -205,23 +206,32 @@ template<typename World>
 void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler>::step(World &world, double dt, double t) {
     
     simple_mass_flag = static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->simple_mass_flag;
-    
+    int step_number =static_cast<EigenFit*>(std::get<0>(world.getSystemList().getStorage())[0])->step_number;
     
     if (integrator.compare("IM")==0 || integrator.compare("BE")==0 || integrator.compare("SI")==0)
     {
-    //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
-    MatrixAssembler &massMatrix = m_massMatrix;
-    MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
-    VectorAssembler &forceVector = m_forceVector;
-    VectorAssembler &fExt = m_fExt;
+        
+       
+        //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
+        MatrixAssembler &massMatrix = m_massMatrix;
+        MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
+        VectorAssembler &forceVector = m_forceVector;
+        VectorAssembler &fExt = m_fExt;
+        
+        if (step_number <= 1) {
+            
+        ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+        ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+        ASSEMBLEEND(massMatrix);
+        
+        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+        mass =  (*massMatrix);
     
-    ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-    ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
-    ASSEMBLEEND(massMatrix);
-    
-    (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
-    
-    
+        }
+        
+        (*massMatrix) = mass;
+        
+        
     
     if(simple_mass_flag)
         //        if(simple_mass_flag && !mass_calculated)
@@ -317,11 +327,16 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             
             if(!islinear || !stiffness_calculated)
             {
-            //get stiffness matrix
-            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
-            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
-            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
-            ASSEMBLEEND(stiffnessMatrix);
+                //get stiffness matrix
+                ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+                ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+                ASSEMBLEEND(stiffnessMatrix);
+                
+                
+                //constraint Projection
+                (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
+                
                 stiffness_calculated = true;
                 stiffness = (*stiffnessMatrix);
             }
@@ -338,9 +353,6 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
             ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
             ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
             ASSEMBLEEND(fExt);
-            
-            //constraint Projection
-            (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
             
             (*forceVector) = m_P*(*forceVector);
             
