@@ -19,6 +19,7 @@
 #include <fstream>
 #include <igl/boundary_facets.h>
 #include <igl/volume.h>
+#include <igl/writePLY.h>
 #include <time.h>
 
 using namespace Gauss;
@@ -682,6 +683,8 @@ int main(int argc, char **argv) {
 
         // output mesh position with only surface mesh
         igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
+        igl::writePLY(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
+        
         //
         
         // output eigenvalues
@@ -704,8 +707,8 @@ int main(int argc, char **argv) {
             
             Eigen::saveMarketDat(test->dist_map, filename_number_padded("dist_map",file_ind,"dat"));
             Eigen::saveMarketVectorDat(test->matched_modes_list, filename_number_padded("matched_modes_list",file_ind,"dat"));
-            Eigen::saveMarketVectorDat(test->init_matched_modes_list,"init_matched_modes_list.dat");
-            Eigen::saveMarketVectorDat(test->m_R_current,"m_R_current");
+//            Eigen::saveMarketVectorDat(test->init_matched_modes_list,"init_matched_modes_list.dat");
+            Eigen::saveMarketVectorDat(test->m_R_current,filename_number_padded("m_R_current",file_ind,"dat"));
             
         }
         
