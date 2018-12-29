@@ -683,7 +683,7 @@ int main(int argc, char **argv) {
 
         // output mesh position with only surface mesh
         igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
-        igl::writePLY(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
+        igl::writePLY(filename_number_padded("surfpos", file_ind,"ply"),V_disp,surfF);
         
         //
         
