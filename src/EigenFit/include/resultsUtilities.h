@@ -448,6 +448,159 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
             }
         }
     }
+    else if (const_profile == 15)
+    {
+        cout<<"Moving constrained vertices using mouse motion"<<endl;
+        Eigen::VectorXd Xvel;
+        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+        {
+            cout<<"fail loading mouse x motion"<<endl;
+        }
+        Eigen::VectorXd Yvel;
+        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            cout<<"fail loading mouse y motion"<<endl;
+        Eigen::VectorXd Zvel;
+        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            cout<<"fail loading mouse z motion"<<endl;
+        
+        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
+            if ((frame_number) < 15) {
+                if(Xvel(frame_number) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+            }
+        }
+    }
+    else if (const_profile == 16)
+    {
+        cout<<"Moving constrained vertices using mouse motion"<<endl;
+        Eigen::VectorXd Xvel;
+        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+        {
+            cout<<"fail loading mouse x motion"<<endl;
+        }
+        Eigen::VectorXd Yvel;
+        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            cout<<"fail loading mouse y motion"<<endl;
+        Eigen::VectorXd Zvel;
+        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            cout<<"fail loading mouse z motion"<<endl;
+        
+        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
+            if ((frame_number) < 5) {
+                if(Xvel(frame_number) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+            }
+        }
+    }
+    else if (const_profile == 17)
+    {
+        cout<<"Moving constrained vertices using mouse motion"<<endl;
+        Eigen::VectorXd Xvel;
+        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+        {
+            cout<<"fail loading mouse x motion"<<endl;
+        }
+        Eigen::VectorXd Yvel;
+        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            cout<<"fail loading mouse y motion"<<endl;
+        Eigen::VectorXd Zvel;
+        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            cout<<"fail loading mouse z motion"<<endl;
+        
+        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
+            if ((frame_number) < 15 || (frame_number >120 && frame_number < 135)) {
+                if(Xvel(frame_number    ) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+            }
+        }
+    }
+    else if (const_profile == 18)
+    {
+        cout<<"Moving constrained vertices using mouse motion"<<endl;
+        Eigen::VectorXd Xvel;
+        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+        {
+            cout<<"fail loading mouse x motion"<<endl;
+        }
+        Eigen::VectorXd Yvel;
+        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            cout<<"fail loading mouse y motion"<<endl;
+        Eigen::VectorXd Zvel;
+        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            cout<<"fail loading mouse z motion"<<endl;
+        
+        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
+            if ((frame_number) < 15 ) {
+                if(Xvel(frame_number    ) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
+                
+            }
+        }
+    }
+    else if (const_profile == 18)
+    {
+        cout<<"Moving constrained vertices using mouse motion"<<endl;
+        Eigen::VectorXd Xvel;
+        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+        {
+            cout<<"fail loading mouse x motion"<<endl;
+        }
+        Eigen::VectorXd Yvel;
+        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            cout<<"fail loading mouse y motion"<<endl;
+        Eigen::VectorXd Zvel;
+        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            cout<<"fail loading mouse z motion"<<endl;
+        
+        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
+            if ((frame_number) < 15 ) {
+                if(Xvel(frame_number    ) <= 0){   v_q(1) += 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(1) += 1.5*std::min(Xvel(frame_number),0.005);}
+                
+            }
+        }
+    }
+    else if (const_profile == 19)
+    {
+        cout<<"Moving constrained vertices using mouse motion"<<endl;
+        Eigen::VectorXd Xvel;
+        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+        {
+            cout<<"fail loading mouse x motion"<<endl;
+        }
+        Eigen::VectorXd Yvel;
+        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            cout<<"fail loading mouse y motion"<<endl;
+        Eigen::VectorXd Zvel;
+        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            cout<<"fail loading mouse z motion"<<endl;
+        
+        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
+            if ((frame_number) < 15 ) {
+                if(Xvel(frame_number    ) <= 0){   v_q(2) += 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(2) += 1.5*std::min(Xvel(frame_number),0.005);}
+                
+            }
+        }
+    }
 }
 
 void parse_input(int argc, char **argv, std::string &meshname, double &youngs, double &const_tol,
