@@ -217,6 +217,7 @@ int main(int argc, char **argv) {
     
     // projection matrix for constraints
     Eigen::SparseMatrix<double> P;
+
     
     // constraint switch
     if ((const_profile) == 0) {

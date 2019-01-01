@@ -47,6 +47,35 @@ namespace Gauss {
             m_num_modes = (num_modes);
             
             m_P = P;
+            
+            
+            //            // construct the selection matrix
+            int m = P.cols() - P.rows();
+            int n = P.cols();
+            Eigen::VectorXd one = Eigen::VectorXd::Ones(P.rows());
+            Eigen::MatrixXd P_col_sum =   one.transpose() * P;
+            std::vector<Eigen::Triplet<DataType> > triplets;
+            Eigen::SparseMatrix<DataType> S;
+            //            std::cout<<"P_col_sum size: "<< P_col_sum.rows()<< " " << P_col_sum.cols()<<std::endl;
+            S.resize(m,n);
+            //
+            
+            unsigned int row_index =0;
+            for(unsigned int col_index = 0; col_index < n; col_index++) {
+                
+                //add triplet into matrix
+                //                std::cout<<col_index<<std::endl;
+                if (P_col_sum(0,col_index) == 0) {
+                    triplets.push_back(Eigen::Triplet<DataType>(row_index,col_index,1));
+                    row_index+=1;
+                }
+                
+            }
+            
+            S.setFromTriplets(triplets.begin(), triplets.end());
+            
+            m_S = S;
+            
             m_factored = false;
             // refactor for every solve
             m_refactor = true;
@@ -175,6 +204,7 @@ namespace Gauss {
         
         
         Eigen::SparseMatrix<double> m_P;
+        Eigen::SparseMatrix<double> m_S;
         
         //storage for lagrange multipliers
         typename VectorAssembler::MatrixType m_lagrangeMultipliers;
@@ -1083,9 +1113,12 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                     X = w;
                     double err = s_error;
                     hump = hump / normv;
-//                    q = m_P.transpose() * X.head(N);
-                    qDot =  m_P.transpose() *( X.segment(N,N));
-                    q += dt * qDot;
+                    Eigen::VectorXd q_s,qDot_s;
+                    q_s = m_S *q;
+                    qDot_s = m_S*qDot;
+                    q = m_P.transpose() * X.head(N) + m_S.transpose() * q_s;
+                    qDot =  m_P.transpose() *( X.segment(N,N))  + m_S.transpose() * qDot_s;
+//                    q += dt * qDot;
                     
                     
     }
