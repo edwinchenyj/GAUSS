@@ -75,8 +75,8 @@ int main(int argc, char **argv) {
     //    default parameters
     double youngs = 2e6;
     double poisson = 0.45;
-    int const_profile = 0;
-    double const_tol = 1e-2;
+    int const_profile = 1;
+    double const_tol = 2e-1;
     std::string initial_def = "0";
     int num_steps = 5;
     int num_modes = 10; // used for SIERE only
@@ -84,10 +84,11 @@ int main(int argc, char **argv) {
     int const_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
     double a = 0.0;
     double b = -0.0001;
+    std::string integrator = "SIERE";
     
     //    parameters
     
-    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b);
+    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b, integrator);
     
     
     readTetgen(V, F, dataDir()+meshname +".node", dataDir()+meshname+".ele");
@@ -184,7 +185,7 @@ int main(int argc, char **argv) {
         fixDisplacementMin(world, test,const_dir,const_tol);
         
     }
-    else if (const_profile == 4 || const_profile == 5 || const_profile == 6 || const_profile == 7 || const_profile == 8)
+    else if (const_profile < 30)
     {
         //            zero gravity
         cout<<"Setting zero gravity..."<<endl;
@@ -284,129 +285,63 @@ int main(int argc, char **argv) {
     }
     
     
-    MyTimeStepper stepper(step_size,P, a, b,num_modes);
+    MyTimeStepper stepper(step_size,P, a, b,num_modes,integrator);
+    stepper.getImpl().calculate_rest_stiffness(world);
     
     unsigned int file_ind = 0;
     struct stat buf;
     unsigned int idxc;
-    clock_t dt;
+    clock_t dt, actual_t;
     clock_t total_t = 0.0;
     for(istep=0; istep<num_steps ; ++istep)
     {
+        stepper.getImpl().step_number++;
+        cout<<"simulating frame #" << stepper.getImpl().step_number<<endl;
+        
         t = clock();
         stepper.step(world);
         dt = clock() - t;
         total_t += dt;
-        // acts like the "callback" block for moving constraint
-        if (const_profile == 2)
+        actual_t = ((double)total_t)/CLOCKS_PER_SEC;
+        
+        if(!stepper.getImpl().step_success)
         {
-            // constraint profile 2 will move some vertices
-            //script some motion
-            cout<<"Moving constrained vertices in y..."<<endl;
-            for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-                
-                auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,-1.0/100,0.0);
-                v_q = new_q;
-                
-            }
-        }
-        else if (const_profile == 4 )
-        {
-            cout<<"Moving constrained vertices in x..."<<endl;
-            for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-                
-                auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                //
-                if ((istep) < 50) {
-                    Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(-1.0/100,0.0,0.0);
-                    v_q = new_q;
-                }
-                
-            }
-        }
-        else if (const_profile == 5)
-        {
-            cout<<"Moving constraint vertices in y..."<<endl;
-            for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-                
-                auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                //
-                if ((istep) < 50) {
-                    Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,-1.0/100,0.0);
-                    v_q = new_q;
-                }
-                
-            }
-        }else if (const_profile == 6)
-        {
-            cout<<"Moving constrained vertices in z..."<<endl;
-            for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-                
-                auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                //
-                if ((istep) < 50) {
-                    Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
-                    v_q = new_q;
-                }
-                
-                
-            }
-        }else if (const_profile == 7)
-        {
-            cout<<"Moving constrained vertices using mouse motion"<<endl;
-            Eigen::VectorXd Xvel;
-            if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
-            {
-                cout<<"fail loading mouse x motion"<<endl;
-            }
-            Eigen::VectorXd Yvel;
-            if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
-                cout<<"fail loading mouse y motion"<<endl;
-            Eigen::VectorXd Zvel;
-            if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
-                cout<<"fail loading mouse z motion"<<endl;
+            cout<<"Error: stepper fail at frame "<< stepper.getImpl().step_number <<" with parameters: "<<endl;
+            cout<<"Using mesh: "<<meshname<<endl;
+            cout<<"Using Youngs: "<<youngs<<endl;
+            cout<<"Using constraint tolerance: "<<const_tol<<endl;
+            cout<<"Using constriant profile: "<<const_profile<<endl;
+            cout<<"Using initial deformation: "<<initial_def<<endl;
+            cout<<"Using number of steps: "<< num_steps<<endl;
+            cout<<"Using number of modes: "<<num_modes<<endl;
+            cout<<"Using constraint direction: "<<const_dir<<endl;
+            cout<<"Using step size: "<<step_size<<endl;
+            cout<<"Using a: "<<a<<endl;
+            cout<<"Using b: "<<b<<endl;
+            cout<<"Using integrator: "<< integrator<<endl;
+            std::ofstream myfile;
+            myfile.open ("error_log.txt");
             
-            for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-                
-                auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                //
-                if ((istep) < 250) {
-                    //                        Eigen::Vector3d new_q = (istep)*Eigen::Vector3d(0.0,0.0,-1.0/100);
-                    v_q(0) += 0.1*Xvel(istep);
-                    v_q(1) += 0.1*Yvel(istep);
-                    v_q(2) += 0.1*Zvel(istep);
-                }
-                
-                
-            }
-        }else if (const_profile == 8)
-        {
-            cout<<"Moving constrained vertices using mouse motion"<<endl;
-            Eigen::VectorXd Xvel;
-            if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
-            {
-                cout<<"fail loading mouse x motion"<<endl;
-            }
-            Eigen::VectorXd Yvel;
-            if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
-                cout<<"fail loading mouse y motion"<<endl;
-            Eigen::VectorXd Zvel;
-            if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
-                cout<<"fail loading mouse z motion"<<endl;
+            myfile<<"Error: stepper fail at frame "<< stepper.getImpl().step_number <<" with parameters: "<<endl;
+            myfile<<"Using mesh: "<<meshname<<endl;
+            myfile<<"Using Youngs: "<<youngs<<endl;
+            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
+            myfile<<"Using constriant profile: "<<const_profile<<endl;
+            myfile<<"Using initial deformation: "<<initial_def<<endl;
+            myfile<<"Using number of steps: "<< num_steps<<endl;
+            myfile<<"Using number of modes: "<<num_modes<<endl;
+            myfile<<"Using constraint direction: "<<const_dir<<endl;
+            myfile<<"Using step size: "<<step_size<<endl;
+            myfile<<"Using a: "<<a<<endl;
+            myfile<<"Using b: "<<b<<endl;
+            myfile<<"Using integrator: "<< integrator<<endl;
+            myfile.close();
             
-            for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
-                auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), world.getState());
-                if ((istep) < 250) {
-                    if(Xvel(istep) <= 0){   v_q(0) += 0.5*std::max(Xvel(istep),-0.005);}
-                    else{ v_q(0) += 0.5*std::min(Xvel(istep),0.005);}
-                    if(Yvel(istep) <= 0){   v_q(1) += 0.5*std::max(Yvel(istep),-0.005);}
-                    else{ v_q(1) += 0.5*std::min(Yvel(istep),0.005);}
-                    if(Zvel(istep) <= 0){   v_q(2) += 0.5*std::max(Zvel(istep),-0.005);}
-                    else{ v_q(2) += 0.5*std::min(Zvel(istep),0.005);}
-                }
-            }
+            return 1;
         }
+        
+        apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);
+        
         std::ofstream ofile;
         //output data stream into text
         ofile.open("PE.txt", std::ios::app); //app is append which means it will put the text at the end
