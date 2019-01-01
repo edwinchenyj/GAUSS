@@ -553,7 +553,7 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
             }
         }
     }
-    else if (const_profile == 18)
+    else if (const_profile == 19)
     {
         cout<<"Moving constrained vertices using mouse motion"<<endl;
         Eigen::VectorXd Xvel;
@@ -577,7 +577,7 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
             }
         }
     }
-    else if (const_profile == 19)
+    else if (const_profile == 20)
     {
         cout<<"Moving constrained vertices using mouse motion"<<endl;
         Eigen::VectorXd Xvel;
