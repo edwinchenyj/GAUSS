@@ -125,7 +125,7 @@ namespace Gauss {
     public:
         
         template<typename Matrix>
-        TimeStepperImplSIEREImpl(Matrix &P, double a, double b, int numModes) {
+        TimeStepperImplSIEREImpl(Matrix &P, double a, double b, int numModes, std::string integrator = "SIERE") {
             
             //            std::cout<<m_P.rows()<<std::endl;
             m_P = P;
@@ -145,10 +145,6 @@ namespace Gauss {
                 }
             }
             m_P2.setFromTriplets(tripletList.begin(), tripletList.end());
-            
-            //            Eigen::saveMarketDat(m_P,"m_P.dat");
-            //            Eigen::saveMarketDat(m_P2,"m_P2.dat");
-            
             
             
             m_factored = false;
@@ -221,7 +217,11 @@ namespace Gauss {
             
             A.resize((J12).rows(), (J12).cols());
             
+            this->integrator = integrator;
             
+            step_number = 0;
+            
+            step_success = true;
             
         }
         
@@ -231,13 +231,21 @@ namespace Gauss {
         
         ~TimeStepperImplSIEREImpl() {
 //            delete [] outer_ind_ptr; delete [] inner_ind; delete [] values;
-            
+            delete rhs;
+            delete v_old;
+            delete v_temp;
+            delete q_old;
+            delete q_temp;
         }
         
         //Methods
         //init() //initial conditions will be set at the begining
         template<typename World>
         void step(World &world, double dt, double t);
+        
+        template<typename World>
+        void calculate_rest_stiffness(World &world);
+        
         
         inline typename VectorAssembler::MatrixType & getLagrangeMultipliers() { return m_lagrangeMultipliers; }
         
@@ -246,6 +254,15 @@ namespace Gauss {
         Eigen::SparseMatrix<double,Eigen::RowMajor> J21;
         Eigen::SparseMatrix<double,Eigen::RowMajor> J22;
 
+        
+        
+        double* rhs  = NULL;
+        double* v_old  = NULL;
+        double* v_temp = NULL;
+        double* q_old = NULL;
+        double* q_temp = NULL;
+        
+        
         // for damping
         double a;
         // negative for opposite sign for stiffness
@@ -253,6 +270,7 @@ namespace Gauss {
         
         int m_numModes;
         
+        std::string integrator;
         
         Eigen::MatrixXx<double> U1;
         Eigen::MatrixXx<double> V1;
@@ -277,23 +295,27 @@ namespace Gauss {
         
         Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK;
         
-//        int* J21_outer_ind_ptr = NULL;   // Pointer to int, initialize to nothing.
-//        int* J21_inner_ind = NULL;
-//
-//        double* Jblock_values = NULL;
-//
-//        int* J22_outer_ind_ptr = NULL;   // Pointer to int, initialize to nothing.
-//        int* J22_inner_ind = NULL;
-//        double* J21_values = NULL;
-        
         std::vector<int> J21_J22_outer_ind_ptr;
         std::vector<int> J21_inner_ind;
 //        std::vector<int> J22_outer_ind_ptr;
         std::vector<int> J22_inner_ind;
+        std::vector<double> stiffness0_val;
+        std::vector<int> stiffness0_outer_ind_ptr;
+        std::vector<int> stiffness0_inner_ind;
+
 
         
-    protected:
+        double update_step_size;
+        Eigen::VectorXd update_step;
+        Eigen::VectorXd prev_update_step;
         
+        bool step_success;
+        
+        bool islinear;
+        bool stiffness_calculated;
+        
+        int step_number;
+    protected:
         
         Eigen::SparseMatrix<DataType> inv_mass;
         Eigen::VectorXx<DataType> mass_lumped;
@@ -311,12 +333,6 @@ namespace Gauss {
         VectorAssembler m_forceVector;
         
         VectorAssembler m_fExt;
-        
-        //        // for calculating the residual. ugly
-        //        MatrixAssembler m_massMatrixNew;
-        //        MatrixAssembler m_stiffnessMatrixNew;
-        //        VectorAssembler m_forceVectorNew;
-        //        VectorAssembler m_fExtNew;
         
         
         Eigen::SparseMatrix<DataType> m_P;
@@ -338,7 +354,6 @@ namespace Gauss {
 #ifdef GAUSS_PARDISO
         
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_mass;
-        //        SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_res;
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso;
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_y;
         SolverPardiso<Eigen::SparseMatrix<DataType, Eigen::RowMajor> > m_pardiso_sol2;
@@ -351,11 +366,46 @@ namespace Gauss {
 
 template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
 template<typename World>
+void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::calculate_rest_stiffness(World &world) {
+    
+    MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
+    
+    //Grab the state
+    Eigen::Map<Eigen::VectorXd> q = mapStateEigen<0>(world);
+    Eigen::Map<Eigen::VectorXd> qDot = mapStateEigen<1>(world);
+    
+    Eigen::VectorXd copy_q = q;
+    q.setZero();
+    
+    //get stiffness matrix
+    ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+    ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+    ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+    ASSEMBLEEND(stiffnessMatrix);
+    
+    
+    (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
+    for (int i_nnz = 0; i_nnz < (*stiffnessMatrix).nonZeros(); i_nnz++)
+    {
+//        stiffness0_val.push_back(*((*stiffnessMatrix).innerIndexPtr()+i_nnz));
+        stiffness0_val.push_back(*((*stiffnessMatrix).valuePtr()+i_nnz));
+        stiffness0_inner_ind.push_back(*((*stiffnessMatrix).innerIndexPtr()+i_nnz));
+    }
+    
+    for (int i_row = 0; i_row < (*stiffnessMatrix).rows() + 1; i_row++) {
+        stiffness0_outer_ind_ptr.push_back(*((*stiffnessMatrix).outerIndexPtr()+i_row));
+    }
+    q = copy_q;
+    
+    
+}
+
+template<typename DataType, typename MatrixAssembler, typename VectorAssembler>
+template<typename World>
 void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(World &world, double dt, double t) {
     
-    // TODO: should not be here... set the rayleigh damping parameter
-    //    a = (std::get<0>(world.getSystemList().getStorage())[0])->a;
-    //    b = (std::get<0>(world.getSystemList().getStorage())[0])->b;
+    cout<<"integrator: "<<integrator<<endl;
+    if (integrator.compare("SIERE")==0) {
     
     MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
     MatrixAssembler &massMatrix = m_massMatrix;
@@ -402,18 +452,18 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
     (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
     
+    Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> K0_map((*stiffnessMatrix).rows(), (*stiffnessMatrix).cols(), (*stiffnessMatrix).nonZeros(), stiffness0_outer_ind_ptr.data(), stiffness0_inner_ind.data(), stiffness0_val.data());
+//        Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> K0_map((*stiffnessMatrix).rows(), (*stiffnessMatrix).cols(), (*stiffnessMatrix).nonZeros(), (*stiffnessMatrix).outerIndexPtr(), (*stiffnessMatrix).innerIndexPtr(), stiffness0_val.data());
+        
+        
     (*forceVector) = m_P*(*forceVector);
     
     // add damping
-    (*forceVector).noalias() -= (b*(*stiffnessMatrix)) * (m_P * ( qDot));
+    (*forceVector).noalias() -= (b*(K0_map)) * (m_P * ( qDot));
     
     // add external force
     (*forceVector) = (*forceVector) + m_P*(*fExt);
     
-    
-    //    MatrixReplacement LHS;
-    //    LHS.attachMyMatrix(*stiffnessMatrix);
-    //    LHS.attachMyMatrix(mass_lumped.asDiagonal().inverse()*(-(*stiffnessMatrix)),mass_lumped,a,b,dt);
     
     if(!mass_calculated)
     {
@@ -438,6 +488,8 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     }
     //    m_Us = generalizedEigenvalueProblemNotNormalized((*stiffnessMatrix), m_M, m_numModes, 0.00);
     //    cout<<m_Us.second<<endl;
+        Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK0;
+        MinvK0 = (1)*mass_lumped_inv.asDiagonal()*(K0_map);
     MinvK = (1)*mass_lumped_inv.asDiagonal()*(*stiffnessMatrix);
     
     //    Eigen::SparseMatrix<DataType,> MinvK = -A;
@@ -455,6 +507,13 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
     if(eigs.info() == Spectra::SUCCESSFUL)
     {
+        int neg_evals = 0;
+        for (int i_eval = 0; i_eval < m_numModes; i_eval++) {
+            if (eigs.eigenvalues().real()(i_eval) > 0) {
+                neg_evals++;
+            }
+        }
+        cout<<"there are " <<neg_evals<< " negative eigenvalues."<<endl;
         m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
     }
     else{
@@ -468,44 +527,30 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
     
     
-    if (J21_J22_outer_ind_ptr.empty()) {
+//    if (J21_J22_outer_ind_ptr.empty()) {
+        J21_J22_outer_ind_ptr.erase(J21_J22_outer_ind_ptr.begin(),J21_J22_outer_ind_ptr.end());
         for (int i_row = 0; i_row < MinvK.rows(); i_row++) {
             J21_J22_outer_ind_ptr.push_back(0);
         }
+        
         for (int i_row = 0; i_row < MinvK.rows() + 1; i_row++) {
             J21_J22_outer_ind_ptr.push_back(*(MinvK.outerIndexPtr()+i_row));
         }
-    }
+//    }
     
-    if (J21_inner_ind.empty() || J22_inner_ind.empty()) {
+//    if (J21_inner_ind.empty() || J22_inner_ind.empty()) {
+        J21_inner_ind.erase(J21_inner_ind.begin(),J21_inner_ind.end());
+        J22_inner_ind.erase(J22_inner_ind.begin(),J22_inner_ind.end());
         for (int i_nnz = 0; i_nnz < MinvK.nonZeros(); i_nnz++)
         {
             J21_inner_ind.push_back(*(MinvK.innerIndexPtr()+i_nnz));
             J22_inner_ind.push_back(*(MinvK.innerIndexPtr()+i_nnz) + MinvK.cols());
         }
         
-    }
+//    }
     
     Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J21_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.nonZeros(), J21_J22_outer_ind_ptr.data(), MinvK.innerIndexPtr(), (MinvK).valuePtr());
-    Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J22_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.nonZeros(), J21_J22_outer_ind_ptr.data(), J22_inner_ind.data(), (MinvK).valuePtr());
-//    
-//    Eigen::SparseMatrix<double,Eigen::RowMajor> J;
-//    J.resize((*stiffnessMatrix).rows()*2,(*stiffnessMatrix).rows()*2);
-//    //get stiffness matrix for J
-//    typedef Eigen::Triplet<double> T;
-//    std::vector<T> tripletList;
-//    tripletList.reserve((*stiffnessMatrix).nonZeros()*2);
-//    for (int k=0; k<(*stiffnessMatrix).outerSize(); ++k)
-//    {
-//        for (Eigen::SparseMatrix<double,Eigen::RowMajor>::InnerIterator it((*stiffnessMatrix),k); it; ++it)
-//        {
-//            tripletList.push_back(T(it.row()+(*stiffnessMatrix).rows(), it.col(), it.value()));
-//            tripletList.push_back(T(it.row()+(*stiffnessMatrix).rows(), it.col()+(*stiffnessMatrix).rows(), it.value()));
-//            
-//        }
-//    }
-//    (J).setFromTriplets(tripletList.begin(), tripletList.end());
-//    (J) = mass_lumped_inv2.asDiagonal() * (J) * rayleigh_b_scaling.asDiagonal();
+    Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J22_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.nonZeros(), J21_J22_outer_ind_ptr.data(), J22_inner_ind.data(), (MinvK0).valuePtr());
 
     
 #ifndef NDEBUG
@@ -515,9 +560,6 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
 
 #endif
-    
-    
-//    J += J12;
     
     
     U1.block(0,0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first;
@@ -697,16 +739,661 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
 #else
 #endif
-    
-    //    U2 *= dt;
-    //    cout<<m_pardiso.getX().rows()<<endl;
-    //    cout<<m_pardiso.getX().cols()<<endl;
-    
-    //
-    //    rhs2.head(m_P.rows()) = (-dt) * vH;
-    //    rhs2.tail(m_P.rows()) = (-dt) * mass_lumped_inv.asDiagonal() * fH;
-    //    Eigen::MatrixXx<double> zeros_block;
-    //    zeros_block.resize(m_Us.first.rows(),m_Us.first.cols());
+        
+    }
+    else if(integrator.compare("ERE") == 0)
+    {
+        
+        MatrixAssembler &massMatrix = m_massMatrix;
+        
+        MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
+        VectorAssembler &forceVector = m_forceVector;
+        VectorAssembler &fExt = m_fExt;
+        
+        
+        //Grab the state
+        Eigen::Map<Eigen::VectorXd> q = mapStateEigen<0>(world);
+        Eigen::Map<Eigen::VectorXd> qDot = mapStateEigen<1>(world);
+        
+        
+        //get mass matrix
+        ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+        ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+        ASSEMBLEEND(massMatrix);
+        
+        
+        
+        
+        //get stiffness matrix
+        ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+        ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+        ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+        ASSEMBLEEND(stiffnessMatrix);
+        
+        
+        
+        //Need to filter internal forces seperately for this applicat
+        ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
+        ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
+        ASSEMBLEEND(forceVector);
+        
+        ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
+        ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
+        ASSEMBLEEND(fExt);
+        
+        //constraint Projection
+        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+        
+        if (!mass_calculated) {
+            
+            Eigen::VectorXx<DataType> ones(m_P.rows());
+            ones.setOnes();
+            mass_lumped = ((*massMatrix)*ones);
+            mass_lumped_inv = mass_lumped.cwiseInverse();
+            
+            typedef Eigen::Triplet<double> T;
+            std::vector<T> tripletList;
+            tripletList.reserve((*massMatrix).rows());
+            inv_mass.resize((*massMatrix).rows(),(*massMatrix).rows());
+            MinvK.resize((*massMatrix).rows(),(*massMatrix).rows());
+            inv_mass.reserve((*massMatrix).rows());
+            
+            for(int i = 0; i < (*massMatrix).rows(); i++)
+            {
+                tripletList.push_back(T(i,i,mass_lumped_inv(i)));
+            }
+            inv_mass.setFromTriplets(tripletList.begin(),tripletList.end());
+            inv_mass_calculated = true;
+            mass_calculated = true;
+        }
+        
+        (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
+        
+        Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> K0_map((*stiffnessMatrix).rows(), (*stiffnessMatrix).cols(), (*stiffnessMatrix).nonZeros(), stiffness0_outer_ind_ptr.data(), stiffness0_inner_ind.data(), stiffness0_val.data());
+        Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK0;
+        MinvK0 = inv_mass*(K0_map);
+        MinvK = inv_mass*(*stiffnessMatrix);
+        (*forceVector) = m_P*(*forceVector);
+        
+        
+        // add damping
+        (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(K0_map)) * m_P * ( qDot);
+        
+        // add external force
+        (*forceVector) = (*forceVector) + m_P*(*fExt);
+        
+        int N = m_P.rows();
+        
+        Eigen::VectorXx<DataType> du(2*N);
+        du.head(N).noalias() = m_P * qDot;
+        du.tail(N).noalias() = inv_mass*(*forceVector);
+        
+        Eigen::VectorXx<DataType> state_free(2*N);
+        state_free.head(N).noalias() = m_P * q;
+        state_free.tail(N).noalias() = m_P * qDot;
+        Eigen::VectorXx<DataType> g(2*N);
+        Eigen::VectorXx<DataType> g2(2*N);
+        
+        double eta = 1;
+        //
+        
+        //    Eigen::SparseMatrix<DataType> J(2*m_P.rows(),2*m_P.rows());
+        //    J.setFromTriplets(tripletList.begin(), tripletList.end());
+        //
+        //    g.head(N) = du.head(N) - m_P * qDot;
+        //  efficient version
+        g.head(N) = du.head(N);
+        g.head(N).noalias() -= m_P * qDot;
+        
+        //    g.tail(N) = du.tail(N) - mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * q
+        //    - (-a) * m_P * qDot + b*mass_lumped.asDiagonal().inverse()*(*stiffnessMatrix) * m_P * qDot;
+        //  efficient version
+        g.tail(N) = du.tail(N);
+        g.tail(N).noalias() -=  MinvK * m_P * q;
+        g.tail(N).noalias() -= (-a) * m_P * qDot;
+        g.tail(N).noalias() += b*MinvK0 * m_P * qDot;
+        //    g = du - J * state_free;
+        //    cout<<"g - g2: "<<(g-g2).norm()<<endl;
+        
+        //    for(int i = 0; i < 2*N; i++)
+        //    {
+        //        tripletList.push_back(T(i, 2*N, eta*g(i)));
+        //    }
+        //    Eigen::SparseMatrix<DataType> J_tilde(2*m_P.rows()+1,2*m_P.rows()+1);
+        //    J_tilde.setFromTriplets(tripletList.begin(), tripletList.end());
+        
+        //    Eigen::saveMarket(J,"Jc.dat");
+        //    Eigen::saveMarket(J_tilde,"J_tildec.dat");
+        //
+        //    Eigen::saveMarketVector(g,"gc.dat");
+        //    Eigen::saveMarketVector(du,"du.dat");
+        //    Eigen::saveMarketVector(*forceVector,"forceVector.dat");
+        //    Eigen::saveMarketVector(mass_lumped,"mass_lumped.dat");
+        //
+        Eigen::VectorXx<DataType> u_tilde(2*N+1);
+        u_tilde.head(2*N) = state_free;
+        u_tilde(2*N) = 1.0/eta;
+        //    Eigen::saveMarketVector(u_tilde,"u_tildec.dat");
+        //
+        Eigen::VectorXx<DataType> X(2*N+1);
+        X.setZero();
+        
+        
+        // matrix exponential
+        //    void expv(double t, MatrixType &A, Eigen::VectorXx<DataType> &v, Eigen::VectorXx<DataType> &out, double tol = 1e-7, int m = 30)
+        //    {
+        double tol = 1e-7;
+        int m = 30;
+        int n = u_tilde.rows();
+        
+        Eigen::VectorXx<DataType> ones(N);
+        ones.setOnes();
+        double anorm = ones.maxCoeff();
+        //    cout<<"anorm: "<<anorm<<endl;
+        double temp = (MinvK.cwiseAbs()*ones +  (b*(MinvK0)).cwiseAbs()*ones + a * ones).maxCoeff();// +(a*mass_lumped.asDiagonal()+ ;
+        //    cout<<"temp: "<< temp<<endl;
+        anorm = std::max(anorm, temp);
+        //    cout<<"anorm: "<<anorm<<endl;
+        //        double anorm = (A.cwiseAbs()*ones).maxCoeff(); // infinity norm
+        
+        // some initialization
+        int mxrej = 10;
+        double btol  = 1.0e-7;
+        double gamma = 0.9;
+        double delta = 1.2;
+        int mb    = m;
+        double t_out   = abs(dt);
+        int nstep = 0;
+        double t_new   = 0;
+        double t_now = 0;
+        double s_error = 0;
+        double eps = 2.2204e-16;
+        double rndoff = anorm*eps;
+        
+        int k1 = 2;
+        double xm = 1.0/m;
+        double normv = u_tilde.norm();
+        double beta = normv;
+        double fact = (pow((m+1)/exp(1),(m+1)))*sqrt(2*M_PI*(m+1));
+        t_new = (1.0/anorm)*pow((fact*tol)/(4*beta*anorm),xm);
+        double s = pow(10,(floor(log10(t_new))-1));
+        t_new = ceil(t_new/s)*s;
+        int sgn = copysign(1,dt);
+        nstep = 0;
+        
+        double avnorm = 1.0;
+        Eigen::MatrixXx<DataType> F;
+        F.setIdentity(m,m);
+        double err_loc = 1.0;
+        
+        
+        Eigen::VectorXx<DataType> w(u_tilde);
+        double hump = normv;
+        int stages = 0;
+        while (t_now < t_out)
+        {
+            stages = stages + 1;
+            nstep = nstep + 1;
+            double t_step = std::min( t_out-t_now,t_new );
+            Eigen::MatrixXx<DataType> V;
+            V.setZero(n,m+1);
+            Eigen::MatrixXx<DataType> H;
+            H.setZero(m+2,m+2);
+            
+            V.col(0) = (1.0/beta)*w;
+            //            saveMarketVector(V.col(0),"V0.dat");
+            for(int j = 0; j < m; j++)
+            {
+                //            cout<<"j: "<<j<<endl;
+                Eigen::VectorXx<DataType> p(2*N+1);
+                Eigen::VectorXx<DataType> p2(2*N+1);
+                //                p = A*V.col(j);
+                //                saveMarket(V,"Vc.dat");
+                //                saveMarketVector(V.col(j),"Vj.dat");
+                //                saveMarketVector(V.col(j).segment(N,N),"VjN.dat");
+                
+                //                p.head(N) = (V.col(j).segment(N,N)) + (V.col(j)(2*N)) * eta*(g.head(N));
+                //                efficient version
+                p.head(N) = (V.col(j).segment(N,N));
+                p.head(N).noalias() += (V.col(j)(2*N)) * eta*(g.head(N));
+                //                p.segment(N,N).noalias() = mass_lumped_inv.asDiagonal()*((*stiffnessMatrix) * V.col(j).head(N));
+                p.segment(N,N).noalias() = MinvK * V.col(j).head(N);
+                p.segment(N,N).noalias() += (V.col(j)(2*N)) * eta*g.tail(N);
+                p.segment(N,N).noalias() += (-a)* (V.col(j).segment(N,N));
+                p.segment(N,N).noalias() += (-b)*(MinvK0 * (V.col(j).segment(N,N)));
+                p(2*N) = 0;
+                //                p = J_tilde*V.col(j);
+                //            cout<<"p: "<<p<<endl;
+                //                Eigen::saveMarket(V,"Vc.dat");
+                //                saveMarketVector(p,"pc.dat");
+                //                saveMarketVector(p2,"p2c.dat");
+                //                cout<<"p - p2: "<<(p-p2).norm()<<endl;
+                for(int  i = 0; i <= j; i++ )
+                {
+                    //                    cout<<"i: "<<i<<endl;
+                    //                    cout<<"j: "<<j<<endl;
+                    H(i,j) = V.col(i).transpose()*p;
+                    //                    cout<<"H(i,j): "<< H(i,j)<<endl;
+                    p.noalias() -= H(i,j)*V.col(i);
+                    //                    saveMarketVector(p,"pc.dat");
+                    
+                }
+                s = p.norm();
+                //            cout<<"p: "<<p<<endl;
+                //            cout<<"p norm: "<<p.norm()<<endl;
+                //                            cout<<"s: "<<s<<endl;
+                if(s < btol)
+                {
+                    k1 = 0;
+                    mb = j;
+                    t_step = t_out-t_now;
+                    break;
+                }
+                //                cout<<"j: "<<j<<endl;
+                H(j+1,j) = s;
+                V.col(j+1) = (1.0/s)*p;
+                //                saveMarketVector(V.col(j+1),"Vj1.dat");
+            }
+            if(k1 != 0)
+            {
+                H(m+1,m) = 1.0;
+                //                Eigen::VectorXx<DataType> temp_vec;
+                //                avnorm = (A*V.col(m)).norm();
+                //                saveMarket(V,"Vc.dat");
+                //                saveMarketVector(V.col(m),"Vm.dat");
+                //                saveMarketVector(V.col(m).segment(N,N),"VmN.dat");
+                //                saveMarket(H,"Hc.dat");
+                //                double avnorm2;
+                avnorm = (V.col(m).segment(N,N) + (V.col(m)(2*N)) * eta*g.head(N)).squaredNorm();
+                avnorm += (MinvK * V.col(m).head(N) + (V.col(m)(2*N)) * eta*(g.tail(N)) + (-a * V.col(m).segment(N,N) - b*(MinvK0) *  V.col(m).segment(N,N))).squaredNorm();
+                avnorm = sqrt(avnorm);
+                //                avnorm = (J_tilde*V.col(m)).norm();
+                //                cout<<"avnorm: "<<avnorm<<endl;
+                //                cout<<"avnorm - avnorm2: "<<avnorm -avnorm2<<endl;
+            }
+            int ireject = 0;
+            while (ireject <= mxrej)
+            {
+                int mx = mb + k1;
+                //
+                //                            cout<<"t_step: "<<t_step<<endl;
+                //                            cout<<"mx: "<<mx<<endl;
+                //                            cout<<"H: "<<H<<endl;
+                //                            Eigen::MatrixXx<DataType> sp(mx,mx);
+                //                            sp = H.topLeftCorner(mx,mx);
+                //                            Eigen::saveMarket(H.topLeftCorner(mx,mx),"Hc.dat");
+                //                Eigen::saveMarket(sgn*t_step*H.topLeftCorner(mx,mx),"expA.dat");
+                F.noalias() = (sgn*t_step*H.topLeftCorner(mx,mx)).exp();
+                //                Eigen::saveMarket(F,"Fc.dat");
+                
+                if (k1 == 0)
+                {
+                    err_loc = btol;
+                    break;
+                }
+                else
+                {
+                    double phi1 = abs( beta*F(m,0) );
+                    double phi2 = abs( beta*F(m+1,0) * avnorm );
+                    //                    cout<<"phi1: "<<phi1<<endl;
+                    //                    cout<<"phi2: "<<phi2<<endl;
+                    
+                    if(phi1 > 10*phi2){
+                        
+                        err_loc = phi2;
+                        xm = 1.0/m;
+                    }
+                    else if( phi1 > phi2)
+                    {
+                        err_loc = (phi1*phi2)/(phi1-phi2);
+                        xm = 1.0/m;
+                    }
+                    else
+                    {
+                        err_loc = phi1;
+                        xm = 1.0/(m-1);
+                    }
+                }
+                if (err_loc <= delta * t_step*tol)
+                {
+                    break;
+                }
+                else
+                {
+                    t_step = gamma * t_step * pow(t_step*tol/err_loc,xm);
+                    s = pow(10,(floor(log10(t_step))-1));
+                    t_step = ceil(t_step/s) * s;
+                    if (ireject == mxrej)
+                    {
+                        printf ("The requested tolerance is too high.");
+                        exit (EXIT_FAILURE);
+                    }
+                    ireject = ireject + 1;
+                    cout<<"ireject: "<< ireject<<endl;
+                }
+            }
+            int mx = mb + std::max( 0,k1-1 );
+            w = V.leftCols(mx)*(beta*F.topLeftCorner(mx,1));
+            beta = ( w ).norm();
+            hump = std::max(hump,beta);
+            
+            t_now = t_now + t_step;
+            t_new = gamma * t_step * pow((t_step*tol/err_loc),xm);
+            s = pow(10,(floor(log10(t_new))-1));
+            t_new = ceil(t_new/s) * s;
+            
+            err_loc = std::max(err_loc,rndoff);
+            s_error = s_error + err_loc;
+            
+        }
+        X = w;
+        double err = s_error;
+        hump = hump / normv;
+        //    }
+        //    Eigen::saveMarketVector(X,"X.dat");
+        
+        //
+        q = m_P.transpose() * X.head(N);
+        qDot =  m_P.transpose() *( X.segment(N,N));
+    }
+    else
+    {
+        
+        //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
+        MatrixAssembler &massMatrix = m_massMatrix;
+        MatrixAssembler &stiffnessMatrix = m_stiffnessMatrix;
+        VectorAssembler &forceVector = m_forceVector;
+        VectorAssembler &fExt = m_fExt;
+        
+        // init rhs
+        rhs = new double[m_P.rows()];
+        Eigen::Map<Eigen::VectorXd> eigen_rhs(rhs,m_P.rows());
+        
+        // velocity from previous step (for calculating residual)
+        v_old = new double[world.getNumQDotDOFs()];
+        Eigen::Map<Eigen::VectorXd> eigen_v_old(v_old,world.getNumQDotDOFs());
+        
+        // velocity from previous step (for calculating residual)
+        v_temp = new double[world.getNumQDotDOFs()];
+        Eigen::Map<Eigen::VectorXd> eigen_v_temp(v_temp,world.getNumQDotDOFs());
+        
+        q_old = new double[world.getNumQDotDOFs()];
+        Eigen::Map<Eigen::VectorXd> eigen_q_old(q_old,world.getNumQDotDOFs());
+        
+        q_temp = new double[world.getNumQDotDOFs()];
+        Eigen::Map<Eigen::VectorXd> eigen_q_temp(q_temp,world.getNumQDotDOFs());
+        
+        
+        //Grab the state
+        Eigen::Map<Eigen::VectorXd> q = mapStateEigen<0>(world);
+        Eigen::Map<Eigen::VectorXd> qDot = mapStateEigen<1>(world);
+        
+        // this is the velocity and q from the end of the last time step
+        for (int ind = 0; ind < qDot.rows(); ind++) {
+            eigen_v_old(ind) = qDot(ind);
+            eigen_q_old(ind) = q(ind);
+            eigen_v_temp(ind) = qDot(ind);
+        }
+        
+        if (integrator.compare("IM") == 0) {
+            prev_update_step = 1.0/2.0 * dt * (eigen_v_old + qDot);
+        }
+        else{ //BE or SI
+            prev_update_step = eigen_q_old + dt*qDot;
+        }
+        
+        do {
+            std::cout<<"it outer: " << it_outer<<std::endl;std::cout<<"Newton it outer: " << it_outer<< ", ";
+            it_outer = it_outer + 1;
+            if (it_outer > 20) {
+                std::cout<< "warning: quasi-newton more than 20 iterations." << std::endl;
+                q = eigen_q_old;
+                qDot = eigen_v_old;
+                step_success = false;
+                return;
+            }
+            
+            if (integrator.compare("IM") == 0) {
+                eigen_q_temp = eigen_q_old + 1.0/4.0 * dt * (eigen_v_old + qDot);
+            }
+            else {
+                eigen_q_temp = eigen_q_old + dt * (qDot);
+                
+            }
+            // set the state
+            q = eigen_q_temp;
+            
+            //        //get mass matrix
+            //        ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            //        ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+            //        ASSEMBLEEND(massMatrix);
+            //
+            
+            
+            
+            //get stiffness matrix
+            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+            ASSEMBLEEND(stiffnessMatrix);
+            
+            
+            
+            //Need to filter internal forces seperately for this applicat
+            ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
+            ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
+            ASSEMBLEEND(forceVector);
+            
+            ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
+            ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
+            ASSEMBLEEND(fExt);
+            
+            
+            if (!mass_lumped_calculated) {
+                ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+                ASSEMBLEEND(massMatrix);
+                
+                //constraint Projection
+                (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+                
+                Eigen::VectorXx<DataType> ones(m_P.rows());
+                ones.setOnes();
+                mass_lumped = ((*massMatrix)*ones);
+                mass_lumped_inv = mass_lumped.cwiseInverse();
+                mass_lumped_calculated = true;
+            }
+            
+            
+            if(!mass_calculated)
+            {
+                m_M.resize(mass_lumped.rows(),mass_lumped.rows());
+                m_MInv.resize(mass_lumped_inv.rows(),mass_lumped_inv.rows());
+                //        Eigen::SparseMatrix<double,Eigen::RowMajor> M(mass_lumped.rows(),mass_lumped.rows());
+                //    M.setZero();
+                //    M += mass_lumped.asDiagonal();
+                typedef Eigen::Triplet<double> T;
+                std::vector<T> tripletList;
+                std::vector<T> tripletList_inv;
+                tripletList.reserve(mass_lumped.rows());
+                for(int i = 0; i < mass_lumped.rows(); i++)
+                {
+                    tripletList.push_back(T(i,i,mass_lumped(i)));
+                    tripletList_inv.push_back(T(i,i,mass_lumped_inv(i)));
+                }
+                m_M.setFromTriplets(tripletList.begin(),tripletList.end());
+                m_MInv.setFromTriplets(tripletList_inv.begin(),tripletList_inv.end());
+                
+                mass_calculated = true;
+            }
+            
+            (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
+
+            Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> K0_map((*stiffnessMatrix).rows(), (*stiffnessMatrix).cols(), (*stiffnessMatrix).nonZeros(), stiffness0_outer_ind_ptr.data(), stiffness0_inner_ind.data(), stiffness0_val.data());
+//            Eigen::Map<const Eigen::SparseMatrix<double,Eigen::RowMajor>> K0_map((*stiffnessMatrix).rows(), (*stiffnessMatrix).cols(), (*stiffnessMatrix).nonZeros(), (*stiffnessMatrix).outerIndexPtr(), (*stiffnessMatrix).innerIndexPtr(), stiffness0_val.data());
+//            cout<<"K0 size: " << K0_map.rows() << " " <<K0_map.cols()<<endl;
+//            Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK0;
+//            MinvK0 = inv_mass*(K0_map);
+            
+            (*forceVector) = m_P*(*forceVector);
+            
+            // add damping
+            if (integrator.compare("IM") == 0) {
+                (*forceVector) = (*forceVector) -  ( b*(K0_map)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+            }
+            else
+            {
+//                cout<<"K0 size: " << K0_map.rows() << " " <<K0_map.cols()<<endl;
+                (*forceVector) = (*forceVector) -  (b*K0_map) * m_P *(qDot);
+            }
+            
+            // add external force
+            (*forceVector) = (*forceVector) + m_P*(*fExt);
+            
+            //setup RHS
+            eigen_rhs = (m_M)*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
+            
+            res_old = 1.0/2.0 * dt * dt * (m_MInv*(*forceVector)).squaredNorm();
+            
+            // std::cout<<"res_old: "<<res_old << std::endl;
+            
+            Eigen::VectorXd x0;
+            // last term is damping
+            
+            Eigen::SparseMatrix<DataType, Eigen::RowMajor> systemMatrix;
+            if (integrator.compare("IM") == 0) {
+                systemMatrix = -(*m_massMatrix) + 1.0/4.0* dt*dt*(*m_stiffnessMatrix) - 1.0/2.0 * dt * (a *(*m_massMatrix) + b * (K0_map));
+            }
+            else{
+//                cout<<"K0 size: " << K0_map.rows() << " " <<K0_map.cols()<<endl;
+                systemMatrix = -(*m_massMatrix) + dt*dt*(*m_stiffnessMatrix) - dt * (a *(*m_massMatrix) + b * (K0_map));
+                
+            }
+            
+#ifdef GAUSS_PARDISO
+            
+            m_pardiso.symbolicFactorization(systemMatrix);
+            m_pardiso.numericalFactorization();
+            
+            //    SMW update for Eigenfit here
+            
+            m_pardiso.solve(eigen_rhs);
+            x0 = m_pardiso.getX();
+            
+#else
+            //solve system (Need interface for solvers but for now just use Eigen LLt)
+            Eigen::SimplicialLDLT<Eigen::SparseMatrix<double> > solver;
+            
+            if(m_refactor || !m_factored) {
+                solver.compute(systemMatrix);
+            }
+            
+            if(solver.info()!=Eigen::Success) {
+                // decomposition failed
+                assert(1 == 0);
+                std::cout<<"Decomposition Failed \n";
+                exit(1);
+            }
+            
+            if(solver.info()!=Eigen::Success) {
+                // solving failed
+                assert(1 == 0);
+                std::cout<<"Solve Failed \n";
+                exit(1);
+            }
+            
+            
+            x0 = solver.solve((eigen_rhs));
+            
+#endif
+            
+            auto Dv = m_P.transpose()*x0;
+            //        std::cout<<"m_S*Dv"<< m_S*Dv <<std::endl;
+            eigen_v_temp = qDot;
+            eigen_v_temp = eigen_v_temp + Dv*step_size;
+            //update state
+            //        std::cout<<"m_S*eigen_v_temp"<< m_S*eigen_v_temp <<std::endl;
+            if (integrator.compare("IM") == 0) {
+                q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
+            }
+            else{
+                q = eigen_q_old +  dt*(eigen_v_temp);
+            }
+            
+            //        std::cout<<"q "<<q.rows()<< std::endl;
+            
+            // calculate the residual. brute force for now. ugly
+            //get stiffness matrix
+            ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+            ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+            ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+            ASSEMBLEEND(stiffnessMatrix);
+            
+            //Need to filter internal forces seperately for this applicat
+            ASSEMBLEVECINIT(forceVector, world.getNumQDotDOFs());
+            ASSEMBLELIST(forceVector, world.getSystemList(), getImpl().getInternalForce);
+            ASSEMBLEEND(forceVector);
+            
+            ASSEMBLEVECINIT(fExt, world.getNumQDotDOFs());
+            ASSEMBLELIST(fExt, world.getSystemList(), getImpl().getBodyForce);
+            ASSEMBLEEND(fExt);
+            
+            //constraint Projection
+            //        (*massMatrix) = m_P*(*massMatrix)*m_P.transpose();
+            (*stiffnessMatrix) = m_P*(*stiffnessMatrix)*m_P.transpose();
+            
+            (*forceVector) = m_P*(*forceVector);
+            
+            if (integrator.compare("IM") == 0) {
+                (*forceVector) = (*forceVector) -  ( b*(K0_map)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+            }
+            else
+            {
+//                cout<<"K0 size: " << K0_map.rows() << " " <<K0_map.cols()<<endl;
+                (*forceVector) = (*forceVector) -  (b*(K0_map)) * m_P *(qDot);
+            }
+            
+            // add external force
+            (*forceVector) = (*forceVector) + m_P*(*fExt);
+            
+            //        m_pardiso_mass.solve(*forceVector);
+            std::cout << "res: " << 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_MInv*(*forceVector)).squaredNorm()<< std::endl;
+            res  = 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_MInv*(*forceVector)).squaredNorm();
+            
+            qDot = eigen_v_temp;
+            
+            if (integrator.compare("IM") == 0) {
+                q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
+                
+                update_step_size = (1.0/2.0 * dt * (qDot + eigen_v_old) - prev_update_step).norm();
+                prev_update_step = 1.0/2.0 * dt * (qDot + eigen_v_old);
+                cout<<" update size: " << update_step_size<<endl;
+            }
+            else
+            {
+                q = eigen_q_old + dt * (qDot);
+                
+                update_step_size = ( dt * (qDot) - prev_update_step).norm();
+                prev_update_step =  dt * (qDot);
+                cout<<" update size: " << update_step_size<<endl;
+                
+            }
+            //    } while(res > 1e-6  && update_step_size > 1e-6);
+            if (integrator.compare("SI") == 0) {
+                break; // if it's IS, only need one step
+            }
+        } while(res > 1e-4 && update_step_size > 1e-4 );
+        it_outer = 0;
+        //    std::cout<<"m_S*qDot"<< m_S*qDot <<std::endl;
+        
+        if (integrator.compare("IM") == 0) {
+            q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
+        }
+        else
+        {
+            q = eigen_q_old + dt * (qDot);
+        }
+    }
     
 }
 

@@ -606,7 +606,7 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
 void parse_input(int argc, char **argv, std::string &meshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps,
                  int &num_modes, int &const_dir, double &step_size,
-                 double &a, double &b)
+                 double &a, double &b, std::string &integrator)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -668,6 +668,10 @@ void parse_input(int argc, char **argv, std::string &meshname, double &youngs, d
         {
             b = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using b: "<<b<<endl;
+        }
+        else if(field.compare("integrator") == 0) {
+            integrator =arg.substr(eq_found+1,arg.length()-eq_found-1);
+            cout<<"Using integrator: "<<integrator<<endl;
         }
         else
         {

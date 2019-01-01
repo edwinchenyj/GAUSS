@@ -88,6 +88,8 @@ namespace Gauss {
 #endif
             mass.resize(P.rows(),P.rows());
             eigenfit_damping = true;
+            
+            
         }
         
         TimeStepperImplEigenFitSMWIMImpl(const TimeStepperImplEigenFitSMWIMImpl &toCopy) {
@@ -147,6 +149,8 @@ namespace Gauss {
         bool islinear;
         bool stiffness_calculated;
         bool eigenfit_damping;
+        
+        
     protected:
         
         //num modes to correct
