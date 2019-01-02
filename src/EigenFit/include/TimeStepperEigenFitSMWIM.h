@@ -800,7 +800,7 @@ void TimeStepperImplEigenFitSMWIMImpl<DataType, MatrixAssembler, VectorAssembler
                 break; // if it's IS, only need one step
             }
 #ifdef NH
-        } while(res > 1e-4);
+        } while(res > 1e-4 && update_step_size > 1e-4);
 #endif
 #ifdef LINEAR
         } while(false ); // only need one step for linear
