@@ -31,7 +31,52 @@ using namespace FEM;
 using namespace ParticleSystem; //For Force Spring
 
 /* Tetrahedral finite elements */
-typedef PhysicalSystemFEM<double, NeohookeanTet> FEMLinearTets;
+
+//typedef physical entities I need
+
+////typedef scene
+////build specific principal stretch material
+template<typename DataType, typename ShapeFunction>
+using  EnergyPSNHHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSNeohookean>;
+
+template<typename DataType, typename ShapeFunction>
+using  EnergyPSARAPHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSARAP>;
+
+template<typename DataType, typename ShapeFunction>
+using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSCorotatedLinear>;
+
+//
+///* Tetrahedral finite elements */
+template<typename DataType>
+using FEMPSCoRotTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
+
+template<typename DataType>
+using FEMPSARAPTet = FEMPrincipalStretchTet<DataType, EnergyPSARAPHFixed>; //Change EnergyPSCoRot
+
+template<typename DataType>
+using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSNHHFixed>; //Change EnergyPSCoRot
+
+
+
+#ifdef NH
+typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
+#endif
+
+#ifdef COROT
+typedef PhysicalSystemFEM<double, FEMPSCoRotTet> FEMLinearTets;
+#endif
+
+#ifdef ARAP
+typedef PhysicalSystemFEM<double, FEMPSARAPTet> FEMLinearTets;
+#endif
+
+#ifdef LINEAR
+typedef PhysicalSystemFEM<double, LinearTet> FEMLinearTets;
+#endif
+
+#ifdef STVK
+typedef PhysicalSystemFEM<double, StvkTet> FEMLinearTets;
+#endif
 
 typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
@@ -234,8 +279,21 @@ int main(int argc, char **argv) {
     
     // set material
     for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-        
+#ifdef NH
         test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef COROT
+        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef STVK
+        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef LINEAR
+        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef ARAP
+        test->getImpl().getElement(iel)->setParameters(youngs);
+#endif
         
     }
     
@@ -302,7 +360,7 @@ int main(int argc, char **argv) {
         stepper.step(world);
         dt = clock() - t;
         total_t += dt;
-        actual_t = ((double)total_t)/CLOCKS_PER_SEC;
+        actual_t = (double)((double)total_t)/CLOCKS_PER_SEC;
         
         if(!stepper.getImpl().step_success)
         {
@@ -352,50 +410,45 @@ int main(int argc, char **argv) {
         ofile.open("Hamiltonian.txt", std::ios::app); //app is append which means it will put the text at the end
         ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
         ofile.close();
+//
+//        ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
+//        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
+//        ofile.close();
         
-        ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
-        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
+        
+        ofile.open("it_count.txt", std::ios::app); //app is append which means it will put the text at the end
+        ofile << stepper.getImpl().it_print<< std::endl;
         ofile.close();
+
+        ofile.open("stepper_time_per_step.txt", std::ios::app); //app is append which means it will put the text at the end
+        ofile << dt<< std::endl;
+        ofile.close();
+
         
-        
-        // check if the file already exist
-        std::string filename = "surfpos" + std::to_string(file_ind) + ".obj";
-        while (stat(filename.c_str(), &buf) != -1)
-        {
-            file_ind++;
-            filename = "surfpos" + std::to_string(file_ind) + ".obj";
-        }
+        file_ind = istep;
+//        }
         
         // rest pos for the coarse mesh getGeometry().first is V
-        q = mapStateEigen(world);
+        Eigen::VectorXd q = mapStateEigen(world);
         idxc = 0;
         Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
-        
-        // get the mesh position
-        for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-            
-            V_disp(vertexId,0) += q(idxc);
-            idxc++;
-            V_disp(vertexId,1) += q(idxc);
-            idxc++;
-            V_disp(vertexId,2) += q(idxc);
-            idxc++;
-        }
-        
-        
-        //             output mesh position with elements
-        igl::writeOBJ("pos" + std::to_string(file_ind) + ".obj",V_disp,std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().second);
+        q_state_to_position(q,V_disp);
         
         // output mesh position with only surface mesh
-        igl::writeOBJ("surfpos" + std::to_string(file_ind) + ".obj",V_disp,surfF);
-        //
+        igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
+        
+        if(integrator == "SIERE")
+        {
+            Eigen::saveMarketVectorDat(stepper.getImpl().m_Us.second, filename_number_padded("eigenvalues",file_ind,"dat"));
+        }
     }
     
+    //    output the total time spent in the stepper
     std::ofstream total_stepper_time;
     total_stepper_time.open ("total_stepper_time.txt");
     total_stepper_time<<total_t<<endl;
+    total_stepper_time<<actual_t<<endl;
     total_stepper_time.close();
-    
     
 }
 

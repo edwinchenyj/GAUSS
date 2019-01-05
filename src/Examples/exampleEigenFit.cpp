@@ -716,7 +716,7 @@ int main(int argc, char **argv) {
         file_ind++;
         
     }
-//    output the total time spent in the stepper
+//    soutput the total time spent in the stepper
     std::ofstream total_stepper_time;
     total_stepper_time.open ("total_stepper_time.txt");
     total_stepper_time<<total_t<<endl;

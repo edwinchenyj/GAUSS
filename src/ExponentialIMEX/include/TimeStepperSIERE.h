@@ -223,6 +223,29 @@ namespace Gauss {
             
             step_success = true;
             
+            int m = P.cols() - P.rows();
+            int n = P.cols();
+            Eigen::VectorXd one = Eigen::VectorXd::Ones(P.rows());
+            Eigen::MatrixXd P_col_sum =   one.transpose() * P;
+            std::vector<Eigen::Triplet<DataType> > triplets;
+            Eigen::SparseMatrix<DataType> S;
+            S.resize(m,n);
+            //
+            
+            unsigned int row_index =0;
+            for(unsigned int col_index = 0; col_index < n; col_index++) {
+                
+                if (P_col_sum(0,col_index) == 0) {
+                    triplets.push_back(Eigen::Triplet<DataType>(row_index,col_index,1));
+                    row_index+=1;
+                }
+                
+            }
+            
+            S.setFromTriplets(triplets.begin(), triplets.end());
+            
+            m_S = S;
+            
         }
         
         TimeStepperImplSIEREImpl(const TimeStepperImplSIEREImpl &toCopy) {
@@ -294,11 +317,15 @@ namespace Gauss {
         Eigen::SparseMatrix<double,Eigen::RowMajor> A;
         
         Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK;
+        Eigen::SparseMatrix<double,Eigen::RowMajor> Identity;
         
         std::vector<int> J21_J22_outer_ind_ptr;
+        std::vector<int> J22i_outer_ind_ptr;
         std::vector<int> J21_inner_ind;
 //        std::vector<int> J22_outer_ind_ptr;
         std::vector<int> J22_inner_ind;
+        std::vector<int> J22i_inner_ind;
+        std::vector<double> J22i_identity_val;
         std::vector<double> stiffness0_val;
         std::vector<int> stiffness0_outer_ind_ptr;
         std::vector<int> stiffness0_inner_ind;
@@ -315,6 +342,7 @@ namespace Gauss {
         bool stiffness_calculated;
         
         int step_number;
+        int it_print;
     protected:
         
         Eigen::SparseMatrix<DataType> inv_mass;
@@ -336,6 +364,8 @@ namespace Gauss {
         
         
         Eigen::SparseMatrix<DataType> m_P;
+        Eigen::SparseMatrix<double> m_S;
+
         Eigen::SparseMatrix<DataType> m_P2; // 2 blocks of projection for second order system
         Eigen::SparseMatrix<DataType,Eigen::RowMajor> m_M;
         Eigen::SparseMatrix<DataType,Eigen::RowMajor> m_MInv;
@@ -346,6 +376,7 @@ namespace Gauss {
         
         // iteration counter
         int it_outer, it_inner;
+        
         // residual
         double res, res_old, step_size, c1, c2;
         
@@ -459,7 +490,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     (*forceVector) = m_P*(*forceVector);
     
     // add damping
-    (*forceVector).noalias() -= (b*(K0_map)) * (m_P * ( qDot));
+    (*forceVector).noalias() -= (a*(*m_massMatrix)+b*(K0_map)) * (m_P * ( qDot));
     
     // add external force
     (*forceVector) = (*forceVector) + m_P*(*fExt);
@@ -529,18 +560,26 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
 //    if (J21_J22_outer_ind_ptr.empty()) {
         J21_J22_outer_ind_ptr.erase(J21_J22_outer_ind_ptr.begin(),J21_J22_outer_ind_ptr.end());
+        J22i_outer_ind_ptr.erase(J22i_outer_ind_ptr.begin(),J22i_outer_ind_ptr.end());
         for (int i_row = 0; i_row < MinvK.rows(); i_row++) {
             J21_J22_outer_ind_ptr.push_back(0);
+            J22i_outer_ind_ptr.push_back(0);
         }
         
+        J22i_inner_ind.erase(J22i_inner_ind.begin(),J22i_inner_ind.end());
+        J22i_identity_val.erase(J22i_identity_val.begin(),J22i_identity_val.end());
         for (int i_row = 0; i_row < MinvK.rows() + 1; i_row++) {
             J21_J22_outer_ind_ptr.push_back(*(MinvK.outerIndexPtr()+i_row));
+            J22i_outer_ind_ptr.push_back(i_row);
+            J22i_inner_ind.push_back(i_row + MinvK.rows());
+            J22i_identity_val.push_back(1.0);
         }
 //    }
     
 //    if (J21_inner_ind.empty() || J22_inner_ind.empty()) {
         J21_inner_ind.erase(J21_inner_ind.begin(),J21_inner_ind.end());
         J22_inner_ind.erase(J22_inner_ind.begin(),J22_inner_ind.end());
+        
         for (int i_nnz = 0; i_nnz < MinvK.nonZeros(); i_nnz++)
         {
             J21_inner_ind.push_back(*(MinvK.innerIndexPtr()+i_nnz));
@@ -551,11 +590,12 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
     Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J21_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.nonZeros(), J21_J22_outer_ind_ptr.data(), MinvK.innerIndexPtr(), (MinvK).valuePtr());
     Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J22_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.nonZeros(), J21_J22_outer_ind_ptr.data(), J22_inner_ind.data(), (MinvK0).valuePtr());
-
+        Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J22i_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.cols(), J22i_outer_ind_ptr.data(), J22i_inner_ind.data(),J22i_identity_val.data());
     
 #ifndef NDEBUG
-    cout<<"debug mode, printing matrices."<<endl;
-    
+//    cout<<"debug mode, printing matrices."<<endl;
+//            Eigen::saveMarketDat(J22i_map,"J22i.dat");
+        
 //
     
 
@@ -611,7 +651,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
     A.setIdentity();
 //    A -= dt * (J);
-    A -= dt * (J12 + J21_map -b*J22_map);
+    A -= dt * (J12 + J21_map -b*J22_map - a*J22i_map);
     
 //#ifndef NDEBUG
 //    Eigen::SparseMatrix<double, Eigen::RowMajor> A2;
@@ -834,6 +874,11 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
         Eigen::VectorXx<DataType> g2(2*N);
         
         double eta = 1;
+        
+//        Eigen::SparseMatrix<double,Eigen::RowMajor> iden;
+//
+//        iden.resize(MinvK.rows(),MinvK.cols());
+//        iden.setIdentity();
         //
         //  efficient version
         g.head(N) = du.head(N);
@@ -842,7 +887,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
         g.tail(N) = du.tail(N);
         g.tail(N).noalias() -=  MinvK * m_P * q;
         g.tail(N).noalias() -= (-a) * m_P * qDot;
-        g.tail(N).noalias() += b*MinvK0 * m_P * qDot;
+        g.tail(N).noalias() += (b*MinvK0) * m_P * qDot;
         
         Eigen::VectorXx<DataType> u_tilde(2*N+1);
         u_tilde.head(2*N) = state_free;
@@ -1017,14 +1062,13 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             
         }
         X = w;
-        double err = s_error;
         hump = hump / normv;
-        //    }
-        //    Eigen::saveMarketVector(X,"X.dat");
-        
-        //
-        q = m_P.transpose() * X.head(N);
-        qDot =  m_P.transpose() *( X.segment(N,N));
+        Eigen::VectorXd q_s,qDot_s;
+        q_s = m_S *q;
+        qDot_s = m_S*qDot;
+        q = m_P.transpose() * X.head(N) + m_S.transpose() * q_s;
+        qDot =  m_P.transpose() *( X.segment(N,N))  + m_S.transpose() * qDot_s;
+        //                    q += dt * qDot;
     }
     else
     {
@@ -1151,12 +1195,12 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             
             // add damping
             if (integrator.compare("IM") == 0) {
-                (*forceVector) = (*forceVector) -  ( b*(K0_map)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  (a *(*m_massMatrix) + b*(K0_map)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
             }
             else
             {
 //                cout<<"K0 size: " << K0_map.rows() << " " <<K0_map.cols()<<endl;
-                (*forceVector) = (*forceVector) -  (b*K0_map) * m_P *(qDot);
+                (*forceVector) = (*forceVector) -  (a *(*m_massMatrix) + b*K0_map) * m_P *(qDot);
             }
             
             // add external force
@@ -1253,11 +1297,11 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             (*forceVector) = m_P*(*forceVector);
             
             if (integrator.compare("IM") == 0) {
-                (*forceVector) = (*forceVector) -  ( b*(K0_map)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
+                (*forceVector) = (*forceVector) -  ( a *(*m_massMatrix) + b*(K0_map)) * m_P * 1.0 / 2.0 *(eigen_v_old + qDot);
             }
             else
             {
-                (*forceVector) = (*forceVector) -  (b*(K0_map)) * m_P *(qDot);
+                (*forceVector) = (*forceVector) -  (a *(*m_massMatrix) + b*(K0_map)) * m_P *(qDot);
             }
             
             // add external force
@@ -1288,9 +1332,25 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             if (integrator.compare("SI") == 0) {
                 break; // if it's IS, only need one step
             }
-        } while(res > 1e-4 && update_step_size > 1e-4 );
-        it_outer = 0;
-        
+#ifdef NH
+        } while(res > 1e-4 && update_step_size > 1e-4);
+#endif
+#ifdef LINEAR
+    } while(false ); // only need one step for linear
+#endif
+#ifdef COROT
+} while(res > 1e-4 && update_step_size > 1e-4 );
+#endif
+#ifdef ARAP
+} while(res > 1e-4 && update_step_size > 1e-4);
+#endif
+#ifdef STVK
+} while(res > 1e-4 && update_step_size > 1e-4);
+#endif
+
+it_print = it_outer;
+it_outer = 0;
+
         if (integrator.compare("IM") == 0) {
             q = eigen_q_old + 1.0/2.0 * dt * (qDot + eigen_v_old);
         }
