@@ -131,9 +131,14 @@ int main(int argc, char **argv) {
     double b = -0.0001;
     std::string integrator = "SIERE";
     
+    std::string hete_filename = "0";
+    double hete_falloff_ratio = 1.0;
+
+    
     //    parameters
     
-    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b, integrator);
+    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b, integrator, hete_filename, hete_falloff_ratio);
+    );
     
     
     readTetgen(V, F, dataDir()+meshname +".node", dataDir()+meshname+".ele");
