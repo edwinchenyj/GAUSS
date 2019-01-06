@@ -22,6 +22,11 @@
 #include <igl/writePLY.h>
 #include <time.h>
 
+#include <fstream>
+#include <vector>
+#include <cstdlib>
+#include <iostream>
+
 using namespace Gauss;
 using namespace FEM;
 using namespace ParticleSystem; //For Force Spring
@@ -148,9 +153,12 @@ int main(int argc, char **argv) {
     bool init_eigenvalue_criteria= false;
     int init_eigenvalue_criteria_factor = 4;
     bool eigenfit_damping = true;
-    std::string integrator = "IM";
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping);
+    std::string integrator = "IM";
+    std::string hete_filename = "0";
+    double hete_falloff_ratio = 1.0;
+    
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping, hete_filename, hete_falloff_ratio);
     
     std::ofstream simfile;
     simfile.open ("sim_log.txt");
@@ -179,7 +187,8 @@ int main(int argc, char **argv) {
     simfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
     simfile<<"Using integrator: "<< integrator<<endl;
     simfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-    
+    simfile<<"Using hete filename: "<< hete_filename<<endl;
+    simfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
     simfile.close();
     
     
@@ -201,7 +210,27 @@ int main(int argc, char **argv) {
     cout<<"Using coarse mesh "<<cmeshname<<endl;
     cout<<"Using fine mesh "<<fmeshname<<endl;
     
-    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,const_dir,const_tol, const_profile,haus,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol);
+    
+    if(hete_filename != "0")
+    {
+        cout<<"replacing "<< hete_filename << " to ";
+        size_t index = 0;
+        while (true) {
+            /* Locate the substring to replace. */
+            index = hete_filename.find(cmeshnameActual, index);
+            if (index == std::string::npos) break;
+            
+            /* Make the replacement. */
+            hete_filename.replace(index, cmeshnameActual.size(), fmeshnameActual);
+            
+            /* Advance index forward so the next iteration doesn't pick it up as well. */
+            index += cmeshnameActual.size();
+        }
+        cout<< hete_filename<<endl;
+    }
+    
+    
+    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,const_dir,const_tol, const_profile,haus,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol,hete_filename,hete_falloff_ratio);
 
     //  TODO: clean up here...   additional parameter goes here..
     // TODO: set rayleigh damping. should not be here...
@@ -211,7 +240,7 @@ int main(int argc, char **argv) {
     test->init_mode_matching_tol = init_mode_matching_tol;
     test->init_eigenvalue_criteria = init_eigenvalue_criteria;
     test->init_eigenvalue_criteria_factor = init_eigenvalue_criteria_factor;
-
+    
     
     world.addSystem(test);
     
@@ -348,22 +377,99 @@ int main(int argc, char **argv) {
         std::cout<<"warning: wrong constraint profile\n";
     }
     
-    //        // set material
-    cout<<"Setting Youngs and Poisson..."<<endl;
-    for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+    
+    if(hete_filename != "0")
+    {
+        cout<<"replacing "<< hete_filename << " to ";
+        size_t index = 0;
+        while (true) {
+            /* Locate the substring to replace. */
+            index = hete_filename.find(fmeshnameActual, index);
+            if (index == std::string::npos) break;
+            
+            /* Make the replacement. */
+            hete_filename.replace(index, fmeshnameActual.size(), cmeshnameActual);
+            
+            /* Advance index forward so the next iteration doesn't pick it up as well. */
+            index += fmeshnameActual.size();
+        }
+        cout<< hete_filename<<endl;
+    }
+    
+    std::vector<double> stiffness_ratio;
+    
+    if (hete_filename != "0") {
+        std::ifstream ifile(hete_filename, std::ios::in);
+        //check to see that the file was opened correctly:
+        if (!ifile.is_open()) {
+            std::cerr << "There was a problem opening the input file!\n";
+            exit(1);//exit or do additional error checking
+        }
+        
+        double num = 0.0;
+        //keep storing values from the text file so long as data exists:
+        while (ifile >> num) {
+            stiffness_ratio.push_back(num);
+        }
+        
+#ifndef NDEBUG
+        //verify that the scores were stored correctly:
+        for (int i = 0; i < stiffness_ratio.size(); ++i) {
+            std::cout << stiffness_ratio[i] << std::endl;
+        }
+#endif
+        
+        
+        double low_stiffness = youngs/hete_falloff_ratio;
+        
+        if(stiffness_ratio.size() != test->getImpl().getF().rows())
+        {
+            std::cerr << "Hete file need the same number of tets!\n";
+            exit(1);
+        }
+        
+        //        // set material
+        cout<<"Setting Youngs and Poisson..."<<endl;
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel)
+        {
 #ifdef NH
-        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
 #ifdef COROT
-        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
 #ifdef LINEAR
-        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
 #ifdef ARAP
-        test->getImpl().getElement(iel)->setParameters(youngs);
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness));
 #endif
-
+            
+        }
+        
+        
+    }
+    else
+    {
+        
+        //        // set material
+        cout<<"Setting Youngs and Poisson..."<<endl;
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel)
+        {
+#ifdef NH
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef COROT
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef LINEAR
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef ARAP
+            test->getImpl().getElement(iel)->setParameters(youngs);
+#endif
+            
+        }
     }
     
     // initialize the state (position and velocity)
@@ -418,6 +524,12 @@ int main(int argc, char **argv) {
     
     if(dynamic_flag == 6)
     {
+        if(hete_filename!="0")
+        {
+            cout<<"can't you DAC with heterogenous material."<<endl;
+            exit(1);
+        }
+        
         double DAC_scalar = test->m_R(0);
         // set material
         cout<<"Resetting Youngs using DAC..."<<endl;
@@ -519,8 +631,11 @@ int main(int argc, char **argv) {
             cout<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
             cout<<"Using integrator: "<< integrator<<endl;
             cout<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
+            cout<<"Using hete filename: "<< hete_filename<<endl;
+            cout<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
+
             std::ofstream myfile;
-            myfile.open ("error_log.txt");
+            myfile.open ("error_log.txt", std::ofstream::app);
             
             myfile<<"Error: stepper fail at frame "<< test->step_number <<" with parameters: "<<endl;
             myfile<<"Using coarse mesh: "<<cmeshname<<endl;
@@ -546,6 +661,8 @@ int main(int argc, char **argv) {
             myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
             myfile<<"Using integrator: "<< integrator<<endl;
             myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
+            myfile<<"Using hete filename: "<< hete_filename<<endl;
+            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
             myfile.close();
             
             return 1;
@@ -555,7 +672,7 @@ int main(int argc, char **argv) {
             cout<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
             
             std::ofstream myfile;
-            myfile.open ("error_log.txt");
+            myfile.open ("error_log.txt", std::ofstream::app);
             
             myfile<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
             myfile<<"Using coarse mesh: "<<cmeshname<<endl;
@@ -581,15 +698,19 @@ int main(int argc, char **argv) {
             myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
             myfile<<"Using integrator: "<< integrator<<endl;
             myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-            myfile.close();
+            myfile<<"Using hete filename: "<< hete_filename<<endl;
+            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
             
+            myfile.close();
+#ifndef NOEXIT
             return 1;
+#endif
         }
         else if (test->eigenfit_data == 3)
         {
             
             std::ofstream myfile;
-            myfile.open ("error_log.txt");
+            myfile.open ("error_log.txt", std::ofstream::app);
             cout<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
             myfile<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
             myfile<<"Using coarse mesh: "<<cmeshname<<endl;
@@ -615,14 +736,19 @@ int main(int argc, char **argv) {
             myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
             myfile<<"Using integrator: "<< integrator<<endl;
             myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
+            myfile<<"Using hete filename: "<< hete_filename<<endl;
+            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
+            
             myfile.close();
+#ifndef NOEXIT
             return 1;
+#endif
         }
         else if (test->eigenfit_data == 4)
         {
             
             std::ofstream myfile;
-            myfile.open ("error_log.txt");
+            myfile.open ("error_log.txt", std::ofstream::app);
             cout<<"Eigenvectors change too much, Eigenfit won't work."<<endl;
             myfile<<"Eigenvectors change too much, Eigenfit won't work."<<endl;
             myfile<<"Using coarse mesh: "<<cmeshname<<endl;
@@ -648,8 +774,13 @@ int main(int argc, char **argv) {
             myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
             myfile<<"Using integrator: "<< integrator<<endl;
             myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
+            myfile<<"Using hete filename: "<< hete_filename<<endl;
+            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
+            
             myfile.close();
+#ifndef NOEXIT
             return 1;
+#endif
         }
         
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);

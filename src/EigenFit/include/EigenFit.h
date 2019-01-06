@@ -119,7 +119,7 @@ public:
     // the constructor will take the two mesh parameters, one coarse one fine.
     // The coarse mesh data will be passed to the parent class constructor to constructor
     // the fine mesh data will be used to initialize the members specific to the EigenFit class
-    EigenFit(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_flag, double youngs, double poisson, int constraint_dir, double constraint_tol, unsigned int const_profile, unsigned int hausdorff_dist, unsigned int num_modes, std::string cmeshname, std::string fmeshname, bool simple_mass_flag, double mode_matching_tol = 0) : PhysicalSystemImpl(Vc,Fc)
+    EigenFit(Eigen::MatrixXx<double> &Vc, Eigen::MatrixXi &Fc,Eigen::MatrixXx<double> &Vf, Eigen::MatrixXi &Ff, int dynamic_flag, double youngs, double poisson, int constraint_dir, double constraint_tol, unsigned int const_profile, unsigned int hausdorff_dist, unsigned int num_modes, std::string cmeshname, std::string fmeshname, bool simple_mass_flag, double mode_matching_tol = 0, std::string hete_filename = "0", double hete_falloff_ratio = 1) : PhysicalSystemImpl(Vc,Fc)
     {
         this->simple_mass_flag = simple_mass_flag;
         coarse_mass_calculated = false;
@@ -186,23 +186,106 @@ public:
             // set up material parameters
             this->youngs = youngs;
             this->poisson = poisson;
-            for(unsigned int iel=0; iel<m_fineMeshSystem->getImpl().getF().rows(); ++iel) {
+            
+//
+//            for(unsigned int iel=0; iel<m_fineMeshSystem->getImpl().getF().rows(); ++iel) {
+//
+//#ifdef NH
+//                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+//#endif
+//#ifdef COROT
+//                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+//#endif
+//#ifdef LINEAR
+//                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+//#endif
+//#ifdef ARAP
+//                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs);
+//#endif
+//
+//            }
+//
+            
+            std::vector<double> stiffness_ratio;
+            
+            if (hete_filename != "0") {
+                std::ifstream ifile(hete_filename, std::ios::in);
+                //check to see that the file was opened correctly:
+                if (!ifile.is_open()) {
+                    std::cerr << "There was a problem opening the input file!\n";
+                    exit(1);//exit or do additional error checking
+                }
                 
+                double num = 0.0;
+                //keep storing values from the text file so long as data exists:
+                while (ifile >> num) {
+                    stiffness_ratio.push_back(num);
+                }
+                
+#ifndef NDEBUG
+                //verify that the scores were stored correctly:
+                for (int i = 0; i < stiffness_ratio.size(); ++i) {
+                    std::cout << stiffness_ratio[i] << std::endl;
+                }
+#endif
+                
+                
+                double low_stiffness = youngs/hete_falloff_ratio;
+                
+                if(stiffness_ratio.size() != Ff.rows())
+                {
+                    std::cerr << "Hete file need the same number of tets!\n";
+                    exit(1);
+                }
+                
+                //        // set material
+                cout<<"Setting Youngs and Poisson for heterogeneous object..."<<endl;
+                for(unsigned int iel=0; iel<Ff.rows(); ++iel)
+                {
 #ifdef NH
-                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
 #ifdef COROT
-                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
 #ifdef LINEAR
-                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
 #ifdef ARAP
-                m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs);
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness));
 #endif
+                    
+                }
+                
                 
             }
+            else
+            {
+                
+                //        // set material
+                cout<<"Setting Youngs and Poisson..."<<endl;
+                for(unsigned int iel=0; iel<Ff.rows(); ++iel)
+                {
+#ifdef NH
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef COROT
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef LINEAR
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef ARAP
+                    m_fineMeshSystem->getImpl().getElement(iel)->setParameters(youngs);
+#endif
+                    
+                }
+            }
+            
+            
             m_fineWorld.addSystem(m_fineMeshSystem);
+            
+            
             
             //       constraints
             Eigen::SparseMatrix<double> fineP;
@@ -1194,6 +1277,9 @@ public:
     double init_mode_matching_tol;
     
     int eigenfit_data;
+    
+    std::string hete_filename;
+    double hete_falloff_ratio;
 protected:
     
     World<double, std::tuple<PhysicalSystemImpl *>,

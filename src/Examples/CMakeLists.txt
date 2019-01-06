@@ -30,16 +30,42 @@ target_compile_options(ExampleEigenFitNH PUBLIC -DNH)
 add_executable(ExampleEigenFitARAP exampleEigenFit.cpp)
 target_compile_options(ExampleEigenFitARAP PUBLIC -DARAP)
 
-add_executable(ExampleEigenFitEXP exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitEXP PUBLIC -DNH)
-target_compile_options(ExampleEigenFitEXP PUBLIC -DEXP)
 
-add_executable(ExampleEigenFitCoRotEXP exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitCoRotEXP PUBLIC -DCOROT)
 
-add_executable(ExampleEigenFitARAPEXP exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DARAP)
-target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DEXP)
+
+
+add_executable(ExampleEigenFitNoExit exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFit PUBLIC -DNH -DNOEXIT)
+
+
+add_executable(ExampleEigenFitCoRotNoExit exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFitCoRot PUBLIC -DCOROT -DNOEXIT)
+
+
+add_executable(ExampleEigenFitLinearNoExit exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFitLinear PUBLIC -DLINEAR -DNOEXIT)
+
+add_executable(ExampleEigenFitNHNoExit exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFitNH PUBLIC -DNH -DNOEXIT)
+
+add_executable(ExampleEigenFitARAPNoExit exampleEigenFit.cpp)
+target_compile_options(ExampleEigenFitARAP PUBLIC -DARAP -DNOEXIT)
+
+
+
+
+
+
+#add_executable(ExampleEigenFitEXP exampleEigenFit.cpp)
+#target_compile_options(ExampleEigenFitEXP PUBLIC -DNH)
+#target_compile_options(ExampleEigenFitEXP PUBLIC -DEXP)
+
+#add_executable(ExampleEigenFitCoRotEXP exampleEigenFit.cpp)
+#target_compile_options(ExampleEigenFitCoRotEXP PUBLIC -DCOROT)
+
+#add_executable(ExampleEigenFitARAPEXP exampleEigenFit.cpp)
+#target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DARAP)
+#target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DEXP)
 
 
 
@@ -113,9 +139,17 @@ target_link_libraries(ExampleEigenFitCoRot Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleEigenFitARAP Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleEigenFitNH Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleEigenFitLinear Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitEXP Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitCoRotEXP Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitARAPEXP Core Base FEM UI ${GAUSS_LIBS})
+
+target_link_libraries(ExampleEigenFitNoExit Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleEigenFitCoRotNoExit Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleEigenFitARAPNoExit Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleEigenFitNHNoExit Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleEigenFitLinearNoExit Core Base FEM UI ${GAUSS_LIBS})
+
+
+#target_link_libraries(ExampleEigenFitEXP Core Base FEM UI ${GAUSS_LIBS})
+#target_link_libraries(ExampleEigenFitCoRotEXP Core Base FEM UI ${GAUSS_LIBS})
+#target_link_libraries(ExampleEigenFitARAPEXP Core Base FEM UI ${GAUSS_LIBS})
 
 target_link_libraries(ExampleExponentialIMEX Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleExponentialIMEXLinear Core Base FEM UI ${GAUSS_LIBS})

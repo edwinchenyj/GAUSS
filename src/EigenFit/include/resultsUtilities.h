@@ -26,7 +26,7 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
                  std::string &fmeshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
                  int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
-                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator, bool & eigenfit_damping)
+                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator, bool & eigenfit_damping, std::string & hete_filename, double & hete_falloff_ratio)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -146,6 +146,15 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
         {
             eigenfit_damping = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using eigenfit damping: "<<eigenfit_damping<<endl;
+        }
+        else if(field.compare("hete_filename") == 0) {
+            hete_filename =arg.substr(eq_found+1,arg.length()-eq_found-1);
+            cout<<"Using hete filename: "<<hete_filename<<endl;
+        }
+        else if(field.compare("hete_falloff_ratio") == 0)
+        {
+            hete_falloff_ratio = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
         }
         else
         {
@@ -606,7 +615,7 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
 void parse_input(int argc, char **argv, std::string &meshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps,
                  int &num_modes, int &const_dir, double &step_size,
-                 double &a, double &b, std::string &integrator)
+                 double &a, double &b, std::string &integrator , std::string & hete_filename, double & hete_falloff_ratio)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -672,6 +681,15 @@ void parse_input(int argc, char **argv, std::string &meshname, double &youngs, d
         else if(field.compare("integrator") == 0) {
             integrator =arg.substr(eq_found+1,arg.length()-eq_found-1);
             cout<<"Using integrator: "<<integrator<<endl;
+        }
+        else if(field.compare("hete_filename") == 0) {
+            hete_filename =arg.substr(eq_found+1,arg.length()-eq_found-1);
+            cout<<"Using hete filename: "<<hete_filename<<endl;
+        }
+        else if(field.compare("hete_falloff_ratio") == 0)
+        {
+            hete_falloff_ratio = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
         }
         else
         {
