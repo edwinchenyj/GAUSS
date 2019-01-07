@@ -26,7 +26,7 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
                  std::string &fmeshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
                  int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
-                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator, bool & eigenfit_damping, std::string & hete_filename, double & hete_falloff_ratio)
+                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator, bool & eigenfit_damping, std::string & hete_filename, double & hete_falloff_ratio, double & motion_multiplier)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -156,6 +156,11 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
             hete_falloff_ratio = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
         }
+        else if(field.compare("motion_multiplier") == 0)
+        {
+            motion_multiplier = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using motion multiplier: "<< motion_multiplier <<endl;
+        }
         else
         {
             cout<<"Warning: Unknown field "<< field<<" with unused value " << arg.substr(eq_found+1,arg.length()-eq_found-1)<<endl;
@@ -182,7 +187,7 @@ void q_state_to_position(Eigen::VectorXd& q, Eigen::MatrixXd& V_pos)
 }
 //
 //template<typename DataType>
-void apply_moving_constraint(int const_profile, State<double> & state, std::vector<ConstraintFixedPoint<double> *> & movingConstraints, int frame_number)
+void apply_moving_constraint(int const_profile, State<double> & state, std::vector<ConstraintFixedPoint<double> *> & movingConstraints, int frame_number, double motion_multiplier = 1.0)
 {
     
     // acts like the "callback" block for moving constraint
@@ -286,12 +291,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 250) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 0.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 0.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 0.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 0.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 0.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 0.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 0.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 0.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 0.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 0.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 0.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 0.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -313,12 +318,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 100) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 2.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 2.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 2.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 2.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 2.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 2.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 2.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 2.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 2.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 2.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 2.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 2.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -340,12 +345,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 100) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 4.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 4.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 4.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 4.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 4.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 4.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 4.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 4.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 4.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 4.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 4.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 4.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -367,12 +372,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 100) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 1.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -394,12 +399,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 30) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 2.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 2.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 2.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 2.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 2.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 2.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 2.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 2.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 2.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 2.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 2.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 2.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -421,12 +426,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 30) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 4.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 4.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 4.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 4.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 4.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 4.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 4.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 4.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 4.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 4.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 4.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 4.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -448,12 +453,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 30) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 1.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -475,12 +480,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 15) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 1.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -502,12 +507,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 5) {
-                if(Xvel(frame_number) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 1.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -529,12 +534,12 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 15 || (frame_number >120 && frame_number < 135)) {
-                if(Xvel(frame_number    ) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
-                if(Yvel(frame_number) <= 0){   v_q(1) += 1.5*std::max(Yvel(frame_number),-0.005);}
-                else{ v_q(1) += 1.5*std::min(Yvel(frame_number),0.005);}
-                if(Zvel(frame_number) <= 0){   v_q(2) += 1.5*std::max(Zvel(frame_number),-0.005);}
-                else{ v_q(2) += 1.5*std::min(Zvel(frame_number),0.005);}
+                if(Xvel(frame_number    ) <= 0){   v_q(0) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 1.5*std::min(Zvel(frame_number),0.005);}
             }
         }
     }
@@ -556,8 +561,8 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 15 ) {
-                if(Xvel(frame_number    ) <= 0){   v_q(0) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(0) += 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Xvel(frame_number    ) <= 0){   v_q(0) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
                 
             }
         }
@@ -580,8 +585,8 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 15 ) {
-                if(Xvel(frame_number    ) <= 0){   v_q(1) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(1) += 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Xvel(frame_number    ) <= 0){   v_q(1) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
                 
             }
         }
@@ -604,8 +609,8 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
         for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
             auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
             if ((frame_number) < 15 ) {
-                if(Xvel(frame_number    ) <= 0){   v_q(2) += 1.5*std::max(Xvel(frame_number),-0.005);}
-                else{ v_q(2) += 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Xvel(frame_number    ) <= 0){   v_q(2) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
                 
             }
         }
@@ -615,7 +620,7 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
 void parse_input(int argc, char **argv, std::string &meshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps,
                  int &num_modes, int &const_dir, double &step_size,
-                 double &a, double &b, std::string &integrator , std::string & hete_filename, double & hete_falloff_ratio)
+                 double &a, double &b, std::string &integrator , std::string & hete_filename, double & hete_falloff_ratio, double &motion_multiplier)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -690,6 +695,11 @@ void parse_input(int argc, char **argv, std::string &meshname, double &youngs, d
         {
             hete_falloff_ratio = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
+        }
+        else if(field.compare("motion_multiplier") == 0)
+        {
+            motion_multiplier = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using motion multiplier: "<< motion_multiplier <<endl;
         }
         else
         {
