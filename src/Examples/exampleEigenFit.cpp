@@ -157,8 +157,9 @@ int main(int argc, char **argv) {
     std::string integrator = "IM";
     std::string hete_filename = "0";
     double hete_falloff_ratio = 1.0;
+    double motion_multiplier = 1.0;
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping, hete_filename, hete_falloff_ratio);
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping, hete_filename, hete_falloff_ratio, motion_multiplier);
     
     std::ofstream simfile;
     simfile.open ("sim_log.txt");
@@ -783,7 +784,7 @@ int main(int argc, char **argv) {
 #endif
         }
         
-        apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);
+        apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep, motion_multiplier);
         // acts like the "callback" block for moving constraint
         
         //output data stream into text

@@ -133,12 +133,13 @@ int main(int argc, char **argv) {
     
     std::string hete_filename = "0";
     double hete_falloff_ratio = 1.0;
+    
+    double motion_multiplier = 1.0;
 
     
     //    parameters
     
-    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b, integrator, hete_filename, hete_falloff_ratio);
-    );
+    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b, integrator, hete_filename, hete_falloff_ratio, motion_multiplier);
     
     
     readTetgen(V, F, dataDir()+meshname +".node", dataDir()+meshname+".ele");
@@ -282,24 +283,84 @@ int main(int argc, char **argv) {
     }
     
     
-    // set material
-    for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-#ifdef NH
-        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-#endif
-#ifdef COROT
-        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-#endif
-#ifdef STVK
-        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-#endif
-#ifdef LINEAR
-        test->getImpl().getElement(iel)->setParameters(youngs, poisson);
-#endif
-#ifdef ARAP
-        test->getImpl().getElement(iel)->setParameters(youngs);
+    
+    std::vector<double> stiffness_ratio;
+    
+    if (hete_filename != "0") {
+        std::ifstream ifile(hete_filename, std::ios::in);
+        //check to see that the file was opened correctly:
+        if (!ifile.is_open()) {
+            std::cerr << "There was a problem opening the input hete file!\n";
+            exit(1);//exit or do additional error checking
+        }
+        
+        double num = 0.0;
+        //keep storing values from the text file so long as data exists:
+        while (ifile >> num) {
+            stiffness_ratio.push_back(num);
+        }
+        
+#ifndef NDEBUG
+        //verify that the scores were stored correctly:
+        for (int i = 0; i < stiffness_ratio.size(); ++i) {
+            std::cout << stiffness_ratio[i] << std::endl;
+        }
 #endif
         
+        
+        double low_stiffness = youngs/hete_falloff_ratio;
+        
+        if(stiffness_ratio.size() != test->getImpl().getF().rows())
+        {
+            std::cerr << "Hete file need the same number of tets!\n";
+            exit(1);
+        }
+        
+        //        // set material
+        cout<<"Setting Youngs and Poisson..."<<endl;
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel)
+        {
+#ifdef NH
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
+#endif
+#ifdef COROT
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
+#endif
+#ifdef STVK
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
+#endif
+#ifdef LINEAR
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
+#endif
+#ifdef ARAP
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness));
+#endif
+            
+        }
+        
+        
+    }
+    else
+    {
+        
+        //        // set material
+        cout<<"Setting Youngs and Poisson..."<<endl;
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel)
+        {
+#ifdef NH
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef COROT
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef LINEAR
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef ARAP
+            test->getImpl().getElement(iel)->setParameters(youngs);
+#endif
+            
+        }
     }
     
     
@@ -403,7 +464,7 @@ int main(int argc, char **argv) {
             return 1;
         }
         
-        apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep);
+        apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep, motion_multiplier);
         
         std::ofstream ofile;
         //output data stream into text
