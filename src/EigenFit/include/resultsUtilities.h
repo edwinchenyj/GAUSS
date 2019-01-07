@@ -160,7 +160,7 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
         {
             motion_multiplier = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using motion multiplier: "<< motion_multiplier <<endl;
-        }
+        } 
         else
         {
             cout<<"Warning: Unknown field "<< field<<" with unused value " << arg.substr(eq_found+1,arg.length()-eq_found-1)<<endl;
