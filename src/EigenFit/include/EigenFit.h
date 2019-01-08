@@ -309,7 +309,7 @@ public:
                 
                 m_numConstraints = 0;
             }
-            else if (const_profile == 1)
+            else if (const_profile <= 7)
             {
                 cout<<"Setting constraint on the fine mesh and constructing fine mesh projection matrix"<<endl;
                 // default constraint
@@ -353,102 +353,19 @@ public:
                 m_numConstraints = fineFixedVerts.size();
                 
             }
-            else if (const_profile == 2)
-            {
-                
-                
-                std::string cconstraint_file_name = "data/" +cmeshname + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
-                std::string fconstraint_file_name = "data/" +fmeshname + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
-                Eigen::VectorXi fineMovingVerts;
-                Eigen::VectorXi coarseMovingVerts;
-                cout<<"Loading vertices and setting projection matrix..."<<endl;
-                if(!Eigen::loadMarketVector(coarseMovingVerts,cconstraint_file_name))
-                {
-                    cout<<cconstraint_file_name<<endl;
-                    cout<<"File does not exist for coarse mesh, creating new file..."<<endl;
-                    coarseMovingVerts = minVertices(this, constraint_dir, constraint_tol);
-                    Eigen::saveMarketVector(coarseMovingVerts,cconstraint_file_name);
-                }
-                if(!Eigen::loadMarketVector(fineMovingVerts,fconstraint_file_name))
-                {
-                    cout<<fconstraint_file_name<<endl;
-                    cout<<"File does not exist for fine mesh, creating new file..."<<endl;
-                    fineMovingVerts = minVertices(m_fineMeshSystem, constraint_dir, constraint_tol);
-                    Eigen::saveMarketVector(fineMovingVerts,fconstraint_file_name);
-                }
-                
-                
-                m_fineMovingVerts = fineMovingVerts;
-                fineP = fixedPointProjectionMatrix(fineMovingVerts, *m_fineMeshSystem,m_fineWorld);
-                m_fineP = fineP;
-                
-                
-                coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
-                m_coarseP = fixedPointProjectionMatrixCoarse(coarseMovingVerts);
-                
-                Eigen::saveMarketDat(m_fineP, fconstraint_file_name+"_fineP.dat");
-                Eigen::saveMarketDat(m_coarseP, cconstraint_file_name+"_cineP.dat");
-                
-                std::vector<ConstraintFixedPoint<double> *> fineMovingConstraints;
-                
-                for(unsigned int ii=0; ii<fineMovingVerts.rows(); ++ii) {
-                    fineMovingConstraints.push_back(new ConstraintFixedPoint<double>(&m_fineMeshSystem->getQ()[fineMovingVerts[ii]], Eigen::Vector3d(0,0,0)));
-                    m_fineWorld.addConstraint(fineMovingConstraints[ii]);
-                }
-                m_fineWorld.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-                
-                // hard-coded constraint projection
-                //
-                // only need to record one because only need to know if it's 0, 3, or 6. either fine or coarse is fine
-                m_numConstraints = fineMovingVerts.size();
-                
-            }
-            else if (const_profile == 3)
-            {
-                std::string cconstraint_file_name = "data/" +cmeshname + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
-                std::string fconstraint_file_name = "data/" +fmeshname + "_const" + std::to_string(const_profile) + "_" +std::to_string(constraint_dir)+"_"+std::to_string(constraint_tol)+".mtx";
-                Eigen::VectorXi fineFixedVerts;
-                Eigen::VectorXi coarseFixedVerts;
-                cout<<"Loading vertices and setting projection matrix..."<<endl;
-                if(!Eigen::loadMarketVector(coarseFixedVerts,cconstraint_file_name))
-                {
-                    cout<<cconstraint_file_name<<endl;
-                    cout<<"File does not exist for coarse mesh, creating new file..."<<endl;
-                    coarseFixedVerts = minVertices(this, constraint_dir, constraint_tol);
-                    Eigen::saveMarketVector(coarseFixedVerts,cconstraint_file_name);
-                }
-                if(!Eigen::loadMarketVector(fineFixedVerts,fconstraint_file_name))
-                {
-                    cout<<fconstraint_file_name<<endl;
-                    cout<<"File does not exist for fine mesh, creating new file..."<<endl;
-                    fineFixedVerts = minVertices(m_fineMeshSystem, constraint_dir, constraint_tol);
-                    Eigen::saveMarketVector(fineFixedVerts,fconstraint_file_name);
-                }
-                
-                std::vector<ConstraintFixedPoint<double> *> fixedConstraints;
-                //
-                for(unsigned int ii=0; ii<fineFixedVerts.rows(); ++ii) {
-                    fixedConstraints.push_back(new ConstraintFixedPoint<double>(&m_fineMeshSystem->getQ()[fineFixedVerts[ii]], Eigen::Vector3d(0,0,0)));
-                    m_fineWorld.addConstraint(fixedConstraints[ii]);
-                }
-                
-                m_fineWorld.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-                
-                fineP = fixedPointProjectionMatrix(fineFixedVerts, *m_fineMeshSystem,m_fineWorld);
-                m_fineP = fineP;
-                
-                
-                coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
-                m_coarseP = fixedPointProjectionMatrixCoarse(coarseFixedVerts);
-                
-                Eigen::saveMarketDat(m_fineP, fconstraint_file_name+"_fineP.dat");
-                Eigen::saveMarketDat(m_coarseP, cconstraint_file_name+"_cineP.dat");
-                
-                
-                m_numConstraints = fineFixedVerts.rows();
-                
-                
-            }
+//            else if (const_profile == 2)
+//            {
+//
+//
+//
+//
+//            }
+//            else if (const_profile == 3)
+//            {
+//
+//
+//
+//            }
             else if (const_profile < 30)
             {
                 
