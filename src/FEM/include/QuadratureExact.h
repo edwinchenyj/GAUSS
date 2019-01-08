@@ -37,11 +37,11 @@ namespace Gauss {
  
                 m_V0 = (1.0/6.0)*V0.determinant();
                 
-                if(m_V0 <= 0) {
-                    std::cout<<"Inverted element detected \n";
-                    exit(1);
-                }
-                assert(m_V0 > 0); //tet non inverted in reference config
+//                if(m_V0 <= 0) {
+//                    std::cout<<"Inverted element detected \n";
+//                    exit(1);
+//                }
+//                assert(m_V0 > 0); //tet non inverted in reference config
                 
                 //setup the mass matrix
                 double mass = m_V0;
