@@ -205,6 +205,37 @@ int main(int argc, char **argv) {
         cout<<"Setting zero gravity..."<<endl;
         Eigen::Vector3x<double> g;
         g(0) = 0;
+        g(1) = -9.8 * motion_multiplier;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+    }else if(const_profile == 3)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = -9.8 * motion_multiplier;
         g(1) = 0;
         g(2) = 0;
         
@@ -213,28 +244,154 @@ int main(int argc, char **argv) {
             test->getImpl().getElement(iel)->setGravity(g);
             
         }
-        
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
         world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
         
         Eigen::VectorXi indices;
         // construct the projection matrix for stepper
         std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        cout<<"Loading moving vertices and setting projection matrix..."<<endl;
         if(!Eigen::loadMarketVector(indices,constraint_file_name))
         {
             cout<<"File does not exist, creating new file..."<<endl;
             indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
+        
         P = fixedPointProjectionMatrix(indices, *test,world);
         
-        for(unsigned int ii=0; ii<indices.rows(); ++ii) {
-            movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
-            world.addConstraint(movingConstraints[ii]);
+        
+        
+        
+    }else if(const_profile == 4)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 9.8 * motion_multiplier;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
         }
         
-        fixDisplacementMin(world, test,const_dir,const_tol);
+        P = fixedPointProjectionMatrix(indices, *test,world);
         
+        
+        
+        
+    }else if(const_profile == 5)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 9.8 * motion_multiplier;
+        g(1) = 0;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+    }else if(const_profile == 6)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 0;
+        g(2) = 9.8 * motion_multiplier;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        
+    }
+    else if(const_profile == 7)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 0;
+        g(2) = -9.8 * motion_multiplier;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
     }
     else if (const_profile < 30)
     {
@@ -275,6 +432,184 @@ int main(int argc, char **argv) {
         }
         fixDisplacementMin(world, test,const_dir,const_tol);
         
+        
+    }
+    else if (const_profile == 30)
+    {
+        // fix max min and zero gravity
+        
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 0;
+        g(2) = 0;
+        
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
+        cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = maxminVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
+        
+        for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+            movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
+            world.addConstraint(movingConstraints[ii]);
+        }
+//        fixDisplacementMin(world, test,const_dir,const_tol);
+        
+        
+        
+    }
+    else if (const_profile == 31)
+    {
+        cout<<"fix max min and customized gravity in x"<<endl;
+        
+        
+        cout<<"Setting customized gravity gravity in x..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = motion_multiplier * 9.8;
+        g(1) = 0;
+        g(2) = 0;
+        
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
+        cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = maxminVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
+        
+        for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+            movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
+            world.addConstraint(movingConstraints[ii]);
+        }
+        //        fixDisplacementMin(world, test,const_dir,const_tol);
+        
+        
+        
+    }
+    else if (const_profile == 32)
+    {
+        cout<<"fix max min and customized gravity in y"<<endl;
+        
+        
+        cout<<"Setting customized gravity gravity y..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = motion_multiplier * 9.8;
+        g(2) = 0;
+        
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
+        cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = maxminVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
+        
+        for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+            movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
+            world.addConstraint(movingConstraints[ii]);
+        }
+        //        fixDisplacementMin(world, test,const_dir,const_tol);
+        
+        
+        
+    }
+    else if (const_profile == 33)
+    {
+        cout<<"fix max min and customized gravity in z"<<endl;
+        
+        
+        cout<<"Setting customized gravity gravity z..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 0;
+        g(2) = motion_multiplier * 9.8;
+        
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
+        cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = maxminVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
+        
+        for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+            movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
+            world.addConstraint(movingConstraints[ii]);
+        }
+        //        fixDisplacementMin(world, test,const_dir,const_tol);
         
     }
     else

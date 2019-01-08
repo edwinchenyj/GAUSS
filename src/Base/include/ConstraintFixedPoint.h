@@ -229,6 +229,59 @@ namespace Gauss {
     }
 
 
+    
+    //Utility functions to fix a bunch of points
+    template<typename FEMSystem>
+    Eigen::VectorXi maxminVertices(FEMSystem *system, unsigned int dim = 0, double tolerance = 1e-5) {
+        
+        
+        //find all vertices with minimum x coordinate and fix DOF associated with them
+        auto minX = system->getImpl().getV().col(dim).minCoeff();
+        std::vector<unsigned int> minV;
+        
+        for(unsigned int ii=0; ii<system->getImpl().getV().rows(); ++ii) {
+            
+            if(system->getImpl().getV()(ii,dim) < minX) {
+                minX = system->getImpl().getV()(ii,dim);
+                //                minV.clear();
+                minV.push_back(ii);
+            } else if(fabs(system->getImpl().getV()(ii,dim) - minX) < tolerance) {
+                minV.push_back(ii);
+            }
+        }
+        
+        //find all vertices with minimum x coordinate and fix DOF associated with them
+        auto maxX = system->getImpl().getV().col(dim).maxCoeff();
+        std::vector<unsigned int> maxV;
+        
+        for(unsigned int ii=0; ii<system->getImpl().getV().rows(); ++ii) {
+            
+            if(system->getImpl().getV()(ii,dim) > maxX) {
+                maxX = system->getImpl().getV()(ii,dim);
+                //                minV.clear();
+                maxV.push_back(ii);
+            } else if(fabs(system->getImpl().getV()(ii,dim) - maxX) < tolerance) {
+                maxV.push_back(ii);
+            }
+        }
+        
+        Eigen::VectorXi indices(minV.size() + maxV.size());
+        
+        //add a bunch of constraints
+        for(unsigned int iV = 0; iV < minV.size() ; ++iV) {
+            indices(iV) = minV[iV];
+        }
+        
+        //add a bunch of constraints
+        for(unsigned int iV = 0; iV < maxV.size() ; ++iV) {
+            indices(iV+minV.size()) = maxV[iV];
+        }
+        
+        return indices;
+    }
+    
+
+    
     template<typename World, typename FEMSystem, typename DataType = double>
     Eigen::SparseMatrix<DataType> fixedPointProjectionMatrix(Eigen::VectorXi &indices, FEMSystem &system,World &world) {
         
