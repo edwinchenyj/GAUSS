@@ -535,6 +535,11 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     // Initialize and compute
     eigs.init();
     eigs.compute();
+        
+        
+        
+        
+        
     
     if(eigs.info() == Spectra::SUCCESSFUL)
     {
@@ -546,16 +551,15 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
         }
         cout<<"there are " <<neg_evals<< " negative eigenvalues."<<endl;
         m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
+        normalizing_const.noalias() = (m_Us.first.transpose() * mass_lumped.asDiagonal() * m_Us.first).diagonal();
+        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+        
+        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
     }
     else{
         cout<<"eigen solve failed"<<endl;
         exit(1);
     }
-    
-    normalizing_const.noalias() = (m_Us.first.transpose() * mass_lumped.asDiagonal() * m_Us.first).diagonal();
-    normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
-    
-    m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
     
     
 //    if (J21_J22_outer_ind_ptr.empty()) {
