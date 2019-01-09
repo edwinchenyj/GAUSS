@@ -699,7 +699,7 @@ int main(int argc, char **argv) {
     }
     
     
-    auto q = mapStateEigen(world);
+    auto q = mapStateEigen<0>(world);
     
     //    default to zero deformation
     q.setZero();
@@ -722,18 +722,7 @@ int main(int argc, char **argv) {
             std::cout<<"original state size "<<q.rows()<<"\nloaded state size "<<tempv.rows()<<endl;;
             q = tempv;
             
-            unsigned int idxc = 0;
-            
-            // get the mesh position
-            for(unsigned int vertexId=0;  vertexId < std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first.rows(); ++vertexId) {
-                
-                Vtemp(vertexId,0) += q(idxc);
-                idxc++;
-                Vtemp(vertexId,1) += q(idxc);
-                idxc++;
-                Vtemp(vertexId,2) += q(idxc);
-                idxc++;
-            }
+            q_state_to_position(tempv, Vtemp);
             
             igl::writeOBJ("loadedpos.obj",Vtemp,surfF);
         }
@@ -747,9 +736,33 @@ int main(int argc, char **argv) {
     MyTimeStepper stepper(step_size,P, a, b,num_modes,integrator);
     stepper.getImpl().calculate_rest_stiffness(world);
     
+    
+    std::ofstream ofile;
+    //output data stream into text
+    ofile.open("PE.txt", std::ios::app); //app is append which means it will put the text at the end
+    ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState()) << std::endl;
+    ofile.close();
+    
+    //output data stream into text
+    ofile.open("Hamiltonian.txt", std::ios::app); //app is append which means it will put the text at the end
+    ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
+    ofile.close();
+    
+    
     unsigned int file_ind = 0;
-    struct stat buf;
+    
+    // rest pos for the coarse mesh getGeometry().first is V
+    Eigen::VectorXd q_vec = mapStateEigen(world);
     unsigned int idxc;
+    Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
+    q_state_to_position(q_vec,V_disp);
+    
+    // output mesh position with only surface mesh
+    igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
+    
+    
+    struct stat buf;
+    
     clock_t dt, actual_t;
     clock_t total_t = 0.0;
     for(istep=0; istep<num_steps ; ++istep)
@@ -811,10 +824,6 @@ int main(int argc, char **argv) {
         ofile.open("Hamiltonian.txt", std::ios::app); //app is append which means it will put the text at the end
         ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
         ofile.close();
-//
-//        ofile.open("KE.txt", std::ios::app); //app is append which means it will put the text at the end
-//        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState())  - std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState())<< std::endl;
-//        ofile.close();
         
         
         ofile.open("it_count.txt", std::ios::app); //app is append which means it will put the text at the end
@@ -826,7 +835,7 @@ int main(int argc, char **argv) {
         ofile.close();
 
         
-        file_ind = istep;
+        file_ind = istep+1;
 //        }
         
         // rest pos for the coarse mesh getGeometry().first is V
@@ -841,6 +850,19 @@ int main(int argc, char **argv) {
         if(integrator == "SIERE")
         {
             Eigen::saveMarketVectorDat(stepper.getImpl().m_Us.second, filename_number_padded("eigenvalues",file_ind,"dat"));
+            
+            if(istep == 0)
+            {
+                for(int i_mode = 0; i_mode < num_modes; i_mode++)
+                {
+                    Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
+                    Eigen::VectorXd q = (P.transpose() *stepper.getImpl().m_Us.first.col(i_mode)).transpose();
+                    q_state_to_position(q,V_disp);
+                    
+                    // output mesh position with only surface mesh
+                    igl::writeOBJ(filename_number_padded("eigenmode", i_mode,"obj"),V_disp,surfF);
+                }
+            }
         }
     }
     
