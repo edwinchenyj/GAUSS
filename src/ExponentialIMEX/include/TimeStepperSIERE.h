@@ -64,7 +64,7 @@ void phi(Eigen::MatrixXd &A, Eigen::MatrixXd &output)
     D_new.setZero();
     
     for (int j = 0; j < D.rows(); j++) {
-        if(norm(D(j,j)) > 1e-3)
+        if(norm(D(j,j)) > 1e-8)
         {
             //            cout<<D(j,j)<<endl;
             //            double realpart = real(D(j,j));
