@@ -490,6 +490,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     (*forceVector) = m_P*(*forceVector);
     
     // add damping
+        cout<<"a: "<<a<<", b: "<<b<<endl;
     (*forceVector).noalias() -= (a*(*m_massMatrix)+b*(K0_map)) * (m_P * ( qDot));
     
     // add external force
@@ -655,6 +656,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     
     A.setIdentity();
 //    A -= dt * (J);
+        cout<<"a: "<<a<<", b: "<<b<<endl;
     A -= dt * (J12 + J21_map -b*J22_map - a*J22i_map);
     
 //#ifndef NDEBUG
@@ -860,6 +862,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
         (*forceVector) = m_P*(*forceVector);
         
         // add damping
+        cout<<"a: "<<a<<", b: "<<b<<endl;
         (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(K0_map)) * m_P * ( qDot);
         
         // add external force
