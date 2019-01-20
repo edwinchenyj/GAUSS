@@ -88,6 +88,17 @@ add_executable(ExampleExponentialIMEXSTVK exampleExponentialIMEX.cpp)
 target_compile_options(ExampleExponentialIMEXSTVK PUBLIC -DSTVK)
 
 
+add_executable(ExampleExponentialIMEXFH exampleExponentialIMEX.cpp)
+target_compile_options(ExampleExponentialIMEXFH PUBLIC -DNHFH)
+
+add_executable(ExampleExponentialIMEXCoRotFH exampleExponentialIMEX.cpp)
+target_compile_options(ExampleExponentialIMEXCoRotFH PUBLIC -DCOROTFH)
+
+
+add_executable(ExampleExponentialIMEXARAPFH exampleExponentialIMEX.cpp)
+target_compile_options(ExampleExponentialIMEXARAPFH PUBLIC -DARAPFH)
+
+
 #add_executable(ExampleExponentialIMEX exampleExponentialIMEX.cpp)
 #add_executable(ExampleERE exampleERE.cpp)
 #add_executable(ExampleSI exampleSI.cpp)
@@ -157,6 +168,11 @@ target_link_libraries(ExampleExponentialIMEXCoRot Core Base FEM UI ${GAUSS_LIBS}
 target_link_libraries(ExampleExponentialIMEXARAP Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleExponentialIMEXNH Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleExponentialIMEXSTVK Core Base FEM UI ${GAUSS_LIBS})
+
+target_link_libraries(ExampleExponentialIMEXFH Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleExponentialIMEXCoRotFH Core Base FEM UI ${GAUSS_LIBS})
+target_link_libraries(ExampleExponentialIMEXARAPFH Core Base FEM UI ${GAUSS_LIBS})
+
 
 #target_link_libraries(ExampleERE Core Base FEM UI ${GAUSS_LIBS})
 #target_link_libraries(ExampleSI Core Base FEM UI ${GAUSS_LIBS})
