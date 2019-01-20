@@ -57,6 +57,28 @@ template<typename DataType>
 using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSNHHFixed>; //Change EnergyPSCoRot
 
 
+////typedef scene
+////build specific principal stretch material
+template<typename DataType, typename ShapeFunction>
+using  EnergyPSNH = EnergyPrincipalStretch<DataType, ShapeFunction, PSNeohookean>;
+
+template<typename DataType, typename ShapeFunction>
+using  EnergyPSARAP = EnergyPrincipalStretch<DataType, ShapeFunction, PSARAP>;
+
+template<typename DataType, typename ShapeFunction>
+using  EnergyPSCoRot = EnergyPrincipalStretch<DataType, ShapeFunction, PSCorotatedLinear>;
+
+//
+///* Tetrahedral finite elements */
+template<typename DataType>
+using FEMPSCoRotTetFullH = FEMPrincipalStretchTet<DataType, EnergyPSCoRot>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
+
+template<typename DataType>
+using FEMPSARAPTetFullH = FEMPrincipalStretchTet<DataType, EnergyPSARAP>; //Change EnergyPSCoRot
+
+template<typename DataType>
+using FEMPSNHTetFullH = FEMPrincipalStretchTet<DataType, EnergyPSNH>; //Change EnergyPSCoRot
+
 
 #ifdef NH
 typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
@@ -76,6 +98,19 @@ typedef PhysicalSystemFEM<double, LinearTet> FEMLinearTets;
 
 #ifdef STVK
 typedef PhysicalSystemFEM<double, StvkTet> FEMLinearTets;
+#endif
+
+
+#ifdef NHFH
+typedef PhysicalSystemFEM<double, Neohookean> FEMLinearTets;
+#endif
+
+#ifdef COROTFH
+typedef PhysicalSystemFEM<double, FEMPSCoRotTetFullH> FEMLinearTets;
+#endif
+
+#ifdef ARAPFH
+typedef PhysicalSystemFEM<double, FEMPSARAPTetFullH> FEMLinearTets;
 #endif
 
 typedef World<double, std::tuple<FEMLinearTets *>,
