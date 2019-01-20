@@ -102,7 +102,7 @@ typedef PhysicalSystemFEM<double, StvkTet> FEMLinearTets;
 
 
 #ifdef NHFH
-typedef PhysicalSystemFEM<double, Neohookean> FEMLinearTets;
+typedef PhysicalSystemFEM<double, NeohookeanTet> FEMLinearTets;
 #endif
 
 #ifdef COROTFH
