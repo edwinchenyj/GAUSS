@@ -1342,6 +1342,9 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
 #ifdef NH
         } while(res > 1e-4 && update_step_size > 1e-4);
 #endif
+#ifdef NHFH
+    } while(res > 1e-4 && update_step_size > 1e-4);
+#endif
 #ifdef LINEAR
     } while(false ); // only need one step for linear
 #endif
@@ -1349,6 +1352,12 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
 } while(res > 1e-4 && update_step_size > 1e-4 );
 #endif
 #ifdef ARAP
+} while(res > 1e-4 && update_step_size > 1e-4);
+#endif
+#ifdef COROTFH
+} while(res > 1e-4 && update_step_size > 1e-4 );
+#endif
+#ifdef ARAPFH
 } while(res > 1e-4 && update_step_size > 1e-4);
 #endif
 #ifdef STVK
