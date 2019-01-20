@@ -696,6 +696,13 @@ int main(int argc, char **argv) {
 #ifdef COROT
             test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
+#ifdef NHFH
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
+#endif
+#ifdef COROTFH
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
+#endif
+
 #ifdef STVK
             test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
@@ -703,6 +710,9 @@ int main(int argc, char **argv) {
             test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
 #ifdef ARAP
+            test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness));
+#endif
+#ifdef ARAPFH
             test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness));
 #endif
             
@@ -727,6 +737,16 @@ int main(int argc, char **argv) {
             test->getImpl().getElement(iel)->setParameters(youngs, poisson);
 #endif
 #ifdef ARAP
+            test->getImpl().getElement(iel)->setParameters(youngs);
+#endif
+#ifdef NHFH
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+#ifdef COROTFH
+            test->getImpl().getElement(iel)->setParameters(youngs, poisson);
+#endif
+
+#ifdef ARAPFH
             test->getImpl().getElement(iel)->setParameters(youngs);
 #endif
             
