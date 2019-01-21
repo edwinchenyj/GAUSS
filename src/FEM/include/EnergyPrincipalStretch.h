@@ -37,10 +37,10 @@ public:
         Eigen::Matrix33x<float> F = (ShapeFunction::F(x,state) + Eigen::Matrix<DataType,3,3>::Identity()).template cast<float>();
         
         igl::svd3x3(F,m_U,m_S,m_V);
-        
+#ifndef FF
         //Fix for inverted elements (thanks to Danny Kaufman)
         DataType det = m_S.determinant();
-        
+
         if(det <= -1e-10)
         {
             if(m_S[2] < 0) m_S[2] *= -1;
@@ -59,6 +59,7 @@ public:
             m_V(1, 2) *= -1;
             m_V(2, 2) *= -1;
         }
+#endif
         
         Eigen::Vector3x<float> Plam = m_ps.gradient(m_S);
         
