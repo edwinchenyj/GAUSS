@@ -158,8 +158,9 @@ int main(int argc, char **argv) {
     std::string hete_filename = "0";
     double hete_falloff_ratio = 1.0;
     double motion_multiplier = 1.0;
+    int constraint_switch = -1;
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping, hete_filename, hete_falloff_ratio, motion_multiplier);
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping, hete_filename, hete_falloff_ratio, motion_multiplier,constraint_switch);
     
     std::ofstream simfile;
     simfile.open ("sim_log.txt");
@@ -241,12 +242,14 @@ int main(int argc, char **argv) {
     test->init_mode_matching_tol = init_mode_matching_tol;
     test->init_eigenvalue_criteria = init_eigenvalue_criteria;
     test->init_eigenvalue_criteria_factor = init_eigenvalue_criteria_factor;
-    
+    test->constraint_switch = constraint_switch;
     
     world.addSystem(test);
     
     // projection matrix for constraints
     Eigen::SparseMatrix<double> P;
+    // projection matrix for second constraints
+    Eigen::SparseMatrix<double> P2;
 
     
     // constraint switch
@@ -529,6 +532,74 @@ int main(int argc, char **argv) {
         
         
     }
+    else if (const_profile == 100)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 0;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
+        cout<<"Loading moving vertices and setting projection matrix..."<<endl;
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        cout<< indices<<endl;
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        // second set of constraints
+        Eigen::VectorXi indices2;
+        Eigen::VectorXi indices_temp;
+        int const_dir2 = 0;
+        double const_tol2 = 0.3;
+        std::string constraint_file_name2 = "data/" + cmeshnameActual + "_const2" + std::to_string(const_profile) + "_" +std::to_string(const_dir2)+"_"+std::to_string(const_tol2)+".mtx";
+        cout<<"Setting second moving constraints and constrainting projection matrix"<<endl;
+        cout<<"Loading second moving vertices and setting projection matrix..."<<endl;
+        if(!Eigen::loadMarketVector(indices2,constraint_file_name2))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices_temp = minVertices(test, const_dir2,const_tol2);
+            cout<<indices_temp<<endl;
+            if (indices_temp.size() > indices.size()) {
+                indices2.resize(indices_temp.size());
+            } else {
+                indices2.resize(indices.size());
+            }
+            auto it = std::set_intersection(indices.data(), indices.data()+indices.size(), indices_temp.data(), indices_temp.data()+indices_temp.size(), indices2.data());
+            indices2.conservativeResize(std::distance(indices2.data(), it));
+            Eigen::saveMarketVector(indices2,constraint_file_name2);
+            cout<<indices2<<endl;
+        }
+        
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        P2 = fixedPointProjectionMatrix(indices2, *test,world);
+                    movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
+        
+        for(unsigned int ii=0; ii<indices.rows(); ++ii) {
+            movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
+            world.addConstraint(movingConstraints[ii]);
+        }
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        
+        
+    }
     else
     {
         std::cout<<"warning: wrong constraint profile\n";
@@ -683,7 +754,7 @@ int main(int argc, char **argv) {
     {
         if(hete_filename!="0")
         {
-            cout<<"can't you DAC with heterogenous material."<<endl;
+            cout<<"can't DAC with heterogenous material."<<endl;
             exit(1);
         }
         
@@ -738,7 +809,7 @@ int main(int argc, char **argv) {
         }
     }
     
-    MyTimeStepper stepper(step_size,P,num_modes,a,b, integrator);
+    MyTimeStepper stepper(step_size,P,P2,constraint_switch,num_modes,a,b, integrator);
     stepper.getImpl().eigenfit_damping = eigenfit_damping;
     // rayleigh damping. should not be here but this will do for now
     //         the number of steps to take
@@ -754,6 +825,59 @@ int main(int argc, char **argv) {
     double actual_t = 0.0;
     for(istep=0; istep<num_steps ; ++istep)
     {
+        if (istep == constraint_switch) {
+            test->ratio_calculated = false;
+            test->switching_constraint = true;
+            
+            P=P2;
+            if( num_modes != 0)
+            {
+                t = clock();
+                auto q = mapStateEigen<0>(world);
+                Eigen::VectorXd temp_q = q;
+                //            cout<<"setting random perturbation to vertices"<<endl;
+                q.setZero();
+                
+                //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
+                AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> massMatrix;
+                AssemblerParallel<double, AssemblerEigenSparseMatrix<double>> stiffnessMatrix;
+                
+                //get mass matrix
+                ASSEMBLEMATINIT(massMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                ASSEMBLELIST(massMatrix, world.getSystemList(), getMassMatrix);
+                ASSEMBLEEND(massMatrix);
+                
+                
+                //get stiffness matrix
+                ASSEMBLEMATINIT(stiffnessMatrix, world.getNumQDotDOFs(), world.getNumQDotDOFs());
+                ASSEMBLELIST(stiffnessMatrix, world.getSystemList(), getStiffnessMatrix);
+                ASSEMBLELIST(stiffnessMatrix, world.getForceList(), getStiffnessMatrix);
+                ASSEMBLEEND(stiffnessMatrix);
+                
+                (*massMatrix) = P*(*massMatrix)*P.transpose();
+                (*stiffnessMatrix) = P*(*stiffnessMatrix)*P.transpose();
+                
+                
+                //Subspace Eigenvectors and eigenvalues from this coarse mesh
+                std::pair<Eigen::MatrixXx<double>, Eigen::VectorXx<double> > m_coarseUs;
+                // for SMW
+                Eigen::MatrixXd Y;
+                Eigen::MatrixXd Z;
+                cout<<"calculating static ratio"<<endl;
+                test->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
+                cout<<"static ratio calculated"<<endl;
+                
+                q = temp_q;
+                t = clock() -t;
+                std::ofstream pre_calc_time_file;
+                pre_calc_time_file.open ("pre_calc_time2.txt");
+                pre_calc_time_file<<t;
+                pre_calc_time_file.close();
+                
+                
+            }
+        }
+        
         // update step number;
         test->step_number++;
         cout<<"simulating frame #" << test->step_number<<endl;

@@ -26,7 +26,7 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
                  std::string &fmeshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
                  int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
-                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator, bool & eigenfit_damping, std::string & hete_filename, double & hete_falloff_ratio, double & motion_multiplier)
+                 double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator, bool & eigenfit_damping, std::string & hete_filename, double & hete_falloff_ratio, double & motion_multiplier, int & constraint_switch)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -160,7 +160,12 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
         {
             motion_multiplier = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using motion multiplier: "<< motion_multiplier <<endl;
-        } 
+        }
+        else if(field.compare("constraint_switch") == 0)
+        {
+            constraint_switch = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using constraint switch: "<<constraint_switch<<endl;
+        }
         else
         {
             cout<<"Warning: Unknown field "<< field<<" with unused value " << arg.substr(eq_found+1,arg.length()-eq_found-1)<<endl;
@@ -532,12 +537,39 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
             }
         }
     }
+    else if (const_profile == 100)
+    {
+        cout<<"Moving constrained vertices using mouse motion"<<endl;
+        Eigen::VectorXd Xvel;
+        if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
+        {
+            cout<<"fail loading mouse x motion"<<endl;
+        }
+        Eigen::VectorXd Yvel;
+        if(!Eigen::loadMarketVector(Yvel, "data/mouseYvel.mtx"))
+            cout<<"fail loading mouse y motion"<<endl;
+        Eigen::VectorXd Zvel;
+        if(!Eigen::loadMarketVector(Zvel, "data/mouseZvel.mtx"))
+            cout<<"fail loading mouse z motion"<<endl;
+        
+        for(unsigned int jj=0; jj<movingConstraints.size(); ++jj) {
+            auto v_q = mapDOFEigen(movingConstraints[jj]->getDOF(0), state);
+            if ((frame_number) < 15) {
+                if(Xvel(frame_number) <= 0){   v_q(0) += motion_multiplier * 1.5*std::max(Xvel(frame_number),-0.005);}
+                else{ v_q(0) += motion_multiplier * 1.5*std::min(Xvel(frame_number),0.005);}
+                if(Yvel(frame_number) <= 0){   v_q(1) += motion_multiplier * 1.5*std::max(Yvel(frame_number),-0.005);}
+                else{ v_q(1) += motion_multiplier * 1.5*std::min(Yvel(frame_number),0.005);}
+                if(Zvel(frame_number) <= 0){   v_q(2) += motion_multiplier * 1.5*std::max(Zvel(frame_number),-0.005);}
+                else{ v_q(2) += motion_multiplier * 1.5*std::min(Zvel(frame_number),0.005);}
+            }
+        }
+    }
 }
 
 void parse_input(int argc, char **argv, std::string &meshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps,
                  int &num_modes, int &const_dir, double &step_size,
-                 double &a, double &b, std::string &integrator , std::string & hete_filename, double & hete_falloff_ratio, double &motion_multiplier)
+                 double &a, double &b, std::string &integrator , std::string & hete_filename, double & hete_falloff_ratio, double &motion_multiplier, double &penalty, double &ground_height)
 {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -617,6 +649,16 @@ void parse_input(int argc, char **argv, std::string &meshname, double &youngs, d
         {
             motion_multiplier = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using motion multiplier: "<< motion_multiplier <<endl;
+        }
+        else if(field.compare("penalty") == 0)
+        {
+            penalty = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using penalty: "<< penalty <<endl;
+        }
+        else if(field.compare("ground_height") == 0)
+        {
+            ground_height = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
+            cout<<"Using ground_height: "<< ground_height <<endl;
         }
         else
         {

@@ -131,6 +131,8 @@ namespace Gauss {
             m_P = P;
             m_P2.resize(m_P.rows()*2, m_P.cols()*2);
             
+            fPenalty.resize(m_P.rows());
+            fPenalty.setZero();
             
             typedef Eigen::Triplet<DataType> T;
             std::vector<T> tripletList;
@@ -330,7 +332,7 @@ namespace Gauss {
         std::vector<int> stiffness0_outer_ind_ptr;
         std::vector<int> stiffness0_inner_ind;
 
-
+        Eigen::VectorXx<double> fPenalty;
         
         double update_step_size;
         Eigen::VectorXd update_step;
@@ -494,7 +496,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     (*forceVector).noalias() -= (a*(*m_massMatrix)+b*(K0_map)) * (m_P * ( qDot));
     
     // add external force
-    (*forceVector) = (*forceVector) + m_P*(*fExt);
+    (*forceVector) = (*forceVector) + m_P*(*fExt )+ fPenalty;
     
     
     if(!mass_calculated)
@@ -518,52 +520,73 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
         
         mass_calculated = true;
     }
-    //    m_Us = generalizedEigenvalueProblemNotNormalized((*stiffnessMatrix), m_M, m_numModes, 0.00);
-    //    cout<<m_Us.second<<endl;
+
         Eigen::SparseMatrix<double,Eigen::RowMajor> MinvK0;
         MinvK0 = (1)*mass_lumped_inv.asDiagonal()*(K0_map);
     MinvK = (1)*mass_lumped_inv.asDiagonal()*(*stiffnessMatrix);
     
-    //    Eigen::SparseMatrix<DataType,> MinvK = -A;
-    
-    //Spectra::SparseSymMassShiftSolve<DataType> Aop(K, M);
-    //Aop.set_shift(shift);
     Spectra::SparseGenRealShiftSolvePardiso<DataType> op(MinvK);
-    
-    // Construct eigen solver object, requesting the smallest three eigenvalues
-    Spectra::GenEigsRealShiftSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<DataType>> eigs(&op, m_numModes, 5*m_numModes,0.0);
-    
-    // Initialize and compute
-    eigs.init();
-    eigs.compute();
-        
-        
-        
-        
-        
-    
-    if(eigs.info() == Spectra::SUCCESSFUL)
-    {
-        int neg_evals = 0;
-        for (int i_eval = 0; i_eval < m_numModes; i_eval++) {
-            if (eigs.eigenvalues().real()(i_eval) > 0) {
-                neg_evals++;
+        if (m_P.rows() == m_P.cols()) {
+            // if no constraints, need to discard the first 6 eigenvalue/eigenvector pairs
+            // Construct eigen solver object, requesting the smallest three eigenvalues
+            Spectra::GenEigsRealShiftSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<DataType>> eigs(&op, m_numModes+6, 5*m_numModes,0.0);
+            
+            // Initialize and compute
+            eigs.init();
+            eigs.compute();
+            
+            if(eigs.info() == Spectra::SUCCESSFUL)
+            {
+                //        int neg_evals = 0;
+                //        for (int i_eval = 0; i_eval < m_numModes; i_eval++) {
+                //            if (eigs.eigenvalues().real()(i_eval) > 0) {
+                //                neg_evals++;
+                //            }
+                //        }
+                //        cout<<"there are " <<neg_evals<< " negative eigenvalues."<<endl;
+//                cout<< eigs.eigenvalues()<<endl;
+                    m_Us = std::make_pair(eigs.eigenvectors().real().leftCols(m_numModes), eigs.eigenvalues().real().head(m_numModes));
+//                cout<< m_Us.second<<endl;
+                normalizing_const.noalias() = (m_Us.first.transpose() * mass_lumped.asDiagonal() * m_Us.first).diagonal();
+                normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                
+                m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+            }
+            else{
+                cout<<"eigen solve failed"<<endl;
+                exit(1);
+            }
+        } else {
+            // Construct eigen solver object, requesting the smallest three eigenvalues
+            Spectra::GenEigsRealShiftSolver<DataType, Spectra::LARGEST_MAGN, Spectra::SparseGenRealShiftSolvePardiso<DataType>> eigs(&op, m_numModes, 5*m_numModes,0.0);
+            
+            // Initialize and compute
+            eigs.init();
+            eigs.compute();
+            
+            if(eigs.info() == Spectra::SUCCESSFUL)
+            {
+                //        int neg_evals = 0;
+                //        for (int i_eval = 0; i_eval < m_numModes; i_eval++) {
+                //            if (eigs.eigenvalues().real()(i_eval) > 0) {
+                //                neg_evals++;
+                //            }
+                //        }
+                //        cout<<"there are " <<neg_evals<< " negative eigenvalues."<<endl;
+                   m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
+                normalizing_const.noalias() = (m_Us.first.transpose() * mass_lumped.asDiagonal() * m_Us.first).diagonal();
+                normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
+                
+                m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
+            }
+            else{
+                cout<<"eigen solve failed"<<endl;
+                exit(1);
             }
         }
-        cout<<"there are " <<neg_evals<< " negative eigenvalues."<<endl;
-        m_Us = std::make_pair(eigs.eigenvectors().real(), eigs.eigenvalues().real());
-        normalizing_const.noalias() = (m_Us.first.transpose() * mass_lumped.asDiagonal() * m_Us.first).diagonal();
-        normalizing_const = normalizing_const.cwiseSqrt().cwiseInverse();
-        
-        m_Us.first = m_Us.first * (normalizing_const.asDiagonal());
-    }
-    else{
-        cout<<"eigen solve failed"<<endl;
-        exit(1);
-    }
     
     
-//    if (J21_J22_outer_ind_ptr.empty()) {
+    
         J21_J22_outer_ind_ptr.erase(J21_J22_outer_ind_ptr.begin(),J21_J22_outer_ind_ptr.end());
         J22i_outer_ind_ptr.erase(J22i_outer_ind_ptr.begin(),J22i_outer_ind_ptr.end());
         for (int i_row = 0; i_row < MinvK.rows(); i_row++) {
@@ -579,9 +602,6 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             J22i_inner_ind.push_back(i_row + MinvK.rows());
             J22i_identity_val.push_back(1.0);
         }
-//    }
-    
-//    if (J21_inner_ind.empty() || J22_inner_ind.empty()) {
         J21_inner_ind.erase(J21_inner_ind.begin(),J21_inner_ind.end());
         J22_inner_ind.erase(J22_inner_ind.begin(),J22_inner_ind.end());
         
@@ -590,88 +610,38 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             J21_inner_ind.push_back(*(MinvK.innerIndexPtr()+i_nnz));
             J22_inner_ind.push_back(*(MinvK.innerIndexPtr()+i_nnz) + MinvK.cols());
         }
-        
-//    }
     
     Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J21_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.nonZeros(), J21_J22_outer_ind_ptr.data(), MinvK.innerIndexPtr(), (MinvK).valuePtr());
     Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J22_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.nonZeros(), J21_J22_outer_ind_ptr.data(), J22_inner_ind.data(), (MinvK0).valuePtr());
         Eigen::Map<Eigen::SparseMatrix<double,Eigen::RowMajor>> J22i_map((MinvK.rows())*2, (MinvK.cols())*2, MinvK.cols(), J22i_outer_ind_ptr.data(), J22i_inner_ind.data(),J22i_identity_val.data());
     
-#ifndef NDEBUG
-//    cout<<"debug mode, printing matrices."<<endl;
-//            Eigen::saveMarketDat(J22i_map,"J22i.dat");
-        
-//
-    
-
-#endif
-    
-    
     U1.block(0,0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first;
     V1.block(m_Us.first.rows(),0,m_Us.first.rows(),m_Us.first.cols()) << mass_lumped.asDiagonal() * m_Us.first;
-    //    U2.block(m_Us.first.rows(),0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first * (m_Us.first.transpose() * (*stiffnessMatrix)) * m_Us.first;
     U2.block(m_Us.first.rows(),0,m_Us.first.rows(),m_Us.first.cols()) << m_Us.first * (m_Us.second.asDiagonal());
-    //    cout<<"mult: "<<endl;
-    //    cout<<((m_Us.first.transpose() * (*stiffnessMatrix)) * m_Us.first).diagonal()<<endl;
-    //    cout<<"ev: "<<endl;
-    //    cout<<m_Us.second<<endl;
     V2.block(0,0,m_Us.first.rows(),m_Us.first.cols()) << mass_lumped.asDiagonal() * m_Us.first;
-    
-    //    Eigen::saveMarketDat(U1,"U1.dat");
-    //    Eigen::saveMarketDat(U2,"U2.dat");
-    //    Eigen::saveMarketDat(V1,"V1.dat");
-    //    Eigen::saveMarketDat(V2,"V2.dat");
-    //    //
     
     dt_J_G_reduced.setZero();
     dt_J_G_reduced.block(0,m_Us.first.cols(),m_Us.first.cols(),m_Us.first.cols()).setIdentity();
-    //    dt_J_G_reduced.block(m_Us.first.cols(),0,m_Us.first.cols(),m_Us.first.cols()) << (m_Us.first.transpose() * (*stiffnessMatrix)) * m_Us.first;
     for (int ind = 0; ind < m_Us.first.cols() ; ind++) {
         dt_J_G_reduced(m_Us.first.cols() + ind ,0 + ind ) = m_Us.second(ind);
     }
-    //    dt_J_G_reduced.block(m_Us.first.cols(),0,m_Us.first.cols(),m_Us.first.cols()) << (m_Us.second.asDiagonal());
     dt_J_G_reduced *= dt;
-    //    Eigen::saveMarketDat(dt_J_G_reduced,"dt_J_G_reduced.dat");
-    //
-    //
-    //    Eigen::saveMarketVectorDat(q,"q.dat");
-    //    Eigen::saveMarketVectorDat(qDot,"qDot.dat");
-    //    Eigen::saveMarketVectorDat((*forceVector),"force.dat");
-    //
     
     vG.noalias() = m_Us.first * (m_Us.first.transpose() * mass_lumped.asDiagonal() * (m_P * qDot));
     
     vH = -vG;
     vH.noalias() += m_P*qDot;
     
-    //    Eigen::saveMarketVectorDat(vG,"vG.dat");
-    //    Eigen::saveMarketVectorDat(vH,"vH.dat");
-    
     fG.noalias() = (mass_lumped.asDiagonal() * m_Us.first ) * (m_Us.first.transpose() * (*forceVector));
     fH = (*forceVector) - fG;
-    
-    //    Eigen::saveMarketVectorDat(fG,"fG.dat");
-    //    Eigen::saveMarketVectorDat(fH,"fH.dat");
     
     
     A.setIdentity();
 //    A -= dt * (J);
         cout<<"a: "<<a<<", b: "<<b<<endl;
     A -= dt * (J12 + J21_map -b*J22_map - a*J22i_map);
-    
-//#ifndef NDEBUG
-//    Eigen::SparseMatrix<double, Eigen::RowMajor> A2;
-//    A2.resize(A.rows(),A.cols());
-//    A2.setIdentity();
-//    A2 -= dt * (J12 + J21_map -b*J22_map);
-//
-//    Eigen::saveMarketDat(A,"A.dat");
-//    Eigen::saveMarketDat(A2,"A2.dat");
-//#endif
-    
-    //    Eigen::saveMarketDat(A,"A.dat");
-    
-    
+
+        
 #ifdef GAUSS_PARDISO
     
     m_pardiso.symbolicFactorization(A);
@@ -729,7 +699,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     x0 = m_pardiso.getX();
     //    Eigen::saveMarketVectorDat(x0,"x0c.dat");
     
-    
+#ifndef NO_SMW
     U1 *= dt;
     Eigen::MatrixXd x1;
     m_pardiso.solve(U1);
@@ -780,7 +750,10 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     //    sol2 = y0 - y1 * (Is + V2.transpose()*y1).ldlt().solve(V2.transpose()*y0);
     
     auto state = mapStateEigen(world);
-    
+#else
+        Eigen::VectorXd y0;
+        y0 = x0;
+#endif
     state -= m_P2.transpose()*y0;
     
 #else
@@ -866,7 +839,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
         (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(K0_map)) * m_P * ( qDot);
         
         // add external force
-        (*forceVector) = (*forceVector) + m_P*(*fExt);
+        (*forceVector) = (*forceVector) + m_P*(*fExt+fPenalty);
         
         int N = m_P.rows();
         
@@ -1211,7 +1184,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             }
             
             // add external force
-            (*forceVector) = (*forceVector) + m_P*(*fExt);
+            (*forceVector) = (*forceVector) + m_P*(*fExt+fPenalty);
             
             //setup RHS
             eigen_rhs = (m_M)*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
@@ -1271,7 +1244,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             
             auto Dv = m_P.transpose()*x0;
             eigen_v_temp = qDot;
-            eigen_v_temp = eigen_v_temp + Dv*step_size;
+            eigen_v_temp = eigen_v_temp + Dv;
             //update state
             if (integrator.compare("IM") == 0) {
                 q = eigen_q_old + 1.0/4.0 * dt*(eigen_v_temp + eigen_v_old);
@@ -1312,7 +1285,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             }
             
             // add external force
-            (*forceVector) = (*forceVector) + m_P*(*fExt);
+            (*forceVector) = (*forceVector) + m_P*(*fExt+fPenalty);
             
             //        m_pardiso_mass.solve(*forceVector);
             std::cout << "res: " << 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_MInv*(*forceVector)).squaredNorm()<< std::endl;
