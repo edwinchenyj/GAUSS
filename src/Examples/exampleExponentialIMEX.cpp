@@ -170,11 +170,12 @@ int main(int argc, char **argv) {
     double hete_falloff_ratio = 1.0;
     
     double motion_multiplier = 1.0;
-
+    double penalty = 100;
+    double ground_height = 0.1;
     
     //    parameters
     
-    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b, integrator, hete_filename, hete_falloff_ratio, motion_multiplier);
+    parse_input(argc, argv, meshname, youngs, const_tol, const_profile, initial_def, num_steps, num_modes, const_dir, step_size, a, b, integrator, hete_filename, hete_falloff_ratio, motion_multiplier, penalty, ground_height);
     
     
     readTetgen(V, F, dataDir()+meshname +".node", dataDir()+meshname+".ele");
@@ -608,20 +609,17 @@ int main(int argc, char **argv) {
     {
         cout<<"fix max min and customized gravity in z"<<endl;
         
-        
         cout<<"Setting customized gravity gravity z..."<<endl;
         Eigen::Vector3x<double> g;
         g(0) = 0;
         g(1) = 0;
         g(2) = motion_multiplier * 9.8;
         
-        
         for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
             
             test->getImpl().getElement(iel)->setGravity(g);
             
         }
-        
         world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
         
         Eigen::VectorXi indices;
@@ -638,14 +636,63 @@ int main(int argc, char **argv) {
         
         P = fixedPointProjectionMatrix(indices, *test,world);
         
-        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
-        
         for(unsigned int ii=0; ii<indices.rows(); ++ii) {
             movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
             world.addConstraint(movingConstraints[ii]);
         }
-        //        fixDisplacementMin(world, test,const_dir,const_tol);
+    }
+    else if (const_profile == 34) {
+        cout<<"Setting z gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 0;
+        g(2) = motion_multiplier * 9.8;
         
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        P.resize(V.rows()*3,V.rows()*3);
+        P.setIdentity();
+    }    else if (const_profile == 35) {
+        cout<<"Setting y gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = motion_multiplier * 9.8;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        P.resize(V.rows()*3,V.rows()*3);
+        P.setIdentity();
+    }
+    else if (const_profile == 36) {
+        cout<<"Setting x gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = motion_multiplier * 9.8;;
+        g(1) = 0;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        P.resize(V.rows()*3,V.rows()*3);
+        P.setIdentity();
     }
     else
     {
@@ -806,15 +853,34 @@ int main(int argc, char **argv) {
     
     unsigned int file_ind = 0;
     
-    // rest pos for the coarse mesh getGeometry().first is V
+    // rest pos for the mesh getGeometry().first is V
     Eigen::VectorXd q_vec = mapStateEigen(world);
     unsigned int idxc;
     Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
     q_state_to_position(q_vec,V_disp);
+    double ground;
+    if(const_profile == 34){
+    double min_z = V_disp.col(2).minCoeff();
+    ground = min_z-ground_height;
+    cout<<"ground at "<< ground << endl;
+    }
+    else if(const_profile == 35){
+        double min_y = V_disp.col(1).minCoeff();
+        ground = min_y-ground_height;
+        cout<<"ground at "<< ground << endl;
+    }
+    else if(const_profile == 36){
+        double min_x = V_disp.col(0).minCoeff();
+        ground = min_x-ground_height;
+        cout<<"ground at "<< ground << endl;
+    }
     
     // output mesh position with only surface mesh
     igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
     
+    
+    Eigen::VectorXi colliding(V.rows());
+    colliding.setZero();
     
     struct stat buf;
     
@@ -830,6 +896,8 @@ int main(int argc, char **argv) {
         dt = clock() - t;
         total_t += dt;
         actual_t = (double)((double)total_t)/CLOCKS_PER_SEC;
+        
+        
         
         if(!stepper.getImpl().step_success)
         {
@@ -867,7 +935,92 @@ int main(int argc, char **argv) {
             return 1;
         }
         
+        
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep, motion_multiplier);
+        
+        
+        
+        // rest pos for the coarse mesh getGeometry().first is V
+        Eigen::VectorXd q = mapStateEigen(world);
+        idxc = 0;
+        Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
+        q_state_to_position(q,V_disp);
+        
+        
+        if (const_profile == 34) {
+            for(int ind = 0; ind < q.rows()/6; ind++)
+            {
+                if(V_disp(ind,2) < ground && colliding(ind) == 0)
+                {
+                    cout<<"in contact with ground at "<<ground<<endl;
+                    stepper.getImpl().fPenalty(3*ind+2) = penalty * abs(ground - V_disp(ind,2));
+                    q(3*ind+2) = ground - V(ind,2);
+                    q(3*ind + 2 + q.rows()/2) = 0;
+                    colliding(ind) = 1;
+                }
+                else if (V_disp(ind,2) < ground && colliding(ind) == 1)
+                {
+                    stepper.getImpl().fPenalty(3*ind+2) = penalty * abs(ground - V_disp(ind,2));
+                    q(3*ind+2) = ground - V(ind,2);
+                }
+                else
+                {
+                    stepper.getImpl().fPenalty(3*ind+2) = 0;
+                    colliding(ind) = 0;
+                }
+            }
+        }
+        else if(const_profile == 35) {
+            for(int ind = 0; ind < q.rows()/6; ind++)
+            {
+                if(V_disp(ind,1) < ground && colliding(ind) == 0)
+                {
+                    cout<<"in contact with ground at "<<ground<<endl;
+                    stepper.getImpl().fPenalty(3*ind+1) = penalty * abs(ground - V_disp(ind,1));
+                    q(3*ind+1) = ground - V(ind,1);
+                    q(3*ind + 1 + q.rows()/2) = 0;
+                    colliding(ind) = 1;
+                }
+                else if (V_disp(ind,1) < ground && colliding(ind) == 1)
+                {
+                    stepper.getImpl().fPenalty(3*ind+1) = penalty * abs(ground - V_disp(ind,1));
+                    q(3*ind+1) = ground - V(ind,1);
+                }
+                else
+                {
+                    stepper.getImpl().fPenalty(3*ind+1) = 0;
+                    colliding(ind) = 0;
+                }
+            }
+        }
+        else if(const_profile == 36) {
+            for(int ind = 0; ind < q.rows()/6; ind++)
+            {
+                if(V_disp(ind,0) < ground)
+                {
+                    cout<<"in contact with ground at "<<ground<<endl;
+                    stepper.getImpl().fPenalty(3*ind) = penalty * abs(ground - V_disp(ind,0));
+                    q(3*ind) = ground - V(ind,0);
+                    q(3*ind + q.rows()/2) = 0;
+                    colliding(ind) = 1;
+                }
+                else if (V_disp(ind,0) < ground && colliding(ind) == 1)
+                {
+                    stepper.getImpl().fPenalty(3*ind) = penalty * abs(ground - V_disp(ind,0));
+                    q(3*ind) = ground - V(ind,0);
+                }
+                else
+                {
+                    stepper.getImpl().fPenalty(3*ind) = 0;
+                    colliding(ind) = 0;
+                }
+            }
+        }
+
+
+        // output mesh position with only surface mesh
+        igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
+        
         
         std::ofstream ofile;
         //output data stream into text
@@ -892,15 +1045,6 @@ int main(int argc, char **argv) {
         
         file_ind = istep+1;
 //        }
-        
-        // rest pos for the coarse mesh getGeometry().first is V
-        Eigen::VectorXd q = mapStateEigen(world);
-        idxc = 0;
-        Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
-        q_state_to_position(q,V_disp);
-        
-        // output mesh position with only surface mesh
-        igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
         
         if(integrator == "SIERE")
         {
