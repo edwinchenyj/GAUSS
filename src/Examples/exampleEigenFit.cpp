@@ -1,9 +1,4 @@
-//
-//  exampleEigenFitCoRotRIM.cpp
-//  Base
-//
-//  Created by Yu Ju Edwin Chen on 2018-12-12.
-//
+
 
 #include <functional>
 
@@ -46,7 +41,6 @@ using  EnergyPSARAPHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction
 template<typename DataType, typename ShapeFunction>
 using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSCorotatedLinear>;
 
-//
 ///* Tetrahedral finite elements */
 template<typename DataType>
 using FEMPSCoRotTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
@@ -56,8 +50,6 @@ using FEMPSARAPTet = FEMPrincipalStretchTet<DataType, EnergyPSARAPHFixed>; //Cha
 
 template<typename DataType>
 using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSNHHFixed>; //Change EnergyPSCoRot
-
-
 
 #ifdef NH
 typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
@@ -81,17 +73,9 @@ typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 
-
-
 typedef TimeStepperEigenFitSMWIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
-
-
-//typedef TimeStepperEigenFitSI<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double> >,
-//AssemblerParallel<double, AssemblerEigenVector<double> > > MyTimeStepper;
-
-//typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
 // used for preStepCallback. should be delete
 std::vector<ConstraintFixedPoint<double> *> movingConstraints;
@@ -144,7 +128,6 @@ int main(int argc, char **argv) {
     int dynamic_flag = 0;
     double a = 0;
     double b = -1e-2;
-    //        std::string ratio_manual_file = (argv[15]);
     bool output_data_flag = false;
     bool simple_mass_flag = true;
     double mode_matching_tol = 0.4;
@@ -234,8 +217,6 @@ int main(int argc, char **argv) {
     
     EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,const_dir,const_tol, const_profile,haus,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol,hete_filename,hete_falloff_ratio);
 
-    //  TODO: clean up here...   additional parameter goes here..
-    // TODO: set rayleigh damping. should not be here...
     test->a = a;
     test->b = b;
     test->calculate_matching_data_flag = calculate_matching_data_flag;
@@ -270,11 +251,8 @@ int main(int argc, char **argv) {
         world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
         
         //            set the projection matrix to identity because there is no constraint to project
-        //            Eigen::SparseMatrix<double> P;
         P.resize(V.rows()*3,V.rows()*3);
         P.setIdentity();
-        //            std::cout<<P.rows();
-        //            no constraints
     }
     else if(const_profile == 1)
     {
@@ -522,8 +500,6 @@ int main(int argc, char **argv) {
         
         P = fixedPointProjectionMatrix(indices, *test,world);
         
-        //            movingVerts = minVertices(test, const_dir, const_tol);//indices for moving parts
-        
         for(unsigned int ii=0; ii<indices.rows(); ++ii) {
             movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
             world.addConstraint(movingConstraints[ii]);
@@ -709,7 +685,6 @@ int main(int argc, char **argv) {
     {
         t = clock();
         auto q = mapStateEigen<0>(world);
-        //            cout<<"setting random perturbation to vertices"<<endl;
         q.setZero();
 
         //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
@@ -815,10 +790,6 @@ int main(int argc, char **argv) {
     //         the number of steps to take
     
     unsigned int file_ind = 0;
-    //        Eigen::MatrixXd coarse_eig_def;
-    //        Eigen::VectorXd fine_eig_def;
-    
-//    struct stat buf;
     unsigned int idxc;
     clock_t dt;
     clock_t total_t = 0;
@@ -835,7 +806,6 @@ int main(int argc, char **argv) {
                 t = clock();
                 auto q = mapStateEigen<0>(world);
                 Eigen::VectorXd temp_q = q;
-                //            cout<<"setting random perturbation to vertices"<<endl;
                 q.setZero();
                 
                 //First two lines work around the fact that C++11 lambda can't directly capture a member variable.
@@ -949,120 +919,7 @@ int main(int argc, char **argv) {
             return 1;
         }
         
-        if (test->eigenfit_data == 1) {
-            cout<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
-            
-            std::ofstream myfile;
-            myfile.open ("error_log.txt", std::ofstream::app);
-            
-            myfile<<"Initial mode matching missing. Two meshes too different. Need to change resolution."<<endl;
-            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
-            myfile<<"Using fine mesh: "<<fmeshname<<endl;
-            myfile<<"Using Youngs: "<<youngs<<endl;
-            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
-            myfile<<"Using constriant profile: "<<const_profile<<endl;
-            myfile<<"Using initial deformation: "<<initial_def<<endl;
-            myfile<<"Using number of steps: "<< num_steps<<endl;
-            myfile<<"Using haus: "<<haus<<endl;
-            myfile<<"Using number of modes: "<<num_modes<<endl;
-            myfile<<"Using constraint direction: "<<const_dir<<endl;
-            myfile<<"Using step size: "<<step_size<<endl;
-            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
-            myfile<<"Using a: "<<a<<endl;
-            myfile<<"Using b: "<<b<<endl;
-            myfile<<"Using output data flag: "<<output_data_flag<<endl;
-            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
-            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
-            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
-            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-            myfile<<"Using integrator: "<< integrator<<endl;
-            myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-            myfile<<"Using hete filename: "<< hete_filename<<endl;
-            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
-            
-            myfile.close();
-#ifndef NOEXIT
-            return 1;
-#endif
-        }
-        else if (test->eigenfit_data == 3)
-        {
-            
-            std::ofstream myfile;
-            myfile.open ("error_log.txt", std::ofstream::app);
-            cout<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
-            myfile<<"Eigenvalues change too much, Eigenfit won't work."<<endl;
-            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
-            myfile<<"Using fine mesh: "<<fmeshname<<endl;
-            myfile<<"Using Youngs: "<<youngs<<endl;
-            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
-            myfile<<"Using constriant profile: "<<const_profile<<endl;
-            myfile<<"Using initial deformation: "<<initial_def<<endl;
-            myfile<<"Using number of steps: "<< num_steps<<endl;
-            myfile<<"Using haus: "<<haus<<endl;
-            myfile<<"Using number of modes: "<<num_modes<<endl;
-            myfile<<"Using constraint direction: "<<const_dir<<endl;
-            myfile<<"Using step size: "<<step_size<<endl;
-            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
-            myfile<<"Using a: "<<a<<endl;
-            myfile<<"Using b: "<<b<<endl;
-            myfile<<"Using output data flag: "<<output_data_flag<<endl;
-            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
-            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
-            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
-            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-            myfile<<"Using integrator: "<< integrator<<endl;
-            myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-            myfile<<"Using hete filename: "<< hete_filename<<endl;
-            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
-            
-            myfile.close();
-#ifndef NOEXIT
-            return 1;
-#endif
-        }
-        else if (test->eigenfit_data == 4)
-        {
-            
-            std::ofstream myfile;
-            myfile.open ("error_log.txt", std::ofstream::app);
-            cout<<"Eigenvectors change too much, Eigenfit won't work."<<endl;
-            myfile<<"Eigenvectors change too much, Eigenfit won't work."<<endl;
-            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
-            myfile<<"Using fine mesh: "<<fmeshname<<endl;
-            myfile<<"Using Youngs: "<<youngs<<endl;
-            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
-            myfile<<"Using constriant profile: "<<const_profile<<endl;
-            myfile<<"Using initial deformation: "<<initial_def<<endl;
-            myfile<<"Using number of steps: "<< num_steps<<endl;
-            myfile<<"Using haus: "<<haus<<endl;
-            myfile<<"Using number of modes: "<<num_modes<<endl;
-            myfile<<"Using constraint direction: "<<const_dir<<endl;
-            myfile<<"Using step size: "<<step_size<<endl;
-            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
-            myfile<<"Using a: "<<a<<endl;
-            myfile<<"Using b: "<<b<<endl;
-            myfile<<"Using output data flag: "<<output_data_flag<<endl;
-            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
-            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
-            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
-            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-            myfile<<"Using integrator: "<< integrator<<endl;
-            myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-            myfile<<"Using hete filename: "<< hete_filename<<endl;
-            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
-            
-            myfile.close();
-#ifndef NOEXIT
-            return 1;
-#endif
-        }
+        
         
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep, motion_multiplier);
         // acts like the "callback" block for moving constraint
@@ -1081,9 +938,6 @@ int main(int argc, char **argv) {
         ofile.close();
         
         
-        
-        
-        
         // rest pos for the coarse mesh getGeometry().first is V
         Eigen::VectorXd q = mapStateEigen(world);
         idxc = 0;
@@ -1092,35 +946,18 @@ int main(int argc, char **argv) {
         
         q_state_to_position(q,V_disp);
         
-//        std::string filename = filename_number_padded("surfpos", file_ind,"obj");
-
         // output mesh position with only surface mesh
         igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
         igl::writePLY(filename_number_padded("surfpos", file_ind,"ply"),V_disp,surfF);
-        
-        //
-        
-        // output eigenvalues
-//        Eigen::saveMarketVector(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"mtx"));
-        // output eigenvalues
-        
 
-        // output state
-//        Eigen::saveMarketVectorDat(q, filename_number_padded("def",file_ind,"dat"));
-//        Eigen::saveMarketVector(q, filename_number_padded("def",file_ind,"mtx"));
-
-        
         if(num_modes != 0)
         {
-            
-//            Eigen::saveMarketDat(test->coarseEig.first,filename_number_padded("coarse_def_modes", file_ind,"dat"));
             
             Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
             
             
             Eigen::saveMarketDat(test->dist_map, filename_number_padded("dist_map",file_ind,"dat"));
             Eigen::saveMarketVectorDat(test->matched_modes_list, filename_number_padded("matched_modes_list",file_ind,"dat"));
-//            Eigen::saveMarketVectorDat(test->init_matched_modes_list,"init_matched_modes_list.dat");
             Eigen::saveMarketVectorDat(test->m_R_current,filename_number_padded("m_R_current",file_ind,"dat"));
             
         }
@@ -1128,7 +965,7 @@ int main(int argc, char **argv) {
         file_ind++;
         
     }
-//    soutput the total time spent in the stepper
+//    output the total time spent in the stepper
     std::ofstream total_stepper_time;
     total_stepper_time.open ("total_stepper_time.txt");
     total_stepper_time<<total_t<<endl;
