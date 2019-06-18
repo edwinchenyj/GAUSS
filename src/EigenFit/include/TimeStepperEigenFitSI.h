@@ -22,7 +22,6 @@
 #include <SolverPardiso.h>
 #include <EigenFit.h>
 #include <limits>
-#include <ExponentialIMEX.h>
 #include <Eigen/Eigenvalues>
 
 #include <unsupported/Eigen/MatrixFunctions>
@@ -67,10 +66,7 @@ namespace Gauss {
             
             stiffness_calculated = false;
             islinear = false;
-#ifdef LINEAR
-            islinear = true;
-            stiffness.resize(P.rows(),P.rows());
-#endif
+
             
             eigenfit_damping = true;
             

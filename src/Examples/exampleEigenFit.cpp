@@ -31,41 +31,7 @@ using namespace ParticleSystem; //For Force Spring
 //typedef physical entities I need
 
 ////typedef scene
-////build specific principal stretch material
-template<typename DataType, typename ShapeFunction>
-using  EnergyPSNHHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSNeohookean>;
-
-template<typename DataType, typename ShapeFunction>
-using  EnergyPSARAPHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSARAP>;
-
-template<typename DataType, typename ShapeFunction>
-using  EnergyPSCoRotHFixed = EnergyPrincipalStretchHFixed<DataType, ShapeFunction, PSCorotatedLinear>;
-
-///* Tetrahedral finite elements */
-template<typename DataType>
-using FEMPSCoRotTet = FEMPrincipalStretchTet<DataType, EnergyPSCoRotHFixed>; //Change EnergyPSCoRot to any other energy defined above to try out other marterials
-
-template<typename DataType>
-using FEMPSARAPTet = FEMPrincipalStretchTet<DataType, EnergyPSARAPHFixed>; //Change EnergyPSCoRot
-
-template<typename DataType>
-using FEMPSNHTet = FEMPrincipalStretchTet<DataType, EnergyPSNHHFixed>; //Change EnergyPSCoRot
-
-#ifdef NH
 typedef PhysicalSystemFEM<double, NeohookeanHFixedTet> FEMLinearTets;
-#endif
-
-#ifdef COROT
-typedef PhysicalSystemFEM<double, FEMPSCoRotTet> FEMLinearTets;
-#endif
-
-#ifdef ARAP
-typedef PhysicalSystemFEM<double, FEMPSARAPTet> FEMLinearTets;
-#endif
-
-#ifdef LINEAR
-typedef PhysicalSystemFEM<double, LinearTet> FEMLinearTets;
-#endif
 
 
 
