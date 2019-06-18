@@ -25,7 +25,7 @@ std::string filename_number_padded(std::string filename, int file_ind, std::stri
 void parse_input(int argc, char **argv, std::string &cmeshname,
                  std::string &fmeshname, double &youngs, double &const_tol,
                  int &const_profile, std::string &initial_def, int &num_steps, bool &haus,
-                 int &num_modes, int &const_dir, double &step_size, int &dynamic_flag,
+                 int &num_modes, int &const_dir, double &step_size,
                  double &a, double &b, bool &output_data_flag, bool &simple_mass_flag, double &mode_matching_tol, int & calculate_matching_data_flag, double & init_mode_matching_tol, bool & init_eigenvalue_criteria, int & init_eigenvalue_criteria_factor, std::string & integrator, bool & eigenfit_damping, std::string & hete_filename, double & hete_falloff_ratio, double & motion_multiplier, int & constraint_switch)
 {
     for (int i = 1; i < argc; i++) {
@@ -87,11 +87,6 @@ void parse_input(int argc, char **argv, std::string &cmeshname,
         {
             step_size = stod(arg.substr(eq_found+1,arg.length()-eq_found-1));
             cout<<"Using step size: "<<step_size<<endl;
-        }
-        else if(field.compare("dynamic_flag") == 0)
-        {
-            dynamic_flag = stoi(arg.substr(eq_found+1,arg.length()-eq_found-1));
-            cout<<"Using dynamic_flag: "<<dynamic_flag<<endl;
         }
         else if(field.compare("a") == 0)
         {
@@ -539,7 +534,7 @@ void apply_moving_constraint(int const_profile, State<double> & state, std::vect
     }
     else if (const_profile == 100)
     {
-        cout<<"Moving constrained vertices using mouse motion"<<endl;
+//        cout<<"Moving constrained vertices using mouse motion"<<endl;
         Eigen::VectorXd Xvel;
         if(!Eigen::loadMarketVector(Xvel, "data/mouseXvel.mtx"))
         {

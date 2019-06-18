@@ -101,7 +101,7 @@ void phi(Eigen::MatrixXd &A, Eigen::MatrixXd &output)
     //    Eigen::saveMarketDat(U,"eigenvectors.dat");
     //    Eigen::saveMarketDat(U.inverse(),"eigenvectors_inv.dat");
     //    Eigen::saveMarketDat(D,"eigenvalues.dat");
-    //    Eigen::saveMarketDat(A,"mat.dat");
+//        Eigen::saveMarketDat(A,"mat.dat");
     output = ((U) * (D_new) * (U.inverse())).real();
     //    Eigen::saveMarketDat(D_new,"Dnew.dat");
     //    Eigen::saveMarketDat(output,"output.dat");
@@ -345,10 +345,12 @@ namespace Gauss {
         
         int step_number;
         int it_print;
+        Eigen::VectorXx<DataType> mass_lumped;
+        
     protected:
         
         Eigen::SparseMatrix<DataType> inv_mass;
-        Eigen::VectorXx<DataType> mass_lumped;
+        
         Eigen::VectorXx<DataType> mass_lumped_inv;
         Eigen::VectorXx<DataType> mass_lumped_inv2; // double the size
         Eigen::VectorXx<DataType> rayleigh_b_scaling; // scaling matrinx for the second order system using rayleigh coeff b
@@ -647,6 +649,10 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
     m_pardiso.symbolicFactorization(A);
     m_pardiso.numericalFactorization();
     //    m_pardiso.solve(*forceVector);
+        
+//        Eigen::saveMarketDat(*m_massMatrix,"mass.dat");
+        Eigen::saveMarketDat(A,"stiffness_siere.dat");
+
     
     
     Eigen::VectorXx<double> rhs1;
@@ -839,7 +845,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
         (*forceVector) = (*forceVector) -  (a * (*massMatrix) + b*(K0_map)) * m_P * ( qDot);
         
         // add external force
-        (*forceVector) = (*forceVector) + m_P*(*fExt+fPenalty);
+        (*forceVector) = (*forceVector) + m_P*(*fExt)+fPenalty;
         
         int N = m_P.rows();
         
@@ -1184,7 +1190,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             }
             
             // add external force
-            (*forceVector) = (*forceVector) + m_P*(*fExt+fPenalty);
+            (*forceVector) = (*forceVector) + m_P*(*fExt)+fPenalty;
             
             //setup RHS
             eigen_rhs = (m_M)*m_P*(qDot-eigen_v_old) - dt*(*forceVector);
@@ -1199,12 +1205,19 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             Eigen::SparseMatrix<DataType, Eigen::RowMajor> systemMatrix;
             if (integrator.compare("IM") == 0) {
                 systemMatrix = -(*m_massMatrix) + 1.0/4.0* dt*dt*(*m_stiffnessMatrix) - 1.0/2.0 * dt * (a *(*m_massMatrix) + b * (K0_map));
+                Eigen::saveMarketDat(systemMatrix,"system_im.dat");
             }
             else{
 //                cout<<"K0 size: " << K0_map.rows() << " " <<K0_map.cols()<<endl;
                 systemMatrix = -(*m_massMatrix) + dt*dt*(*m_stiffnessMatrix) - dt * (a *(*m_massMatrix) + b * (K0_map));
+                Eigen::saveMarketDat(systemMatrix,"system_be.dat");
                 
             }
+            
+//            Eigen::saveMarketDat(*m_massMatrix,"mass.dat");
+//            Eigen::saveMarketDat(*m_stiffnessMatrix,"stiffness.dat");
+//
+//            Eigen::saveMarketDat(systemMatrix,"system.dat");
             
 #ifdef GAUSS_PARDISO
             
@@ -1285,7 +1298,7 @@ void TimeStepperImplSIEREImpl<DataType, MatrixAssembler, VectorAssembler>::step(
             }
             
             // add external force
-            (*forceVector) = (*forceVector) + m_P*(*fExt+fPenalty);
+            (*forceVector) = (*forceVector) + m_P*(*fExt)+fPenalty;
             
             //        m_pardiso_mass.solve(*forceVector);
             std::cout << "res: " << 1.0/2.0 * (m_P*(eigen_v_temp - eigen_v_old) - dt*m_MInv*(*forceVector)).squaredNorm()<< std::endl;

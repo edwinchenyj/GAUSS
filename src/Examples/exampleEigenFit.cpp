@@ -8,7 +8,7 @@
 
 //Any extra things I need such as constraints
 #include <ConstraintFixedPoint.h>
-#include <TimeStepperEigenFitSMWIM.h>
+#include <TimeStepperEigenFitSI.h>
 #include <resultsUtilities.h>
 #include <EigenFit.h>
 #include <fstream>
@@ -73,17 +73,15 @@ typedef World<double, std::tuple<FEMLinearTets *>,
 std::tuple<ForceSpringFEMParticle<double> *, ForceParticlesGravity<double> *>,
 std::tuple<ConstraintFixedPoint<double> *> > MyWorld;
 
-typedef TimeStepperEigenFitSMWIM<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
+typedef TimeStepperEigenFitSI<double, AssemblerParallel<double, AssemblerEigenSparseMatrix<double>>, AssemblerParallel<double, AssemblerEigenVector<double>> > MyTimeStepper;
 
 typedef Scene<MyWorld, MyTimeStepper> MyScene;
 
 // used for preStepCallback. should be delete
 std::vector<ConstraintFixedPoint<double> *> movingConstraints;
-std::vector<ConstraintFixedPoint<double> *> fixedConstraints;
 Eigen::VectorXi movingVerts;
-Eigen::VectorXi fixedVerts;
-Eigen::MatrixXd V, Vtemp, Vtemp2;
-Eigen::MatrixXi F, Ftemp2;
+Eigen::MatrixXd V, Vtemp;
+Eigen::MatrixXi F;
 Eigen::MatrixXi surfF;
 Eigen::MatrixXi surfFf;
 
@@ -111,21 +109,20 @@ int main(int argc, char **argv) {
     '/';
 #endif
     
-    std::string cmeshname = "/meshesTetWild/brick_surf/brick_surf_5";
-    std::string fmeshname = "/meshesTetWild/brick_surf/brick_surf_4";
+    std::string cmeshname = "/meshesTetWild/arma/arma_3";
+    std::string fmeshname = "/meshesTetWild/arma/arma_0";
     
     //    parameters
-    double youngs = 2e5;
+    double youngs = 1e6;
     double poisson = 0.45;
     double const_tol = 1e-2;
-    int const_profile = 1;
+    int const_profile = 100;
     std::string initial_def = "0";
     int num_steps = 10;
     bool haus = false;
-    int num_modes = 5;
-    int const_dir = 0; // constraint direction. 0 for x, 1 for y, 2 for z
+    int num_modes = 10;
+    int const_dir = 1; // constraint direction. 0 for x, 1 for y, 2 for z
     double step_size = 1e-2;
-    int dynamic_flag = 0;
     double a = 0;
     double b = -1e-2;
     bool output_data_flag = false;
@@ -134,48 +131,16 @@ int main(int argc, char **argv) {
     int calculate_matching_data_flag = 1;
     double init_mode_matching_tol = 0.4;
     bool init_eigenvalue_criteria= false;
-    int init_eigenvalue_criteria_factor = 4;
-    bool eigenfit_damping = true;
+    int init_eigenvalue_criteria_factor = 100;
+    bool eigenfit_damping = false;
     
-    std::string integrator = "IM";
+    std::string integrator = "SI";
     std::string hete_filename = "0";
     double hete_falloff_ratio = 1.0;
     double motion_multiplier = 1.0;
-    int constraint_switch = -1;
+    int constraint_switch = 30;
     
-    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, dynamic_flag, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping, hete_filename, hete_falloff_ratio, motion_multiplier,constraint_switch);
-    
-    std::ofstream simfile;
-    simfile.open ("sim_log.txt");
-    
-    simfile<<"Simulation with parameters: "<<endl;
-    simfile<<"Using coarse mesh: "<<cmeshname<<endl;
-    simfile<<"Using fine mesh: "<<fmeshname<<endl;
-    simfile<<"Using Youngs: "<<youngs<<endl;
-    simfile<<"Using constraint tolerance: "<<const_tol<<endl;
-    simfile<<"Using constriant profile: "<<const_profile<<endl;
-    simfile<<"Using initial deformation: "<<initial_def<<endl;
-    simfile<<"Using number of steps: "<< num_steps<<endl;
-    simfile<<"Using haus: "<<haus<<endl;
-    simfile<<"Using number of modes: "<<num_modes<<endl;
-    simfile<<"Using constraint direction: "<<const_dir<<endl;
-    simfile<<"Using step size: "<<step_size<<endl;
-    simfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
-    simfile<<"Using a: "<<a<<endl;
-    simfile<<"Using b: "<<b<<endl;
-    simfile<<"Using output data flag: "<<output_data_flag<<endl;
-    simfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
-    simfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-    simfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
-    simfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
-    simfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-    simfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-    simfile<<"Using integrator: "<< integrator<<endl;
-    simfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-    simfile<<"Using hete filename: "<< hete_filename<<endl;
-    simfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
-    simfile.close();
-    
+    parse_input(argc, argv, cmeshname, fmeshname, youngs, const_tol, const_profile, initial_def, num_steps, haus, num_modes, const_dir, step_size, a, b, output_data_flag, simple_mass_flag, mode_matching_tol, calculate_matching_data_flag, init_mode_matching_tol, init_eigenvalue_criteria, init_eigenvalue_criteria_factor, integrator, eigenfit_damping, hete_filename, hete_falloff_ratio, motion_multiplier,constraint_switch);
     
     readTetgen(V, F, dataDir()+cmeshname+".node", dataDir()+cmeshname+".ele");
     readTetgen(Vf, Ff, dataDir()+fmeshname+".node", dataDir()+fmeshname+".ele");
@@ -215,7 +180,7 @@ int main(int argc, char **argv) {
     }
     
     
-    EigenFit *test = new EigenFit(V,F,Vf,Ff,dynamic_flag,youngs,poisson,const_dir,const_tol, const_profile,haus,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol,hete_filename,hete_falloff_ratio);
+    EigenFit *test = new EigenFit(V,F,Vf,Ff,youngs,poisson,const_dir,const_tol, const_profile,haus,num_modes,cmeshnameActual,fmeshnameActual,simple_mass_flag,mode_matching_tol,hete_filename,hete_falloff_ratio);
 
     test->a = a;
     test->b = b;
@@ -234,242 +199,7 @@ int main(int argc, char **argv) {
 
     
     // constraint switch
-    if ((const_profile) == 0) {
-        cout<<"Setting zero gravity..."<<endl;
-        //            zero gravity
-        Eigen::Vector3x<double> g;
-        g(0) = 0;
-        g(1) = 0;
-        g(2) = 0;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        //            set the projection matrix to identity because there is no constraint to project
-        P.resize(V.rows()*3,V.rows()*3);
-        P.setIdentity();
-    }
-    else if(const_profile == 1)
-    {
-        cout<<"Building fix constraint projection matrix"<<endl;
-        //    default constraint
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-    }
-    else if(const_profile == 2)
-    {
-        //            zero gravity
-        cout<<"Setting zero gravity..."<<endl;
-        Eigen::Vector3x<double> g;
-        g(0) = 0;
-        g(1) = -9.8 * motion_multiplier;
-        g(2) = 0;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        cout<<"Building fix constraint projection matrix"<<endl;
-        //    default constraint
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-        
-    }else if(const_profile == 3)
-    {
-        //            zero gravity
-        cout<<"Setting zero gravity..."<<endl;
-        Eigen::Vector3x<double> g;
-        g(0) = -9.8 * motion_multiplier;
-        g(1) = 0;
-        g(2) = 0;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        cout<<"Building fix constraint projection matrix"<<endl;
-        //    default constraint
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-        
-        
-        
-        
-    }else if(const_profile == 4)
-    {
-        //            zero gravity
-        cout<<"Setting zero gravity..."<<endl;
-        Eigen::Vector3x<double> g;
-        g(0) = 0;
-        g(1) = 9.8 * motion_multiplier;
-        g(2) = 0;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        cout<<"Building fix constraint projection matrix"<<endl;
-        //    default constraint
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-        
-        
-        
-        
-    }else if(const_profile == 5)
-    {
-        //            zero gravity
-        cout<<"Setting zero gravity..."<<endl;
-        Eigen::Vector3x<double> g;
-        g(0) = 9.8 * motion_multiplier;
-        g(1) = 0;
-        g(2) = 0;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        cout<<"Building fix constraint projection matrix"<<endl;
-        //    default constraint
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-        
-    }else if(const_profile == 6)
-    {
-        //            zero gravity
-        cout<<"Setting zero gravity..."<<endl;
-        Eigen::Vector3x<double> g;
-        g(0) = 0;
-        g(1) = 0;
-        g(2) = 9.8 * motion_multiplier;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        cout<<"Building fix constraint projection matrix"<<endl;
-        //    default constraint
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-        
-        
-    }
-    else if(const_profile == 7)
-    {
-        //            zero gravity
-        cout<<"Setting zero gravity..."<<endl;
-        Eigen::Vector3x<double> g;
-        g(0) = 0;
-        g(1) = 0;
-        g(2) = -9.8 * motion_multiplier;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        cout<<"Building fix constraint projection matrix"<<endl;
-        //    default constraint
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-        
-        
-    }
-    else if (const_profile < 30)
+    if (const_profile == 100)
     {
         //            zero gravity
         cout<<"Setting zero gravity..."<<endl;
@@ -497,46 +227,6 @@ int main(int argc, char **argv) {
             indices = minVertices(test, const_dir,const_tol);
             Eigen::saveMarketVector(indices,constraint_file_name);
         }
-        
-        P = fixedPointProjectionMatrix(indices, *test,world);
-        
-        for(unsigned int ii=0; ii<indices.rows(); ++ii) {
-            movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
-            world.addConstraint(movingConstraints[ii]);
-        }
-        fixDisplacementMin(world, test,const_dir,const_tol);
-        
-        
-    }
-    else if (const_profile == 100)
-    {
-        //            zero gravity
-        cout<<"Setting zero gravity..."<<endl;
-        Eigen::Vector3x<double> g;
-        g(0) = 0;
-        g(1) = 0;
-        g(2) = 0;
-        
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-            
-            test->getImpl().getElement(iel)->setGravity(g);
-            
-        }
-        
-        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
-        
-        Eigen::VectorXi indices;
-        // construct the projection matrix for stepper
-        std::string constraint_file_name = "data/" + cmeshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
-        cout<<"Setting moving constraints and constrainting projection matrix"<<endl;
-        cout<<"Loading moving vertices and setting projection matrix..."<<endl;
-        if(!Eigen::loadMarketVector(indices,constraint_file_name))
-        {
-            cout<<"File does not exist, creating new file..."<<endl;
-            indices = minVertices(test, const_dir,const_tol);
-            Eigen::saveMarketVector(indices,constraint_file_name);
-        }
-        cout<< indices<<endl;
         P = fixedPointProjectionMatrix(indices, *test,world);
         
         // second set of constraints
@@ -551,7 +241,6 @@ int main(int argc, char **argv) {
         {
             cout<<"File does not exist, creating new file..."<<endl;
             indices_temp = minVertices(test, const_dir2,const_tol2);
-            cout<<indices_temp<<endl;
             if (indices_temp.size() > indices.size()) {
                 indices2.resize(indices_temp.size());
             } else {
@@ -560,7 +249,6 @@ int main(int argc, char **argv) {
             auto it = std::set_intersection(indices.data(), indices.data()+indices.size(), indices_temp.data(), indices_temp.data()+indices_temp.size(), indices2.data());
             indices2.conservativeResize(std::distance(indices2.data(), it));
             Eigen::saveMarketVector(indices2,constraint_file_name2);
-            cout<<indices2<<endl;
         }
         
         
@@ -616,12 +304,6 @@ int main(int argc, char **argv) {
             stiffness_ratio.push_back(num);
         }
         
-#ifndef NDEBUG
-        //verify that the scores were stored correctly:
-        for (int i = 0; i < stiffness_ratio.size(); ++i) {
-            std::cout << stiffness_ratio[i] << std::endl;
-        }
-#endif
         
         
         double low_stiffness = youngs/hete_falloff_ratio;
@@ -712,9 +394,9 @@ int main(int argc, char **argv) {
         // for SMW
         Eigen::MatrixXd Y;
         Eigen::MatrixXd Z;
-        cout<<"calculating static ratio"<<endl;
+        
         test->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
-        cout<<"static ratio calculated"<<endl;
+        
         
         t = clock() -t;
         std::ofstream pre_calc_time_file;
@@ -723,35 +405,8 @@ int main(int argc, char **argv) {
         pre_calc_time_file.close();
         
     
-    }
     
-    if(dynamic_flag == 6)
-    {
-        if(hete_filename!="0")
-        {
-            cout<<"can't DAC with heterogenous material."<<endl;
-            exit(1);
-        }
-        
-        double DAC_scalar = test->m_R(0);
-        // set material
-        cout<<"Resetting Youngs using DAC..."<<endl;
-        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
-#ifdef NH
-            test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
-#endif
-#ifdef COROT
-            test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
-#endif
-#ifdef LINEAR
-            test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs, poisson);
-#endif
-#ifdef ARAP
-            test->getImpl().getElement(iel)->setParameters(DAC_scalar * youngs);
-#endif
-
-            
-        }
+    
     }
     
     cout<<"Setting initial deformation..."<<endl;
@@ -790,7 +445,7 @@ int main(int argc, char **argv) {
     //         the number of steps to take
     
     unsigned int file_ind = 0;
-    unsigned int idxc;
+    
     clock_t dt;
     clock_t total_t = 0;
     double actual_t = 0.0;
@@ -833,9 +488,9 @@ int main(int argc, char **argv) {
                 // for SMW
                 Eigen::MatrixXd Y;
                 Eigen::MatrixXd Z;
-                cout<<"calculating static ratio"<<endl;
+                
                 test->calculateEigenFitData(q,massMatrix,stiffnessMatrix,m_coarseUs,Y,Z);
-                cout<<"static ratio calculated"<<endl;
+                
                 
                 q = temp_q;
                 t = clock() -t;
@@ -856,91 +511,13 @@ int main(int argc, char **argv) {
         dt = clock() - t;
         total_t += dt;
         actual_t = ((double)total_t)/CLOCKS_PER_SEC;
-        if(!stepper.getImpl().step_success)
-        {
-            cout<<"Error: stepper fail at frame "<< test->step_number <<" with parameters: "<<endl;
-            cout<<"Using coarse mesh: "<<cmeshname<<endl;
-            cout<<"Using fine mesh: "<<fmeshname<<endl;
-            cout<<"Using Youngs: "<<youngs<<endl;
-            cout<<"Using constraint tolerance: "<<const_tol<<endl;
-            cout<<"Using constriant profile: "<<const_profile<<endl;
-            cout<<"Using initial deformation: "<<initial_def<<endl;
-            cout<<"Using number of steps: "<< num_steps<<endl;
-            cout<<"Using haus: "<<haus<<endl;
-            cout<<"Using number of modes: "<<num_modes<<endl;
-            cout<<"Using constraint direction: "<<const_dir<<endl;
-            cout<<"Using step size: "<<step_size<<endl;
-            cout<<"Using dynamic_flag: "<<dynamic_flag<<endl;
-            cout<<"Using a: "<<a<<endl;
-            cout<<"Using b: "<<b<<endl;
-            cout<<"Using output data flag: "<<output_data_flag<<endl;
-            cout<<"Using simple mass flag: "<<simple_mass_flag<<endl;
-            cout<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-            cout<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
-            cout<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
-            cout<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            cout<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-            cout<<"Using integrator: "<< integrator<<endl;
-            cout<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-            cout<<"Using hete filename: "<< hete_filename<<endl;
-            cout<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
-
-            std::ofstream myfile;
-            myfile.open ("error_log.txt", std::ofstream::app);
-            
-            myfile<<"Error: stepper fail at frame "<< test->step_number <<" with parameters: "<<endl;
-            myfile<<"Using coarse mesh: "<<cmeshname<<endl;
-            myfile<<"Using fine mesh: "<<fmeshname<<endl;
-            myfile<<"Using Youngs: "<<youngs<<endl;
-            myfile<<"Using constraint tolerance: "<<const_tol<<endl;
-            myfile<<"Using constriant profile: "<<const_profile<<endl;
-            myfile<<"Using initial deformation: "<<initial_def<<endl;
-            myfile<<"Using number of steps: "<< num_steps<<endl;
-            myfile<<"Using haus: "<<haus<<endl;
-            myfile<<"Using number of modes: "<<num_modes<<endl;
-            myfile<<"Using constraint direction: "<<const_dir<<endl;
-            myfile<<"Using step size: "<<step_size<<endl;
-            myfile<<"Using dynamic_flag: "<<dynamic_flag<<endl;
-            myfile<<"Using a: "<<a<<endl;
-            myfile<<"Using b: "<<b<<endl;
-            myfile<<"Using output data flag: "<<output_data_flag<<endl;
-            myfile<<"Using simple mass flag: "<<simple_mass_flag<<endl;
-            myfile<<"Using mode matching tol: "<<mode_matching_tol<<endl;
-            myfile<<"Using calculate matching data flag: "<<calculate_matching_data_flag<<endl;
-            myfile<<"Using init mode matching tol: "<<init_mode_matching_tol<<endl;
-            myfile<<"Using init eigenvalue criteria: "<<init_eigenvalue_criteria<<endl;
-            myfile<<"Using init eigenvalue criteria factor: "<<init_eigenvalue_criteria_factor<<endl;
-            myfile<<"Using integrator: "<< integrator<<endl;
-            myfile<<"Using eigenfit damping: "<< eigenfit_damping<<endl;
-            myfile<<"Using hete filename: "<< hete_filename<<endl;
-            myfile<<"Using hete falloff ratio: "<< hete_falloff_ratio<<endl;
-            myfile.close();
-            
-            return 1;
-        }
-        
         
         
         apply_moving_constraint(const_profile, world.getState(), movingConstraints, istep, motion_multiplier);
-        // acts like the "callback" block for moving constraint
-        
-        //output data stream into text
-        // the following ones append one number to an opened file along the simulation
-        std::ofstream ofile;
-        //output data stream into text
-        ofile.open("PE.txt", std::ios::app); //app is append which means it will put the text at the end
-        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getPotentialEnergy(world.getState()) << std::endl;
-        ofile.close();
-        
-        //output data stream into text
-        ofile.open("Hamiltonian.txt", std::ios::app); //app is append which means it will put the text at the end
-        ofile << std::get<0>(world.getSystemList().getStorage())[0]->getImpl().getEnergy(world.getState()) << std::endl;
-        ofile.close();
-        
         
         // rest pos for the coarse mesh getGeometry().first is V
         Eigen::VectorXd q = mapStateEigen(world);
-        idxc = 0;
+        
         Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
         // output mesh position with only surface mesh
         
@@ -948,20 +525,7 @@ int main(int argc, char **argv) {
         
         // output mesh position with only surface mesh
         igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
-        igl::writePLY(filename_number_padded("surfpos", file_ind,"ply"),V_disp,surfF);
 
-        if(num_modes != 0)
-        {
-            
-            Eigen::saveMarketVectorDat(test->coarseEig.second, filename_number_padded("eigenvalues",file_ind,"dat"));
-            
-            
-            Eigen::saveMarketDat(test->dist_map, filename_number_padded("dist_map",file_ind,"dat"));
-            Eigen::saveMarketVectorDat(test->matched_modes_list, filename_number_padded("matched_modes_list",file_ind,"dat"));
-            Eigen::saveMarketVectorDat(test->m_R_current,filename_number_padded("m_R_current",file_ind,"dat"));
-            
-        }
-        
         file_ind++;
         
     }

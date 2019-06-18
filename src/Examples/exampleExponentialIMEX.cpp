@@ -510,7 +510,7 @@ int main(int argc, char **argv) {
             movingConstraints.push_back(new ConstraintFixedPoint<double>(&test->getQ()[indices[ii]], Eigen::Vector3d(0,0,0)));
             world.addConstraint(movingConstraints[ii]);
         }
-//        fixDisplacementMin(world, test,const_dir,const_tol);
+        //        fixDisplacementMin(world, test,const_dir,const_tol);
         
         
         
@@ -693,6 +693,168 @@ int main(int argc, char **argv) {
         
         P.resize(V.rows()*3,V.rows()*3);
         P.setIdentity();
+    }else if(const_profile == 37)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 9.8 * motion_multiplier;
+        g(1) = 0;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        
+        
+        
+    }else if(const_profile == 38)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        
+        g(0) = 0;
+        g(1) = 9.8 * motion_multiplier;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+    }else if(const_profile == 39)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        g(0) = 0;
+        g(1) = 0;
+        g(2) = 9.8 * motion_multiplier;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+        
+    }else if(const_profile == 40)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        
+        g(0) = 0;
+        g(1) = 9.8 * motion_multiplier;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
+    }else if(const_profile == 41)
+    {
+        //            zero gravity
+        cout<<"Setting zero gravity..."<<endl;
+        Eigen::Vector3x<double> g;
+        
+        g(0) = 0;
+        g(1) = 9.8 * motion_multiplier;
+        g(2) = 0;
+        
+        for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+            
+            test->getImpl().getElement(iel)->setGravity(g);
+            
+        }
+        cout<<"Building fix constraint projection matrix"<<endl;
+        //    default constraint
+        fixDisplacementMin(world, test,const_dir,const_tol);
+        world.finalize(); //After this all we're ready to go (clean up the interface a bit later)
+        
+        Eigen::VectorXi indices;
+        // construct the projection matrix for stepper
+        std::string constraint_file_name = "data/" + meshnameActual + "_const" + std::to_string(const_profile) + "_" +std::to_string(const_dir)+"_"+std::to_string(const_tol)+".mtx";
+        if(!Eigen::loadMarketVector(indices,constraint_file_name))
+        {
+            cout<<"File does not exist, creating new file..."<<endl;
+            indices = minVertices(test, const_dir,const_tol);
+            Eigen::saveMarketVector(indices,constraint_file_name);
+        }
+        
+        P = fixedPointProjectionMatrix(indices, *test,world);
+        
     }
     else
     {
@@ -749,7 +911,7 @@ int main(int argc, char **argv) {
 #ifdef COROTFH
             test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
-
+            
 #ifdef STVK
             test->getImpl().getElement(iel)->setParameters(low_stiffness + stiffness_ratio[iel] * (youngs - low_stiffness), poisson);
 #endif
@@ -792,7 +954,7 @@ int main(int argc, char **argv) {
 #ifdef COROTFH
             test->getImpl().getElement(iel)->setParameters(youngs, poisson);
 #endif
-
+            
 #ifdef ARAPFH
             test->getImpl().getElement(iel)->setParameters(youngs);
 #endif
@@ -860,9 +1022,9 @@ int main(int argc, char **argv) {
     q_state_to_position(q_vec,V_disp);
     double ground;
     if(const_profile == 34){
-    double min_z = V_disp.col(2).minCoeff();
-    ground = min_z-ground_height;
-    cout<<"ground at "<< ground << endl;
+        double min_z = V_disp.col(2).minCoeff();
+        ground = min_z-ground_height;
+        cout<<"ground at "<< ground << endl;
     }
     else if(const_profile == 35){
         double min_y = V_disp.col(1).minCoeff();
@@ -888,16 +1050,339 @@ int main(int argc, char **argv) {
     clock_t total_t = 0.0;
     for(istep=0; istep<num_steps ; ++istep)
     {
+        
+        if(const_profile == 38 )
+        {
+            if(istep == 30)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 0;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+            }
+            
+            if(istep == 60)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 9.8 * motion_multiplier;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+            }
+            if(istep == 90)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 2*9.8 * motion_multiplier;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+            }
+            if(istep == 120)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 0;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+                
+            }
+        }
+        if(const_profile == 41 )
+        {
+            if(istep == 50)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 0;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+            }
+            
+            if(istep == 80)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 9.8 * motion_multiplier;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+            }
+            if(istep == 120)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 2*9.8 * motion_multiplier;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+            }
+            if(istep == 150)
+            {
+                cout<<"Setting zero gravity..."<<endl;
+                Eigen::Vector3x<double> g;
+                
+                g(0) = 0;
+                g(1) = 0;
+                g(2) = 0;
+                
+                for(unsigned int iel=0; iel<test->getImpl().getF().rows(); ++iel) {
+                    
+                    test->getImpl().getElement(iel)->setGravity(g);
+                }
+                
+            }
+        }
         stepper.getImpl().step_number++;
         cout<<"simulating frame #" << stepper.getImpl().step_number<<endl;
         
+        Eigen::VectorXd prestep_state = mapStateEigen(world);
         t = clock();
         stepper.step(world);
         dt = clock() - t;
         total_t += dt;
         actual_t = (double)((double)total_t)/CLOCKS_PER_SEC;
         
+        Eigen::VectorXd q = mapStateEigen(world);
+        idxc = 0;
+        Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
+        q_state_to_position(q,V_disp);
         
+        
+        bool colliding_step = false;
+        if (const_profile == 34) {
+            for(int ind = 0; ind < q.rows()/6; ind++)
+            {
+                if(V_disp(ind,2) < ground && colliding(ind) == 0)
+                {
+                    colliding_step = true;
+                }
+                else if (V_disp(ind,2) < ground && colliding(ind) == 1)
+                {
+                    colliding_step = true;
+                }
+                else
+                {
+                    colliding_step = false;
+                    stepper.getImpl().fPenalty(3*ind+2) = 0;
+                }
+            }
+        }
+        else if (const_profile == 35) {
+            for(int ind = 0; ind < q.rows()/6; ind++)
+            {
+                if(V_disp(ind,1) < ground && colliding(ind) == 0)
+                {
+                    colliding_step = true;
+                }
+                else if (V_disp(ind,1) < ground && colliding(ind) == 1)
+                {
+                    colliding_step = true;
+                }
+                else
+                {
+                    colliding_step = false;
+                    stepper.getImpl().fPenalty(3*ind+1) = 0;
+                }
+            }
+        }
+        else if (const_profile == 36) {
+            for(int ind = 0; ind < q.rows()/6; ind++)
+            {
+                if(V_disp(ind,0) < ground && colliding(ind) == 0)
+                {
+                    colliding_step = true;
+                }
+                else if (V_disp(ind,0) < ground && colliding(ind) == 1)
+                {
+                    colliding_step = true;
+                }
+                else
+                {
+                    colliding_step = false;
+                    stepper.getImpl().fPenalty(3*ind) = 0;
+                }
+            }
+        }
+        
+        if(colliding_step)
+        {
+            cout<<"step "<<istep<<" is a collision step"<<endl;
+            Eigen::Map<Eigen::VectorXd> post_state = mapStateEigen(world);
+            post_state = prestep_state;
+            int collision_step_ratio = 3;
+            stepper.setDt(step_size/collision_step_ratio);
+            cout<<"set substep size: "<<step_size/collision_step_ratio<<endl;
+            int substep_i = 0;
+            for(substep_i; substep_i<collision_step_ratio; substep_i++)
+            {
+                cout<<"Substep #"<<substep_i<<" for collision"<<endl;
+                stepper.step(world);
+                
+                
+                // rest pos for the coarse mesh getGeometry().first is V
+                Eigen::VectorXd q = mapStateEigen(world);
+                idxc = 0;
+                Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
+                q_state_to_position(q,V_disp);
+                
+                bool colliding_step_done = true;
+                if (const_profile == 34) {
+                    for(int ind = 0; ind < q.rows()/6; ind++)
+                    {
+                        if(V_disp(ind,2) < ground && colliding(ind) == 0)
+                        {
+                            //                            cout<<"in contact with ground at "<<ground<<endl;
+                            stepper.getImpl().fPenalty(3*ind+2) = stepper.getImpl().mass_lumped(3*ind+2) * penalty * abs((ground - V_disp(ind,2)));
+                            if(abs(ground - V_disp(ind,2)) > 0.01 * abs(V_disp.col(2).minCoeff()-V_disp.col(2).maxCoeff()))
+                            {
+                                stepper.getImpl().fPenalty(3*ind+2) *= 1;
+                            }
+                            //                            q(3*ind+2) = ground - V(ind,2);
+                            //                            q(3*ind + 2 + q.rows()/2) = 0;
+                            colliding(ind) = 1;
+                            colliding_step_done = false;
+                        }
+                        else if (V_disp(ind,2) < ground && colliding(ind) == 1)
+                        {
+                            stepper.getImpl().fPenalty(3*ind+2) =  stepper.getImpl().mass_lumped(3*ind+2) * penalty * abs((ground - V_disp(ind,2)));
+                            if(abs(ground - V_disp(ind,2)) > 0.01 * abs(V_disp.col(2).minCoeff()-V_disp.col(2).maxCoeff()))
+                            {
+                                stepper.getImpl().fPenalty(3*ind+2) *= 1;
+                            }
+                            q(3*ind+2) = ground - V(ind,2);
+                            colliding_step_done = false;
+                        }
+                        else
+                        {
+                            stepper.getImpl().fPenalty(3*ind+2) = 0;
+                            colliding(ind) = 0;
+                        }
+                    }
+                }
+                else if(const_profile == 35) {
+                    for(int ind = 0; ind < q.rows()/6; ind++)
+                    {
+                        if(V_disp(ind,1) < ground && colliding(ind) == 0)
+                        {
+                            stepper.getImpl().fPenalty(3*ind+1) = stepper.getImpl().mass_lumped(3*ind+1) * penalty * abs((ground - V_disp(ind,1)));
+                            if(abs(ground - V_disp(ind,1)) > 0.005 * abs(V_disp.col(1).minCoeff()-V_disp.col(1).maxCoeff()))
+                            {
+                                stepper.getImpl().fPenalty(3*ind+1) *= 1;
+                            }
+                            //                            q(3*ind+1) = ground - V(ind,1);
+                            //                            q(3*ind + 1 + q.rows()/2) = 0;
+                            colliding(ind) = 1;
+                            colliding_step_done = false;
+                        }
+                        else if (V_disp(ind,1) < ground && colliding(ind) == 1)
+                        {
+                            stepper.getImpl().fPenalty(3*ind+1) =  stepper.getImpl().mass_lumped(3*ind+1) * penalty * abs((ground - V_disp(ind,1)));
+                            if(abs(ground - V_disp(ind,1)) > 0.005 * abs(V_disp.col(1).minCoeff()-V_disp.col(1).maxCoeff()))
+                            {
+                                stepper.getImpl().fPenalty(3*ind+1) *= 1;
+                            }
+                            q(3*ind+1) = ground - V(ind,1);
+                            colliding_step_done = false;
+                        }
+                        else
+                        {
+                            stepper.getImpl().fPenalty(3*ind+1) = 0;
+                            colliding(ind) = 0;
+                        }
+                    }
+                }
+                else if(const_profile == 36) {
+                    for(int ind = 0; ind < q.rows()/6; ind++)
+                    {
+                        if(V_disp(ind,0) < ground)
+                        {
+                            stepper.getImpl().fPenalty(3*ind) = stepper.getImpl().mass_lumped(3*ind) * penalty * abs((ground - V_disp(ind,0)));
+                            if(abs(ground - V_disp(ind,0)) > 0.005 * abs(V_disp.col(0).minCoeff()-V_disp.col(0).maxCoeff()))
+                            {
+                                stepper.getImpl().fPenalty(3*ind) *= 1;
+                            }
+                            colliding(ind) = 1;
+                            colliding_step_done = false;
+                        }
+                        else if (V_disp(ind,0) < ground && colliding(ind) == 1)
+                        {
+                            stepper.getImpl().fPenalty(3*ind) = stepper.getImpl().mass_lumped(3*ind) * penalty * abs((ground - V_disp(ind,0)));
+                            if(abs(ground - V_disp(ind,0)) > 0.005 * abs(V_disp.col(0).minCoeff()-V_disp.col(0).maxCoeff()))
+                            {
+                                stepper.getImpl().fPenalty(3*ind) *= 1;
+                            }
+                            q(3*ind) = ground - V(ind,0);
+                            colliding_step_done = false;
+                        }
+                        else
+                        {
+                            stepper.getImpl().fPenalty(3*ind) = 0;
+                            colliding(ind) = 0;
+                        }
+                    }
+                }
+                
+                if(colliding_step_done)
+                {
+                    cout<<"collision cleared at #"<< substep_i<<" substep"<<endl;
+                    break;
+                }
+                
+                
+            }
+            stepper.getImpl().fPenalty.setZero();
+            
+            double complimentary_step_size = step_size - ((substep_i) * step_size/collision_step_ratio);
+            if(substep_i != collision_step_ratio)
+            {
+                cout<<"set complimentary_step_size: "<<complimentary_step_size<<endl;
+                stepper.setDt(complimentary_step_size);
+                
+                stepper.step(world);
+            }
+            stepper.setDt(step_size);
+        }
         
         if(!stepper.getImpl().step_success)
         {
@@ -940,84 +1425,6 @@ int main(int argc, char **argv) {
         
         
         
-        // rest pos for the coarse mesh getGeometry().first is V
-        Eigen::VectorXd q = mapStateEigen(world);
-        idxc = 0;
-        Eigen::MatrixXd V_disp = std::get<0>(world.getSystemList().getStorage())[0]->getGeometry().first;
-        q_state_to_position(q,V_disp);
-        
-        
-        if (const_profile == 34) {
-            for(int ind = 0; ind < q.rows()/6; ind++)
-            {
-                if(V_disp(ind,2) < ground && colliding(ind) == 0)
-                {
-                    cout<<"in contact with ground at "<<ground<<endl;
-                    stepper.getImpl().fPenalty(3*ind+2) = penalty * abs(ground - V_disp(ind,2));
-                    q(3*ind+2) = ground - V(ind,2);
-                    q(3*ind + 2 + q.rows()/2) = 0;
-                    colliding(ind) = 1;
-                }
-                else if (V_disp(ind,2) < ground && colliding(ind) == 1)
-                {
-                    stepper.getImpl().fPenalty(3*ind+2) = penalty * abs(ground - V_disp(ind,2));
-                    q(3*ind+2) = ground - V(ind,2);
-                }
-                else
-                {
-                    stepper.getImpl().fPenalty(3*ind+2) = 0;
-                    colliding(ind) = 0;
-                }
-            }
-        }
-        else if(const_profile == 35) {
-            for(int ind = 0; ind < q.rows()/6; ind++)
-            {
-                if(V_disp(ind,1) < ground && colliding(ind) == 0)
-                {
-                    cout<<"in contact with ground at "<<ground<<endl;
-                    stepper.getImpl().fPenalty(3*ind+1) = penalty * abs(ground - V_disp(ind,1));
-                    q(3*ind+1) = ground - V(ind,1);
-                    q(3*ind + 1 + q.rows()/2) = 0;
-                    colliding(ind) = 1;
-                }
-                else if (V_disp(ind,1) < ground && colliding(ind) == 1)
-                {
-                    stepper.getImpl().fPenalty(3*ind+1) = penalty * abs(ground - V_disp(ind,1));
-                    q(3*ind+1) = ground - V(ind,1);
-                }
-                else
-                {
-                    stepper.getImpl().fPenalty(3*ind+1) = 0;
-                    colliding(ind) = 0;
-                }
-            }
-        }
-        else if(const_profile == 36) {
-            for(int ind = 0; ind < q.rows()/6; ind++)
-            {
-                if(V_disp(ind,0) < ground)
-                {
-                    cout<<"in contact with ground at "<<ground<<endl;
-                    stepper.getImpl().fPenalty(3*ind) = penalty * abs(ground - V_disp(ind,0));
-                    q(3*ind) = ground - V(ind,0);
-                    q(3*ind + q.rows()/2) = 0;
-                    colliding(ind) = 1;
-                }
-                else if (V_disp(ind,0) < ground && colliding(ind) == 1)
-                {
-                    stepper.getImpl().fPenalty(3*ind) = penalty * abs(ground - V_disp(ind,0));
-                    q(3*ind) = ground - V(ind,0);
-                }
-                else
-                {
-                    stepper.getImpl().fPenalty(3*ind) = 0;
-                    colliding(ind) = 0;
-                }
-            }
-        }
-
-
         // output mesh position with only surface mesh
         igl::writeOBJ(filename_number_padded("surfpos", file_ind,"obj"),V_disp,surfF);
         
@@ -1037,14 +1444,14 @@ int main(int argc, char **argv) {
         ofile.open("it_count.txt", std::ios::app); //app is append which means it will put the text at the end
         ofile << stepper.getImpl().it_print<< std::endl;
         ofile.close();
-
+        
         ofile.open("stepper_time_per_step.txt", std::ios::app); //app is append which means it will put the text at the end
         ofile << dt<< std::endl;
         ofile.close();
-
+        
         
         file_ind = istep+1;
-//        }
+        //        }
         
         if(integrator == "SIERE")
         {
