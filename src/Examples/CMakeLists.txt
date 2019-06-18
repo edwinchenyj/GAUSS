@@ -16,99 +16,6 @@ add_executable(ExampleNeohookeanTet exampleNeohookeanTet.cpp)
 add_executable(ExampleEigenFit exampleEigenFit.cpp)
 target_compile_options(ExampleEigenFit PUBLIC -DNH)
 
-
-add_executable(ExampleEigenFitCoRot exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitCoRot PUBLIC -DCOROT)
-
-
-add_executable(ExampleEigenFitLinear exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitLinear PUBLIC -DLINEAR)
-
-add_executable(ExampleEigenFitNH exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitNH PUBLIC -DNH)
-
-add_executable(ExampleEigenFitARAP exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitARAP PUBLIC -DARAP)
-
-
-
-
-
-add_executable(ExampleEigenFitNoExit exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFit PUBLIC -DNH -DNOEXIT)
-
-
-add_executable(ExampleEigenFitCoRotNoExit exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitCoRot PUBLIC -DCOROT -DNOEXIT)
-
-
-add_executable(ExampleEigenFitLinearNoExit exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitLinear PUBLIC -DLINEAR -DNOEXIT)
-
-add_executable(ExampleEigenFitNHNoExit exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitNH PUBLIC -DNH -DNOEXIT)
-
-add_executable(ExampleEigenFitARAPNoExit exampleEigenFit.cpp)
-target_compile_options(ExampleEigenFitARAP PUBLIC -DARAP -DNOEXIT)
-
-
-
-
-
-
-#add_executable(ExampleEigenFitEXP exampleEigenFit.cpp)
-#target_compile_options(ExampleEigenFitEXP PUBLIC -DNH)
-#target_compile_options(ExampleEigenFitEXP PUBLIC -DEXP)
-
-#add_executable(ExampleEigenFitCoRotEXP exampleEigenFit.cpp)
-#target_compile_options(ExampleEigenFitCoRotEXP PUBLIC -DCOROT)
-
-#add_executable(ExampleEigenFitARAPEXP exampleEigenFit.cpp)
-#target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DARAP)
-#target_compile_options(ExampleEigenFitARAPEXP PUBLIC -DEXP)
-
-
-
-add_executable(ExampleExponentialIMEX exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEX PUBLIC -DNH)
-
-add_executable(ExampleExponentialIMEXCoRot exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXCoRot PUBLIC -DCOROT)
-
-add_executable(ExampleExponentialIMEXLinear exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXLinear PUBLIC -DLINEAR)
-
-add_executable(ExampleExponentialIMEXNH exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXNH PUBLIC -DNH)
-
-add_executable(ExampleExponentialIMEXARAP exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXARAP PUBLIC -DARAP)
-
-add_executable(ExampleExponentialIMEXSTVK exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXSTVK PUBLIC -DSTVK)
-
-
-add_executable(ExampleExponentialIMEXFH exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXFH PUBLIC -DNHFH)
-
-add_executable(ExampleExponentialIMEXCoRotFH exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXCoRotFH PUBLIC -DCOROTFH)
-
-add_executable(ExampleExponentialIMEXARAPFH exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXARAPFH PUBLIC -DARAPFH)
-
-add_executable(ExampleExponentialIMEXCoRotFHFF exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXCoRotFHFF PUBLIC -DCOROTFH -DFF)
-
-add_executable(ExampleExponentialIMEXARAPFHFF exampleExponentialIMEX.cpp)
-target_compile_options(ExampleExponentialIMEXARAPFHFF PUBLIC -DARAPFH -DFF)
-
-
-#add_executable(ExampleExponentialIMEX exampleExponentialIMEX.cpp)
-#add_executable(ExampleERE exampleERE.cpp)
-#add_executable(ExampleSI exampleSI.cpp)
-#add_executable(ExampleBE exampleBE.cpp)
-#add_executable(ExampleIM exampleIM.cpp)
 add_executable(Example10 example10.cpp)
 
 
@@ -151,41 +58,7 @@ target_link_libraries(Example7 Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(ExampleNeohookeanTet Core Base FEM UI ${GAUSS_LIBS})
 
 target_link_libraries(ExampleEigenFit Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitCoRot Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitARAP Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitNH Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitLinear Core Base FEM UI ${GAUSS_LIBS})
 
-target_link_libraries(ExampleEigenFitNoExit Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitCoRotNoExit Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitARAPNoExit Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitNHNoExit Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleEigenFitLinearNoExit Core Base FEM UI ${GAUSS_LIBS})
-
-
-#target_link_libraries(ExampleEigenFitEXP Core Base FEM UI ${GAUSS_LIBS})
-#target_link_libraries(ExampleEigenFitCoRotEXP Core Base FEM UI ${GAUSS_LIBS})
-#target_link_libraries(ExampleEigenFitARAPEXP Core Base FEM UI ${GAUSS_LIBS})
-
-target_link_libraries(ExampleExponentialIMEX Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXLinear Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXCoRot Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXARAP Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXNH Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXSTVK Core Base FEM UI ${GAUSS_LIBS})
-
-target_link_libraries(ExampleExponentialIMEXFH Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXCoRotFH Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXARAPFH Core Base FEM UI ${GAUSS_LIBS})
-
-target_link_libraries(ExampleExponentialIMEXCoRotFHFF Core Base FEM UI ${GAUSS_LIBS})
-target_link_libraries(ExampleExponentialIMEXARAPFHFF Core Base FEM UI ${GAUSS_LIBS})
-
-
-#target_link_libraries(ExampleERE Core Base FEM UI ${GAUSS_LIBS})
-#target_link_libraries(ExampleSI Core Base FEM UI ${GAUSS_LIBS})
-#target_link_libraries(ExampleBE Core Base FEM UI ${GAUSS_LIBS})
-#target_link_libraries(ExampleIM Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(Example10 Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(Example13 Core Base FEM UI ${GAUSS_LIBS})
 target_link_libraries(Example14 Core Base FEM UI ${GAUSS_LIBS})
